@@ -38,7 +38,7 @@ BP = BackProjection(reco_space, geometry)
 BP_layer = odl_torch.OperatorModule(BP)
 
 def update_display(test_sample, kernel, CONVOLVE):
-    kernel = kernel.detach()
+    kernel = torch.tensor(kernel)
     plt.subplot(221)
     plt.imshow(test_sample)
     plt.title("Real data")
@@ -65,7 +65,7 @@ def update_display(test_sample, kernel, CONVOLVE):
 def dirac_approx(l, dx=1):
     rh = torch.tensor([1/(i*dx) for i in range(1, l+1)])
     lh = torch.flip(rh, (0, ))
-    return torch.concat([lh, rh])
+    return torch.concat([lh, torch.tensor([1]), rh])
 
 
 if __name__ == '__main__':
@@ -76,11 +76,12 @@ if __name__ == '__main__':
     # test_sample = full_data[601]
 
     full_data = []
-    for _ in range(100):
+    for _ in range(600):
         full_data.append(odl.phantom.transmission.shepp_logan(reco_space, True).asarray())
     full_data = torch.from_numpy(np.array(full_data))
-    train_y = full_data[:80]
-    test_sample = full_data[90]
+    train_y = full_data[:200]
+    test_sample = full_data[40]
+    print("Test ranfe: ", torch.min(test_sample), torch.max(test_sample))
 
     print("Training data shape ", train_y.shape)
 
@@ -89,22 +90,23 @@ if __name__ == '__main__':
     phi_size, t_size = train_sinos.shape[1:]
 
     #Simple CNN
-    kernel = torch.zeros((1, 1, 1, t_size), dtype=torch.float32) #1d kernel dimensions represent : 1outchannel x 1inchannel x height=1 x full_width
-    dirac_res = 50
-    kernel[0, 0, 0, int(0.5*t_size)-dirac_res:int(0.5*t_size)+dirac_res] = dirac_approx(dirac_res, dx=1.0)
+    kernel = torch.randn((1, 1, 1, 11), dtype=torch.float32)*0.1 #1d kernel dimensions represent : 1outchannel x 1inchannel x height=1 x full_width
+    dirac_res = 4
+    # kernel[0, 0, 0, int(0.5*11)-dirac_res:int(0.5*11)+dirac_res+1] = dirac_approx(dirac_res, dx=1.0)
+    kernel[0, 0, 0, int(11*0.5)] = 0.5
     CONVOLVE = lambda sino_batch, kernel : nn.functional.conv2d(sino_batch[:, None], kernel, padding="same")[:, 0]
 
     kernel.requires_grad_(True)
-    optimizer = torch.optim.SGD([kernel], 0.00001)
-    loss_fn = nn.MSELoss()
+    optimizer = torch.optim.SGD([kernel], 0.0003)
+    loss_fn = nn.L1Loss()
 
-    N_epochs = 300
+    N_epochs = 10
     dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=30, shuffle=True)
 
     for epoch in range(N_epochs):
         # pbar = tqdm(dataloader)
         for data_batch in dataloader:
-            update_display(test_sample, kernel.detach(), CONVOLVE)
+            update_display(test_sample, kernel.detach().numpy().copy(), CONVOLVE)
             plt.pause(0.05) #pyplot needs time to update GUI
 
             sino_batch, y_batch = data_batch
