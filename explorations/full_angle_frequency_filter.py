@@ -37,8 +37,7 @@ ray_layer = odl_torch.OperatorModule(ray)
 BP = BackProjection(reco_space, geometry)
 BP_layer = odl_torch.OperatorModule(BP)
 
-def update_display(test_sample, kernel):
-    kernel = kernel.detach()
+def update_display(test_sample, kernel_freq):
     plt.subplot(221)
     plt.imshow(test_sample)
     plt.title("Real data")
@@ -47,35 +46,34 @@ def update_display(test_sample, kernel):
     plt.imshow(sample_sino)
     plt.title("Sinograms")
     plt.subplot(424)
-    filtered_sino = nn.functional.conv1d(sample_sino, kernel, padding="same", groups=phi_size).detach().numpy()
+    filtered_sino = torch.fft.irfft(torch.fft.rfft(sample_sino, dim=-1)*kernel_freq)
     plt.imshow(filtered_sino)
-    # plt.title("Filtered sinogram")
     plt.subplot(223)
-    f = torch.mean(kernel, axis=0)[0]
-    k = torch.fft.fft(f)
     plt.cla()
-    plt.plot(list(range(f.shape[0])), k, label="fourier transformed mean filter")
-    plt.plot(list(range(f.shape[0])), f, label="mean filter")
+    plt.plot(list(range(kernel_freq.shape[0])), kernel_freq, label="filter in frequency domain")
     plt.legend()
     plt.subplot(224)
-    filtered_back_projected = BP(sample_sino)
+    filtered_back_projected = BP_layer(filtered_sino[None])[0]
     plt.imshow(filtered_back_projected)
     plt.title("Filtered Backprojection")
     plt.draw()
 
+
 if __name__ == '__main__':
 
+    device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
     # full_data: torch.Tensor = torch.load("kits_phantoms_256.pt").moveaxis(0,1)
     # full_data = torch.concat([full_data[1], full_data[0], full_data[2]])
     # train_y = full_data[:600]
     # test_sample = full_data[601]
 
     full_data = []
-    for _ in range(100):
+    for _ in range(600):
         full_data.append(odl.phantom.transmission.shepp_logan(reco_space, True).asarray())
-    full_data = torch.from_numpy(np.array(full_data))
-    train_y = full_data[:80]
-    test_sample = full_data[90]
+    full_data = torch.from_numpy(np.array(full_data)).to(device)
+    train_y = full_data[:200]
+    test_sample = full_data[40]
+    print("Test ranfe: ", torch.min(test_sample), torch.max(test_sample))
 
     print("Training data shape ", train_y.shape)
 
@@ -83,29 +81,30 @@ if __name__ == '__main__':
     train_sinos = ray_layer(train_y)
     phi_size, t_size = train_sinos.shape[1:]
 
-    #Simple CNN
-    kernel = torch.randn((phi_size, 1, t_size), dtype=torch.float32)
-    # kernel[:, :, :int(0.25*t_size)]
-    CONVOLVE = lambda sino_batch, kernel : nn.functional.conv1d(sino_batch, kernel, padding="same", groups=phi_size)
+    
+    kernel_freq = torch.arange(np.ceil(0.5 + 0.5*t_size)).to(device)
+    kernel_freq = torch.randn(kernel_freq.shape)
 
-    kernel.requires_grad_(True)
-    optimizer = torch.optim.Adam([kernel], 0.003)
-    loss_fn = nn.MSELoss()
+    kernel_freq.requires_grad_(True)
+    optimizer = torch.optim.Adam([kernel_freq], lr=0.001)
+    loss_fn = lambda diff : torch.mean(torch.abs(diff))
 
-    N_epochs = 300
+    N_epochs = 10
     dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=30, shuffle=True)
 
     for epoch in range(N_epochs):
         # pbar = tqdm(dataloader)
         for data_batch in dataloader:
-            update_display(test_sample, kernel.detach().numpy().copy())
+            update_display(test_sample.to("cpu"), kernel_freq.detach().to("cpu"))
             plt.pause(0.05) #pyplot needs time to update GUI
 
             sino_batch, y_batch = data_batch
-            filtered = nn.functional.conv1d(sino_batch, kernel, padding="same", groups=phi_size)
-            out = BP_layer(filtered)
+            sino_freq = torch.fft.rfft(sino_batch, dim=-1)
+            filtered_sinos = torch.fft.irfft(sino_freq*kernel_freq, dim=-1)
+            out = BP_layer(filtered_sinos)
+            # out /= torch.max(out.view(out.shape[0], -1), dim=-1, keepdim=True).values[:, :, None] #Normalize
 
-            loss = loss_fn(out, y_batch)
+            loss = loss_fn(out-y_batch)
             # pbar.set_description(f"Epoch {epoch}, loss={loss.item()}")
             print(f"Epoch {epoch}, loss={loss.item()}")
             loss.backward()
@@ -114,6 +113,6 @@ if __name__ == '__main__':
         print()
     
     print("Saving Kernel and sample projection...")
-    torch.save(kernel, "latest_kernel.pt")
-    plt.savefig("Latest_Reconstruction_Plots")
+    torch.save(kernel_freq, "latest_kernel_frequency_domain.pt")
+    plt.savefig("Latest_Reconstruction_Plots_frequencyfilter")
     
