@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader, RandomSampler, Dataset
 import torch.nn as nn
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-import signal
+import win32api
 
 class BackProjection(odl.Operator):
 
@@ -77,6 +77,7 @@ if __name__ == '__main__':
 
     full_data = []
     for _ in range(600):
+        # full_data.append(odl.phantom.transmission.forbild(reco_space, resolution=True).asarray())
         full_data.append(odl.phantom.transmission.shepp_logan(reco_space, True).asarray())
     full_data = torch.from_numpy(np.array(full_data))
     train_y = full_data[:200]
@@ -103,6 +104,13 @@ if __name__ == '__main__':
     N_epochs = 10
     dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=30, shuffle=True)
 
+    def sigint_handler(signal_code, hook=None):
+        if signal_code == 0: #Ctr+C
+            print("Saving Kernel and sample projection...")
+            torch.save(kernel, "latest_kernel.pt")
+            plt.savefig("Latest_Reconstruction_Plots")
+    win32api.SetConsoleCtrlHandler(sigint_handler, 1)
+
     for epoch in range(N_epochs):
         # pbar = tqdm(dataloader)
         for data_batch in dataloader:
@@ -120,7 +128,3 @@ if __name__ == '__main__':
             optimizer.step()
             optimizer.zero_grad()
         print()
-    
-    print("Saving Kernel and sample projection...")
-    torch.save(kernel, "latest_kernel.pt")
-    plt.savefig("Latest_Reconstruction_Plots")
