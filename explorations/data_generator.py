@@ -37,7 +37,7 @@ def random_phantom(reco_space: DiscretizedSpace, num_ellipses = 10)->Discretized
     min_s = np.min(brain_r) / np.sqrt(2)
     skull = [1.0, brain_r[0], brain_r[1], brain_center[0], brain_center[1], 0.0]
     brain = [-0.5, brain_r[0]*0.95, brain_r[1]*0.95, brain_center[0], brain_center[1], 0.0]
-
+ 
     print("Skull: ", skull)
     print("Brain: ", brain)
 
