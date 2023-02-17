@@ -8,6 +8,8 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import signal
 
+from data_generator import random_ellipsoid,random_phantom
+
 class BackProjection(odl.Operator):
 
     def __init__(self, reco_space, geometry):
@@ -62,17 +64,22 @@ def update_display(test_sample, kernel_freq):
 if __name__ == '__main__':
 
     device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
-    # full_data: torch.Tensor = torch.load("kits_phantoms_256.pt").moveaxis(0,1)
-    # full_data = torch.concat([full_data[1], full_data[0], full_data[2]])
-    # train_y = full_data[:600]
-    # test_sample = full_data[601]
 
-    full_data = []
-    for _ in range(600):
-        full_data.append(odl.phantom.transmission.shepp_logan(reco_space, True).asarray())
-    full_data = torch.from_numpy(np.array(full_data)).to(device)
-    train_y = full_data[:200]
-    test_sample = full_data[40]
+    full_data: torch.Tensor = torch.load("Phantom_data\kits_phantoms_256.pt").moveaxis(0,1)
+    full_data = torch.concat([full_data[1], full_data[0], full_data[2]])
+
+    additional_data=[]
+    for i in range(1):
+        additional_data.append(random_phantom(reco_space=reco_space,num_ellipses=7))
+    full_data=torch.concat((full_data,torch.tensor(additional_data))).to(device)
+    train_y = full_data[:500]
+
+    #full_data = []
+    #for _ in range(600):
+        #full_data.append(odl.phantom.transmission.forbild(reco_space, True).asarray())
+    #full_data = torch.from_numpy(np.array(full_data)).to(device)
+
+    test_sample = full_data[301]
     print("Test ranfe: ", torch.min(test_sample), torch.max(test_sample))
 
     print("Training data shape ", train_y.shape)
