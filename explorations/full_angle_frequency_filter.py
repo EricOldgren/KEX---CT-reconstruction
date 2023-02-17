@@ -25,7 +25,7 @@ class BackProjection(odl.Operator):
         return self.ray
 
 # Reconstruction space: discretized functions on the rectangle [-20, 20]^2 with 300 samples per dimension.
-reco_space = odl.uniform_discr(min_pt=[-20, -20], max_pt=[20, 20], shape=[128, 128], dtype='float32')
+reco_space = odl.uniform_discr(min_pt=[-20, -20], max_pt=[20, 20], shape=[256, 256], dtype='float32')
 # Angles: uniformly spaced, n = 1000, min = 0, max = pi
 angle_partition = odl.uniform_partition(0, np.pi, 100)
 # Detector: uniformly sampled, n = 500, min = -30, max = 30
@@ -71,7 +71,7 @@ if __name__ == '__main__':
     additional_data=[]
     for i in range(1):
         additional_data.append(random_phantom(reco_space=reco_space,num_ellipses=7))
-    full_data=torch.concat((full_data,torch.tensor(additional_data))).to(device)
+    full_data=torch.concat((full_data,torch.tensor(np.array(additional_data)))).to(device)
     train_y = full_data[:500]
 
     #full_data = []
@@ -87,26 +87,27 @@ if __name__ == '__main__':
     print("Calculating sinograms...")
     train_sinos = ray_layer(train_y)
     phi_size, t_size = train_sinos.shape[1:]
-
     
     kernel_freq = torch.arange(np.ceil(0.5 + 0.5*t_size)).to(device)
-    kernel_freq = torch.randn(kernel_freq.shape)
+    kernel_freq = torch.randn(kernel_freq.shape).to(device)
 
     kernel_freq.requires_grad_(True)
-    optimizer = torch.optim.Adam([kernel_freq], lr=0.001)
+    optimizer = torch.optim.Adam([kernel_freq], lr=0.003)
     loss_fn = lambda diff : torch.mean(torch.abs(diff))
 
-    N_epochs = 10
+    N_epochs = 100
     dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=30, shuffle=True)
 
     for epoch in range(N_epochs):
         # pbar = tqdm(dataloader)
-        for data_batch in dataloader:
+        if epoch%5==0:
             update_display(test_sample.to("cpu"), kernel_freq.detach().to("cpu"))
             plt.pause(0.05) #pyplot needs time to update GUI
+        for data_batch in dataloader:
 
             sino_batch, y_batch = data_batch
             sino_freq = torch.fft.rfft(sino_batch, dim=-1)
+
             filtered_sinos = torch.fft.irfft(sino_freq*kernel_freq, dim=-1)
             out = BP_layer(filtered_sinos)
             # out /= torch.max(out.view(out.shape[0], -1), dim=-1, keepdim=True).values[:, :, None] #Normalize
