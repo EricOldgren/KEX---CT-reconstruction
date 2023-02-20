@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader, RandomSampler, Dataset
 import torch.nn as nn
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import random
 import signal
 
 class BackProjection(odl.Operator):
@@ -93,7 +94,7 @@ if __name__ == '__main__':
     dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=30, shuffle=True)
 
     for epoch in range(N_epochs):
-        # pbar = tqdm(dataloader)
+        pbar = tqdm(dataloader, leave=False)
         for data_batch in dataloader:
             update_display(test_sample.to("cpu"), kernel_freq.detach().to("cpu"))
             plt.pause(0.05) #pyplot needs time to update GUI
