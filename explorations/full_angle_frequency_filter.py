@@ -23,11 +23,13 @@ class BackProjection(odl.Operator):
     @property
     def adjoint(self):
         return self.ray
+    
+#base partition 100, 300
 
 # Reconstruction space: discretized functions on the rectangle [-20, 20]^2 with 300 samples per dimension.
 reco_space = odl.uniform_discr(min_pt=[-20, -20], max_pt=[20, 20], shape=[256, 256], dtype='float32')
 # Angles: uniformly spaced, n = 1000, min = 0, max = pi
-angle_partition = odl.uniform_partition(0, np.pi, 100)
+angle_partition = odl.uniform_partition(0, np.pi*0.8, 500)
 # Detector: uniformly sampled, n = 500, min = -30, max = 30
 detector_partition = odl.uniform_partition(-30, 30, 300)
 
@@ -69,10 +71,10 @@ if __name__ == '__main__':
     full_data = torch.concat([full_data[1], full_data[0], full_data[2]])
 
     additional_data=[]
-    for i in range(1):
+    for i in range(0):
         additional_data.append(random_phantom(reco_space=reco_space,num_ellipses=7))
     full_data=torch.concat((full_data,torch.tensor(np.array(additional_data)))).to(device)
-    train_y = full_data[:500]
+    train_y = full_data[:600]
 
     #full_data = []
     #for _ in range(600):
@@ -92,11 +94,11 @@ if __name__ == '__main__':
     kernel_freq = torch.randn(kernel_freq.shape).to(device)
 
     kernel_freq.requires_grad_(True)
-    optimizer = torch.optim.Adam([kernel_freq], lr=0.003)
+    optimizer = torch.optim.Adam([kernel_freq], lr=0.002)
     loss_fn = lambda diff : torch.mean(torch.abs(diff))
 
     N_epochs = 100
-    dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=30, shuffle=True)
+    dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=20, shuffle=True)
 
     for epoch in range(N_epochs):
         # pbar = tqdm(dataloader)
