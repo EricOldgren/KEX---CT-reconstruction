@@ -4,6 +4,7 @@ import torch
 import numpy as np
 from .data_generator import unstructured_random_phantom, random_phantom
 import torch.nn as nn
+import matplotlib.pyplot as plt
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -53,7 +54,7 @@ class Geometry:
 
 class BasicModel(nn.Module):
 
-    def __init__(self, geometry: Geometry, kernel: torch.Tensor = None, **kwargs):
+    def __init__(self, geometry: Geometry, kernel: torch.Tensor = None, trainable_kernel=True, **kwargs):
         "Linear layer consisting of a 1D sinogram kernel in frequency domain"
         super(BasicModel, self).__init__(**kwargs)
         
@@ -65,14 +66,20 @@ class BasicModel(nn.Module):
         else:
             assert kernel.shape == (int(np.ceil(0.5 + 0.5*geometry.t_size)),), f"wrong formatted specific kernel {kernel.shape} for geometry {geometry}"
             self.kernel = kernel.to(DEVICE)
-        self.kernel.requires_grad_(True)
+        self.kernel.requires_grad_(trainable_kernel)
     
     def forward(self, sinos):
         filtered_sinos = torch.fft.irfft(torch.fft.rfft(sinos)*self.kernel)
 
         return self.BP_layer(filtered_sinos)
-    
 
+    def kernel_frequency_interval(self):
+        T_min, T_max = self.geometry.detector_partition.min_pt[0], self.geometry.detector_partition.max_pt[0]
+        D = T_max - T_min
+        dw = 1 / D
+        return [i*dw for i in range(self.kernel.shape[0])]
+
+    
 def setup(angle_ratio = 1.0, phi_size = 100, t_size = 300, num_samples = 1000, train_ratio=0.8):
     """
         Creates Geometry with appropriate forward and backward projections in the given angle ratio and generates random data as specified

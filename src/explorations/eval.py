@@ -20,8 +20,8 @@ for path in kernels:
 
     plt.plot(list(range(kernel.shape[0])), kernel.detach().cpu(), label=ar)
 
-    model = BasicModel(float(ar), 100, 300, kernel)
     (sinos, y, _, _), _ = setup(float(ar), num_samples=10, train_ratio=1.0)
+    model = BasicModel(float(ar), 100, 300, kernel)
     out = model(sinos)
     losses.append(loss_fn(out - y).item())
     ratios.append(float(ar))
