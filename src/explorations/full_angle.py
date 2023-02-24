@@ -7,6 +7,7 @@ import random
 
 ANGLE_RATIOS = [0.8, 0.85, 0.9, 0.95, 1.0]
 EPOPCHS =      [100, 100, 100,  100, 60]
+TRAINED = {}
 
 for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
     (train_sinos, train_y, test_sinos, test_y), geometry = setup(ar, phi_size=300, t_size=100, num_samples=10)
@@ -26,4 +27,10 @@ for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
             loss = loss_fn(out - y)
             loss.backward()
             optimizer.step()
+            optimizer.zero_grad()
         print(f"epoch {epoch} loss: {loss.item()}")
+    
+    TRAINED[ar] = model
+
+print("Hej")
+

@@ -28,7 +28,7 @@ class BackProjection(odl.Operator):
 
 class Geometry:
     
-    def __init__(self, angle_ratio: float, phi_size: int, t_size: int):
+    def __init__(self, angle_ratio: float, phi_size: int, t_size: int, reco_shape = (256, 256)):
         """
             Create a parallel beam geometry with corresponding forward and backward projections
 
@@ -40,7 +40,7 @@ class Geometry:
         self.ar = angle_ratio; self.phi_size = phi_size; self.t_size = t_size
 
         # Reconstruction space: discretized functions on the rectangle [-20, 20]^2 with 300 samples per dimension.
-        self.reco_space = odl.uniform_discr(min_pt=[-20, -20], max_pt=[20, 20], shape=[256, 256], dtype='float32')
+        self.reco_space = odl.uniform_discr(min_pt=[-20, -20], max_pt=[20, 20], shape=reco_shape, dtype='float32')
         # Angles: uniformly spaced, n = phi_size, min = 0, max = ratio*pi
         self.angle_partition = odl.uniform_partition(0, np.pi*angle_ratio, phi_size)
         # Detector: uniformly sampled, n = 500, min = -30, max = 30
@@ -114,8 +114,7 @@ class BasicModel(nn.Module):
 
         plt.pause(0.05)
 
-    
-def setup(angle_ratio = 1.0, phi_size = 100, t_size = 300, num_samples = 1000, train_ratio=0.8):
+def setup(angle_ratio = 1.0, phi_size = 100, t_size = 300, num_samples = 1000, train_ratio=0.8, pre_computed_phantoms: torch.Tensor = None):
     """
         Creates Geometry with appropriate forward and backward projections in the given angle ratio and generates random data as specified
         parameters
@@ -128,6 +127,7 @@ def setup(angle_ratio = 1.0, phi_size = 100, t_size = 300, num_samples = 1000, t
         return  (train_sinos, train_y, test_sinos, test_y), geometry
     """
 
+    #Use stored data
     # read_data: torch.Tensor = torch.load("/data/kits_phantoms_256.pt").moveaxis(0,1)
     # read_data = torch.concat([read_data[1], read_data[0], read_data[2]])
     # read_data = read_data[:600] # -- uncomment to read this data
@@ -137,11 +137,25 @@ def setup(angle_ratio = 1.0, phi_size = 100, t_size = 300, num_samples = 1000, t
 
     ray_layer = odl_torch.OperatorModule(geometry.ray)
 
-    constructed_data = unstructured_random_phantom(reco_space=geometry.reco_space,  num_ellipses=10).asarray()[None]
-    for _ in range(num_samples):
-        constructed_data = np.concatenate([constructed_data, unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=10).asarray()[None]])
+    #Use previously generated phantoms to save time
+    to_construct = num_samples
+    if pre_computed_phantoms is None:
+        pre_computed_phantoms = torch.tensor([])
+    else:
+        assert pre_computed_phantoms.shape[1:] == geometry.reco_space.shape
+        to_construct = max(0, num_samples - pre_computed_phantoms.shape[0])
+    
+    #Construct new phantoms
+    print("Constructing random phantoms...")
+    constructed_data = np.array([])
+    for _ in range(to_construct): #This is quite slow
+        if constructed_data.shape[0]:
+            constructed_data = np.concatenate([constructed_data, unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=10).asarray()[None]])
+        else:
+            constructed_data = unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=10).asarray()[None]
 
-    full_data=torch.concat((read_data,torch.from_numpy(constructed_data) )).to(DEVICE)
+    #Combine phantoms
+    full_data=torch.concat((read_data, pre_computed_phantoms, torch.from_numpy(constructed_data) )).to(DEVICE)
 
     print("Calculating sinograms...")
     sinos: torch.Tensor = ray_layer(full_data)
