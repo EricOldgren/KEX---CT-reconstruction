@@ -4,6 +4,7 @@ import torch
 import numpy as np
 from .data_generator import unstructured_random_phantom, random_phantom
 import torch.nn as nn
+import random
 import matplotlib.pyplot as plt
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -78,6 +79,32 @@ class BasicModel(nn.Module):
         D = T_max - T_min
         dw = 1 / D
         return [i*dw for i in range(self.kernel.shape[0])]
+
+    def visualize_output(self, test_sinos, test_y, loss_fn):
+
+        ind = random.randint(0, test_sinos.shape[0]-1)
+        with torch.no_grad():
+            test_out = self.forward(test_sinos)  
+
+        loss = loss_fn(test_y-test_out)
+        print()
+        print(f"Evaluating current kernel, validation loss: {loss.item()} using angle ratio: {self.geometry.ar}. Displayiing sample nr {ind}: ")
+
+        sample_sino, sample_y, sample_out = test_sinos[ind].to("cpu"), test_y[ind].to("cpu"), test_out[ind].to("cpu")
+        
+        plt.subplot(211)
+        plt.cla()
+        plt.plot(self.kernel_frequency_interval(), self.kernel.detach().cpu(), label="filter in frequency domain")
+        plt.legend()
+        plt.subplot(223)
+        plt.imshow(sample_y)
+        plt.title("Real data")
+        plt.subplot(224)
+        plt.imshow(sample_out)
+        plt.title("Filtered Backprojection")
+        plt.draw()
+
+        plt.pause(0.05)
 
     
 def setup(angle_ratio = 1.0, phi_size = 100, t_size = 300, num_samples = 1000, train_ratio=0.8):
