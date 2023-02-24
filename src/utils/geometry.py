@@ -45,13 +45,21 @@ class Geometry:
         self.angle_partition = odl.uniform_partition(0, np.pi*angle_ratio, phi_size)
         # Detector: uniformly sampled, n = 500, min = -30, max = 30
         self.detector_partition = odl.uniform_partition(-30, 30, t_size)
+    
 
         # Make a parallel beam geometry with flat detector
         self.geometry = odl.tomo.Parallel2dGeometry(self.angle_partition, self.detector_partition)
+        self.dphi = np.mean(self.geometry.angles[1:] - self.geometry.angles[:-1])
+        "Average angle step in detector"
+        self.dt: float = np.mean(self.geometry.grid.meshgrid[1][1:] - self.geometry.grid.meshgrid[1][:-1])
+        "Average detector step, i.e distance between adjacent detectors"
+        self.rho = np.linalg.norm(self.reco_space.max_pt - self.reco_space.min_pt) / 2
+        "Radius of the detector space"
 
         self.ray = odl.tomo.RayTransform(self.reco_space, self.geometry)
 
         self.BP = BackProjection(self.ray)
+    
 
 class BasicModel(nn.Module):
 

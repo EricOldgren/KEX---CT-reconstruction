@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from utils.geometry import Geometry, setup, BasicModel
+from utils.analyticfilter import analytic_model
 import random
 
 ANGLE_RATIOS = [0.8, 0.85, 0.9, 0.95, 1.0]
