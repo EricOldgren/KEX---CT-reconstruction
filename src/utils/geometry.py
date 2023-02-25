@@ -42,10 +42,12 @@ class Geometry:
 
         # Reconstruction space: discretized functions on the rectangle [-20, 20]^2 with 300 samples per dimension.
         self.reco_space = odl.uniform_discr(min_pt=[-1.0, -1.0], max_pt=[1.0, 1.0], shape=reco_shape, dtype='float32')
+        self.rho = np.linalg.norm(self.reco_space.max_pt - self.reco_space.min_pt) / 2
+        "Radius of the detector space"
         # Angles: uniformly spaced, n = phi_size, min = 0, max = ratio*pi
         self.angle_partition = odl.uniform_partition(0, np.pi*angle_ratio, phi_size)
         # Detector: uniformly sampled, n = 500, min = -30, max = 30
-        self.detector_partition = odl.uniform_partition(-1.6, 1.6, t_size)
+        self.detector_partition = odl.uniform_partition(-self.rho, self.rho, t_size)
     
 
         # Make a parallel beam geometry with flat detector
@@ -54,8 +56,6 @@ class Geometry:
         "Average angle step in detector"
         self.dt: float = np.mean(self.geometry.grid.meshgrid[1][0][1:] - self.geometry.grid.meshgrid[1][0][:-1])
         "Average detector step, i.e distance between adjacent detectors"
-        self.rho = np.linalg.norm(self.reco_space.max_pt - self.reco_space.min_pt) / 2
-        "Radius of the detector space"
 
         self.ray = odl.tomo.RayTransform(self.reco_space, self.geometry)
 

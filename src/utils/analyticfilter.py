@@ -12,6 +12,6 @@ def analytic_model(geometry: Geometry):
     straigh_line = torch.arange(0, ceil(0.5 + 0.5*geometry.t_size)).to(DEVICE)*dw
     straigh_line[straigh_line > O] = 0.0
     kernel = straigh_line / 2 / np.pi
-    
-    return BasicModel(geometry, kernel, trainable_kernel=False)
 
+    res =  BasicModel(geometry, kernel, trainable_kernel=False)
+    return res

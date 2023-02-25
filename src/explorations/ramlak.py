@@ -11,7 +11,7 @@ TRAINED = {}
 
 for ar in ANGLE_RATIOS:
 
-    (test_sinos, test_y, _, _), geometry = setup(ar, phi_size=240, t_size=400, train_ratio=1.0, num_samples=30)
+    (test_sinos, test_y, _, _), geometry = setup(ar, phi_size=300, t_size=400, train_ratio=1.0, num_samples=10)
 
     analytic = analytic_model(geometry)
 
