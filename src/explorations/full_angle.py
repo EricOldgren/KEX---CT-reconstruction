@@ -32,5 +32,3 @@ for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
     
     TRAINED[ar] = model
 
-print("Hej")
-

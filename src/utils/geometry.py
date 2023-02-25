@@ -36,22 +36,23 @@ class Geometry:
                 :angle_ratio - angle gemoetry is 0 to pi * angle_ratio
                 :phi_size - number of angles for measurements, i.e angle resolution
                 :t_size - number of lines per angle, i.e detector resolution
+                :reco_shape - pixel shape of images to be reconstructed
         """
         self.ar = angle_ratio; self.phi_size = phi_size; self.t_size = t_size
 
         # Reconstruction space: discretized functions on the rectangle [-20, 20]^2 with 300 samples per dimension.
-        self.reco_space = odl.uniform_discr(min_pt=[-20, -20], max_pt=[20, 20], shape=reco_shape, dtype='float32')
+        self.reco_space = odl.uniform_discr(min_pt=[-1.0, -1.0], max_pt=[1.0, 1.0], shape=reco_shape, dtype='float32')
         # Angles: uniformly spaced, n = phi_size, min = 0, max = ratio*pi
         self.angle_partition = odl.uniform_partition(0, np.pi*angle_ratio, phi_size)
         # Detector: uniformly sampled, n = 500, min = -30, max = 30
-        self.detector_partition = odl.uniform_partition(-30, 30, t_size)
+        self.detector_partition = odl.uniform_partition(-1.6, 1.6, t_size)
     
 
         # Make a parallel beam geometry with flat detector
         self.geometry = odl.tomo.Parallel2dGeometry(self.angle_partition, self.detector_partition)
         self.dphi = np.mean(self.geometry.angles[1:] - self.geometry.angles[:-1])
         "Average angle step in detector"
-        self.dt: float = np.mean(self.geometry.grid.meshgrid[1][1:] - self.geometry.grid.meshgrid[1][:-1])
+        self.dt: float = np.mean(self.geometry.grid.meshgrid[1][0][1:] - self.geometry.grid.meshgrid[1][0][:-1])
         "Average detector step, i.e distance between adjacent detectors"
         self.rho = np.linalg.norm(self.reco_space.max_pt - self.reco_space.min_pt) / 2
         "Radius of the detector space"
@@ -83,9 +84,10 @@ class BasicModel(nn.Module):
         return self.BP_layer(filtered_sinos)
 
     def kernel_frequency_interval(self):
+        "Return list with the frequencies that the model kernel values are representing"
         T_min, T_max = self.geometry.detector_partition.min_pt[0], self.geometry.detector_partition.max_pt[0]
         D = T_max - T_min
-        dw = 1 / D
+        dw = 2*np.pi / D #One or 2  2pi have to think
         return [i*dw for i in range(self.kernel.shape[0])]
 
     def visualize_output(self, test_sinos, test_y, loss_fn):
@@ -147,15 +149,14 @@ def setup(angle_ratio = 1.0, phi_size = 100, t_size = 300, num_samples = 1000, t
     
     #Construct new phantoms
     print("Constructing random phantoms...")
-    constructed_data = np.array([])
-    for _ in range(to_construct): #This is quite slow
-        if constructed_data.shape[0]:
-            constructed_data = np.concatenate([constructed_data, unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=10).asarray()[None]])
-        else:
-            constructed_data = unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=10).asarray()[None]
+    constructed_data = np.zeros((to_construct, *geometry.reco_space.shape))
+    for i in range(to_construct): #This is quite slow
+        constructed_data[i] = unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=10).asarray()
 
     #Combine phantoms
-    full_data=torch.concat((read_data, pre_computed_phantoms, torch.from_numpy(constructed_data) )).to(DEVICE)
+    permutation = list(range(pre_computed_phantoms.shape[0]))
+    random.shuffle(permutation) #give this as index to tensor to randomly reshuffle order of phantoms
+    full_data=torch.concat((read_data, pre_computed_phantoms[permutation], torch.from_numpy(constructed_data) )).to(DEVICE)
 
     print("Calculating sinograms...")
     sinos: torch.Tensor = ray_layer(full_data)
