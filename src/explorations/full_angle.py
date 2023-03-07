@@ -10,13 +10,13 @@ EPOPCHS =      [100, 100, 100,  100, 60]
 TRAINED = {}
 
 for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
-    (train_sinos, train_y, test_sinos, test_y), geometry = setup(ar, phi_size=300, t_size=100, num_samples=10)
+    (train_sinos, train_y, test_sinos, test_y), geometry = setup(ar, phi_size=300, t_size=100, num_samples=100)
     model = BasicModel(geometry)
 
     optimizer = torch.optim.Adam([model.kernel], lr=0.01)
     loss_fn = lambda diff : torch.mean(diff*diff)
 
-    dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=80, shuffle=True)
+    dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=25, shuffle=True)
 
     for epoch in range(n_epochs):
         if epoch % 10 == 0:
@@ -24,7 +24,7 @@ for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
         for sinos, y in dataloader:
             out = model(sinos)
 
-            loss = loss_fn(out - y)
+            loss = loss_fn(out - y) #+ abs(sum(out[int(geometry.omega):]))
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()

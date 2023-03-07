@@ -57,6 +57,9 @@ class Geometry:
         self.dt: float = np.mean(self.geometry.grid.meshgrid[1][0][1:] - self.geometry.grid.meshgrid[1][0][:-1])
         "Average detector step, i.e distance between adjacent detectors"
 
+        "Maximum bandwith that can be reconstructed exactly using the given partition"
+        self.omega = np.pi * min(1 / (self.dphi*self.rho), 1 / self.dt)
+
         self.ray = odl.tomo.RayTransform(self.reco_space, self.geometry)
 
         self.BP = BackProjection(self.ray)
