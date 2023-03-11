@@ -1,16 +1,14 @@
 import torch
 from torch.utils.data import DataLoader
-import matplotlib.pyplot as plt
 from utils.geometry import Geometry, setup, BasicModel
 from models.fbpnet import FBPNet
-import random
 
 ANGLE_RATIOS = [0.8, 0.85, 0.9, 0.95, 1.0]
 EPOPCHS =      [100, 100, 100,  100, 60]
 TRAINED = {}
 
 for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
-    (train_sinos, train_y, test_sinos, test_y), geometry = setup(ar, phi_size=300, t_size=100, num_samples=30)
+    (train_sinos, train_y, test_sinos, test_y), geometry = setup(ar, phi_size=300, t_size=100, num_samples=10)
     model = FBPNet(geometry)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
@@ -31,4 +29,3 @@ for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
         print(f"epoch {epoch} loss: {loss.item()}")
     
     TRAINED[ar] = model
-
