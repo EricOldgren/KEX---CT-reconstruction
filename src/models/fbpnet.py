@@ -18,7 +18,7 @@ class FBPNet(nn.Module):
 
         self.geometry = geometry
 
-        self.fbps = [(FBP(geometry), nn.Parameter(torch.randn(1)).to(DEVICE)) for _ in range(n_fbps)]
+        self.fbps = [(FBP(geometry), nn.Parameter(torch.randn(1).to(DEVICE))) for _ in range(n_fbps)]
         self.weights = nn.Parameter(torch.randn(n_fbps).to(DEVICE))
         self.bout = nn.Parameter(torch.randn(1).to(DEVICE))
 
