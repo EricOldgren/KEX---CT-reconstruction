@@ -169,11 +169,11 @@ def setup(angle_ratio = 1.0, phi_size = 100, t_size = 300, num_samples = 1000, t
     constructed_data = np.zeros((to_construct, *geometry.reco_space.shape))
     for i in range(to_construct): #This is quite slow
         constructed_data[i] = unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=10).asarray()
-
+    constructed_data = torch.from_numpy(constructed_data).to(DEVICE)
     #Combine phantoms
     permutation = list(range(pre_computed_phantoms.shape[0]))
     random.shuffle(permutation) #give this as index to tensor to randomly reshuffle order of phantoms
-    full_data=torch.concat((read_data, pre_computed_phantoms[permutation], torch.from_numpy(constructed_data) )).to(DEVICE)
+    full_data=torch.concat((read_data, pre_computed_phantoms[permutation].to(DEVICE), constructed_data ))
 
     print("Calculating sinograms...")
     sinos: torch.Tensor = ray_layer(full_data)
