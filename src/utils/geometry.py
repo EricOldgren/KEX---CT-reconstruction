@@ -81,7 +81,7 @@ class Geometry:
     def inverse_fourier_transform(self, sino_hat):
         "Inverse of Geometry.fourier_transform"
         a = -self.rho
-        back_scaled = np.exp(1j*a*self.fourier_domain) / self.dt * sino_hat
+        back_scaled = torch.exp(1j*a*self.fourier_domain) / self.dt * sino_hat
         return torch.fft.irfft(back_scaled, axis=-1)
     
 
