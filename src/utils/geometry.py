@@ -150,7 +150,7 @@ def setup(angle_ratio = 1.0, phi_size = 100, t_size = 300, num_samples = 1000, t
     # read_data: torch.Tensor = torch.load("/data/kits_phantoms_256.pt").moveaxis(0,1)
     # read_data = torch.concat([read_data[1], read_data[0], read_data[2]])
     # read_data = read_data[:600] # -- uncomment to read this data
-    read_data = torch.tensor([])
+    read_data = torch.tensor([]).to(DEVICE)
 
     geometry = Geometry(angle_ratio, phi_size, t_size)
 
@@ -159,7 +159,7 @@ def setup(angle_ratio = 1.0, phi_size = 100, t_size = 300, num_samples = 1000, t
     #Use previously generated phantoms to save time
     to_construct = num_samples
     if pre_computed_phantoms is None:
-        pre_computed_phantoms = torch.tensor([])
+        pre_computed_phantoms = torch.tensor([]).to(DEVICE)
     else:
         assert pre_computed_phantoms.shape[1:] == geometry.reco_space.shape
         to_construct = max(0, num_samples - pre_computed_phantoms.shape[0])

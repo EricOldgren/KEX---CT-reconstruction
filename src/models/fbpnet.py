@@ -5,7 +5,7 @@ import random
 import matplotlib.pyplot as plt
 import matplotlib
 
-from utils.geometry import Geometry, BasicModel as FBP
+from utils.geometry import Geometry, BasicModel as FBP, DEVICE
 
 relu = nn.ReLU()
 
@@ -18,9 +18,9 @@ class FBPNet(nn.Module):
 
         self.geometry = geometry
 
-        self.fbps = [(FBP(geometry), nn.Parameter(torch.randn(1))) for _ in range(n_fbps)]
-        self.weights = nn.Parameter(torch.randn(n_fbps))
-        self.bout = nn.Parameter(torch.randn(1))
+        self.fbps = [(FBP(geometry), nn.Parameter(torch.randn(1)).to(DEVICE)) for _ in range(n_fbps)]
+        self.weights = nn.Parameter(torch.randn(n_fbps).to(DEVICE))
+        self.bout = nn.Parameter(torch.randn(1).to(DEVICE))
 
         for i, (fbp, b) in enumerate(self.fbps):
             self.add_module(f"fbp{i}", fbp)
