@@ -39,6 +39,15 @@ class FBPNet(nn.Module):
         
         return sum(self.weights[i]*self.fbps[i][0].regularisation_term() for i in range(len(self.fbps)) )
 
+    def convert(self, geometry: Geometry):
+        m2 = FBPNet(geometry, n_fbps=len(self.fbps))
+        m2.load_state_dict(self.state_dict()) #loads weights, biases and kernels -- however kernel loading may be incompatible
+        for i in range(len(self.fbps)):
+            m2.fbps[i][0] = self.fbps[i][0].convert(geometry) #this will raise error if incompatible
+            
+        return m2
+        
+        
 
     def visualize_output(self, test_sinos, test_y, loss_fn = lambda diff : torch.mean(diff*diff)):
 
