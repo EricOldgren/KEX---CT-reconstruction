@@ -149,7 +149,7 @@ class BasicModel(nn.Module):
 
         plt.pause(0.05)
 
-def setup(angle_ratio = 1.0, phi_size = 100, t_size = 300, num_samples = 1000, train_ratio=0.8, pre_computed_phantoms: torch.Tensor = None):
+def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_phantoms: torch.Tensor = None):
     """
         Creates Geometry with appropriate forward and backward projections in the given angle ratio and generates random data as specified
         parameters
@@ -167,8 +167,6 @@ def setup(angle_ratio = 1.0, phi_size = 100, t_size = 300, num_samples = 1000, t
     # read_data = torch.concat([read_data[1], read_data[0], read_data[2]])
     # read_data = read_data[:600] # -- uncomment to read this data
     read_data = torch.tensor([]).to(DEVICE)
-
-    geometry = Geometry(angle_ratio, phi_size, t_size)
 
     ray_layer = odl_torch.OperatorModule(geometry.ray)
 
