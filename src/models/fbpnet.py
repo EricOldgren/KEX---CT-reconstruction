@@ -42,7 +42,7 @@ class FBPNet(nn.Module):
         m2 = FBPNet(geometry, n_fbps=len(self.fbps))
         m2.load_state_dict(self.state_dict()) #loads weights, biases and kernels -- however kernel loading may be incompatible
         for i in range(len(self.fbps)):
-            m2.fbps[i][0] = self.fbps[i][0].convert(geometry) #this will raise error if incompatible
+            m2.fbps[i] = (self.fbps[i][0].convert(geometry), self.fbps[i][1]) #this will raise error if incompatible
             
         return m2
         
