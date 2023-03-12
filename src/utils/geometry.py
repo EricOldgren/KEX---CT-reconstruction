@@ -119,7 +119,7 @@ class BasicModel(nn.Module):
 
     def convert(self, geometry: Geometry):
         "Create a new model with the same kernels but for reconstruction in a different geometry"
-        if geometry.fourier_domain != self.geometry.fourier_domain: # this depends on t_size and rho
+        if (geometry.fourier_domain != self.geometry.fourier_domain).any(): # this depends on t_size and rho
             raise NotImplementedError("Can only convert to geometries with the same fourier domain at the moment. Models have the same fourier domain of t_size and rho ae the same!") #maybe add way to convert between later
         return BasicModel(geometry, kernel=self.kernel)
 

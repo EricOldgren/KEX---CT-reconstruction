@@ -4,7 +4,6 @@ import torch.nn as nn
 import random
 import matplotlib.pyplot as plt
 import matplotlib
-
 from utils.geometry import Geometry, BasicModel as FBP, DEVICE
 
 relu = nn.ReLU()
