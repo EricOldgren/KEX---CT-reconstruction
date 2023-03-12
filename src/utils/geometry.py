@@ -109,7 +109,7 @@ class BasicModel(nn.Module):
     
     def regularisation_term(self):
         "Returns a sum which penalizies large kernel values at large frequencies, in accordance with Nattarer's sampling Theorem"
-        penalty_coeffs = torch.zeros(self.geometry.fourier_domain.shape) #Create penalty coefficients -- 0 for small frequencies one above Omega
+        penalty_coeffs = torch.zeros(self.geometry.fourier_domain.shape).to(DEVICE) #Create penalty coefficients -- 0 for small frequencies one above Omega
         penalty_coeffs[self.geometry.fourier_domain > self.geometry.omega] = 1.0
         
         # (mid_sec, ) = torch.where( (self.geometry.omega*0.95 < self.geometry.fourier_domain) & (self.geometry.fourier_domain <= self.geometry.omega)) # straight line joining free and panalized regions
