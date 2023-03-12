@@ -198,4 +198,4 @@ def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_
 
     print("Constructed training dataset of shape ", train_y.shape)
 
-    return (train_sinos, train_y, test_sinos, test_y), geometry
+    return (train_sinos, train_y, test_sinos, test_y)

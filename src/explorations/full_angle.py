@@ -11,8 +11,9 @@ TRAINED = {}
 LAMBDA  = 0.01 #regularization parameter
 
 for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
-    (train_sinos, train_y, test_sinos, test_y), geometry = setup(ar, phi_size=300, t_size=100, num_samples=10)
-    model = FBPNet(geometry)
+    geometry = Geometry(ar, 300, 150)
+    (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_samples=10)
+    model = FBPNet(geometry, n_fbps=8)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     loss_fn = lambda diff : torch.mean(diff*diff)

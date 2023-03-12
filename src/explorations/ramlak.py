@@ -13,7 +13,8 @@ TRAINED = {}
 for ar in ANGLE_RATIOS:
 
     #For maximazing omega - phi_size ~ pi * t_size / 2
-    (test_sinos, test_y, _, _), geometry = setup(ar, phi_size=450, t_size=300, train_ratio=1.0, num_samples=10)
+    geometry = Geometry(ar, phi_size=300, t_size=150)
+    (test_sinos, test_y, _, _), geometry = setup(geometry, train_ratio=1.0, num_samples=10)
     analytic = RamLak(geometry)
 
     analytic.visualize_output(test_sinos, test_y, lambda diff : torch.mean(diff*diff))
