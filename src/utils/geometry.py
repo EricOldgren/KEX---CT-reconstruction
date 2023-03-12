@@ -60,7 +60,7 @@ class Geometry:
         self.dt: float = 2*self.rho / t_size
         "Average detector step, i.e distance between adjacent detectors"
 
-        self.omega = np.pi * min(self.ar / (self.dphi*self.rho), 1 / self.dt) #ar added to phi term - precision is never higher than if sampling would be over full angle
+        self.omega: float = np.pi * min(self.ar / (self.dphi*self.rho), 1 / self.dt) #ar added to phi term - precision is never higher than if sampling would be over full angle
         "Maximum bandwith that can be reconstructed exactly using the given partition"
         self.fourier_domain: torch.Tensor = 2*np.pi * torch.fft.rfftfreq(t_size, d=self.dt).to(DEVICE)
         "1rank tensor consisting of the frequencies where the fourier transform of functions defined on the detector partition are sampled using the discrete fourier transform"
@@ -106,6 +106,16 @@ class BasicModel(nn.Module):
         filtered_sinos = self.geometry.inverse_fourier_transform(filtered_sinos)
 
         return self.BP_layer(filtered_sinos)
+    
+    def regularisation_term(self):
+        "Returns a sum which penalizies large kernel values at large frequencies, in accordance with Nattarer's sampling Theorem"
+        penalty_coeffs = torch.zeros(self.geometry.fourier_domain.shape) #Create penalty coefficients -- 0 for small frequencies one above Omega
+        penalty_coeffs[self.geometry.fourier_domain > self.geometry.omega] = 1.0
+        
+        # (mid_sec, ) = torch.where( (self.geometry.omega*0.95 < self.geometry.fourier_domain) & (self.geometry.fourier_domain <= self.geometry.omega)) # straight line joining free and panalized regions
+        # penalty_coeffs[mid_sec] = torch.linspace(0, 1.0, mid_sec.shape[0])
+
+        return torch.sum(self.kernel*self.kernel*penalty_coeffs)
 
     def visualize_output(self, test_sinos, test_y, loss_fn = lambda diff : torch.mean(diff*diff)):
 

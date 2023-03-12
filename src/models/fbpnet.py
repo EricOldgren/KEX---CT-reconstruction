@@ -34,6 +34,11 @@ class FBPNet(nn.Module):
 
         return relu(out + self.bout)
 
+    def regularization_term(self):
+        "Returns a sum which penalizies large kernel values at large frequencies, in accordance with Nattarer's sampling Theorem"
+        
+        return sum(self.weights[i]*self.fbps[i][0].regularisation_term() for i in range(len(self.fbps)) )
+
 
     def visualize_output(self, test_sinos, test_y, loss_fn = lambda diff : torch.mean(diff*diff)):
 
