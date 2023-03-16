@@ -112,8 +112,8 @@ class BasicModel(nn.Module):
         penalty_coeffs = torch.zeros(self.geometry.fourier_domain.shape).to(DEVICE) #Create penalty coefficients -- 0 for small frequencies one above Omega
         penalty_coeffs[self.geometry.fourier_domain > self.geometry.omega] = 1.0
         
-        # (mid_sec, ) = torch.where( (self.geometry.omega*0.95 < self.geometry.fourier_domain) & (self.geometry.fourier_domain <= self.geometry.omega)) # straight line joining free and panalized regions
-        # penalty_coeffs[mid_sec] = torch.linspace(0, 1.0, mid_sec.shape[0])
+        (mid_sec, ) = torch.where( (self.geometry.omega*0.9 < self.geometry.fourier_domain) & (self.geometry.fourier_domain <= self.geometry.omega)) # straight line joining free and panalized regions
+        penalty_coeffs[mid_sec] = torch.linspace(0, 1.0, mid_sec.shape[0])
 
         return torch.sum(self.kernel*self.kernel*penalty_coeffs)
 
