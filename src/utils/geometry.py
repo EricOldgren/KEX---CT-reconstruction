@@ -115,7 +115,7 @@ class BasicModel(nn.Module):
         (mid_sec, ) = torch.where( (self.geometry.omega*0.9 < self.geometry.fourier_domain) & (self.geometry.fourier_domain <= self.geometry.omega)) # straight line joining free and panalized regions
         penalty_coeffs[mid_sec] = torch.linspace(0, 1.0, mid_sec.shape[0]).to(DEVICE)
 
-        return torch.sum(self.kernel*self.kernel*penalty_coeffs)
+        return torch.mean(self.kernel*self.kernel*penalty_coeffs)
 
     def convert(self, geometry: Geometry):
         "Create a new model with the same kernels but for reconstruction in a different geometry"

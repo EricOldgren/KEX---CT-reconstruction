@@ -11,7 +11,7 @@ TRAINED = {}
 LAMBDA  = 0.01 #regularization parameter
 
 for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
-    geometry = Geometry(ar, 300, 150)
+    geometry = Geometry(ar, 50, 40)
     (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_samples=10)
     model = FBPNet(geometry, n_fbps=8)
 

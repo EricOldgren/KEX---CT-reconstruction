@@ -8,7 +8,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import signal
 
-from data_generator import random_ellipsoid,random_phantom
+from utils.data_generator import random_ellipsoid,random_phantom
 
 
 class BackProjection(odl.Operator):

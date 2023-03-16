@@ -3,12 +3,16 @@ import torch
 import torch.nn as nn
 import random
 import matplotlib.pyplot as plt
-import matplotlib
+from matplotlib.figure import Figure
 from utils.geometry import Geometry, BasicModel as FBP, DEVICE
+from typing import Literal
 
 relu = nn.ReLU()
 
 class FBPNet(nn.Module):
+
+    reconstructionfig: Figure = None
+    kernelfig: Figure = None
 
     def __init__(self, geometry: Geometry, n_fbps = 8, **kwargs):
         "2 layer network consisting of sums of FBPs"
@@ -36,7 +40,7 @@ class FBPNet(nn.Module):
     def regularization_term(self):
         "Returns a sum which penalizies large kernel values at large frequencies, in accordance with Nattarer's sampling Theorem"
         
-        return sum(self.weights[i]*self.fbps[i][0].regularisation_term() for i in range(len(self.fbps)) )
+        return sum(self.weights[i]*self.weights[i]*self.fbps[i][0].regularisation_term() for i in range(len(self.fbps)) ) / len(self.fbps)
 
     def convert(self, geometry: Geometry):
         m2 = FBPNet(geometry, n_fbps=len(self.fbps))
@@ -48,33 +52,48 @@ class FBPNet(nn.Module):
         
         
 
-    def visualize_output(self, test_sinos, test_y, loss_fn = lambda diff : torch.mean(diff*diff)):
+    def visualize_output(self, test_sinos, test_y, loss_fn = lambda diff : torch.mean(diff*diff), output_location = "files"):
 
         ind = random.randint(0, test_sinos.shape[0]-1)
         with torch.no_grad():
             test_out = self.forward(test_sinos)  
-
         loss = loss_fn(test_y-test_out)
         print()
         print(f"Evaluating current model state, validation loss: {loss.item()} using angle ratio: {self.geometry.ar}. Displayiing sample nr {ind}: ")
-
         sample_sino, sample_y, sample_out = test_sinos[ind].to("cpu"), test_y[ind].to("cpu"), test_out[ind].to("cpu")
 
-        plt.cla()
+        if self.reconstructionfig is None:
+            self.reconstructionfig, (ax_gt, ax_recon) = plt.subplots(1,2)
+        else:
+            ax_gt, ax_recon = self.reconstructionfig.get_axes()
 
+        ax_gt.imshow(sample_y)
+        ax_gt.set_title("Real Data")
+        ax_recon.imshow(sample_out)
+        ax_recon.set_title("Reconstruction")
+
+        self.draw_kernels()
+
+        if output_location == "files":
+            self.reconstructionfig.savefig("output-while-running")
+            self.kernelfig.savefig("kernels-while-running")
+            print("Updated plots saved as files")
+        else:
+            plt.show()
+
+        
+    
+    def draw_kernels(self):
+        
+        if self.kernelfig is None:
+            self.kernelfig, ax = plt.subplots(1,1)
+        else:
+            ax, = self.kernelfig.get_axes()
+        ax.cla()
         for i, (fbp, b) in enumerate(self.fbps):
-            plt.plot(fbp.geometry.fourier_domain.cpu(), fbp.kernel.detach().cpu(), label=f"filter {i}")
+            ax.plot(fbp.geometry.fourier_domain.cpu(), fbp.kernel.detach().cpu(), label=f"filter {i}")
+        m, M = ax.get_ylim(); horizontal = np.linspace(m, M, 30)
+        ax.plot([self.geometry.omega]*horizontal.shape[0], horizontal, dashes=[2,2], c='#000', label="omega")
 
-        plt.legend()
-        plt.figure()
-        plt.subplot(121)
-        plt.imshow(sample_y)
-        plt.title("Real data")
-        plt.subplot(122)
-        plt.imshow(sample_out)
-        plt.title("Filtered Backprojection")
-        plt.draw()
-
-        plt.pause(0.05)
-
+        ax.legend(loc="lower left")
 
