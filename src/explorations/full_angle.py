@@ -15,13 +15,14 @@ for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
 
     optimizer = torch.optim.Adam([model.kernel], lr=0.01)
     loss_fn = lambda diff : torch.mean(diff*diff)
-
+    print(train_sinos)
     dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=25, shuffle=True)
 
     for epoch in range(n_epochs):
         if epoch % 10 == 0:
             model.visualize_output(test_sinos, test_y, loss_fn)
         for sinos, y in dataloader:
+            print(sinos.size())
             out = model(sinos)
 
             loss = loss_fn(out - y) #+ abs(sum(out[int(geometry.omega):]))

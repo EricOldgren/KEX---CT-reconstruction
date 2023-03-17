@@ -18,6 +18,9 @@ import odl
 from utils import analyticfilter
 from utils import geometry
 import torch
+import odl.contrib.torch as odl_torch
+
+from utils import data_generator
 
 import matplotlib.pyplot as plt
 
@@ -26,9 +29,8 @@ import matplotlib.pyplot as plt
 
 
 # Reconstruction space: discretized functions on the rectangle
-# [-20, 20]^2 with 300 samples per dimension.
-reco_space = odl.uniform_discr(
-    min_pt=[-20, -20], max_pt=[20, 20], shape=[300, 300], dtype='float32')
+# [-20, 20]^2 with 256 samples per dimension.
+reco_space = odl.uniform_discr(min_pt=[-20, -20], max_pt=[20, 20], shape=[256, 256], dtype='float32')
 
 # Angles: uniformly spaced, n = 1000, min = 0, max = pi
 angle_partition = odl.uniform_partition(0, np.pi, 1000)
@@ -81,16 +83,21 @@ fbp_reconstruction = fbp(proj_data)
 
 
 "addition"
+#fbp_reconstruction.show(title='Filtered Back-projection',force_show=True)
+
+
 
 geometry2=geometry.Geometry(angle_ratio=1,phi_size=1000,t_size=500)
 geometry2.reco_space=reco_space
-
+geometry2.geometry=geometry1
 an_mod=analyticfilter.analytic_model(geometry2)
+ray_layer = odl_torch.OperatorModule(geometry2.ray)
+proj_data2=torch.tensor(proj_data).to('cuda')
+sinos: torch.Tensor = ray_layer(proj_data2)
+img=an_mod(sinos)
+#ray_layer = odl_torch.OperatorModule(geometry2.ray)
+#proj_data2=torch.tensor(ray_layer(phantom))
+#img = an_mod.forward(torch.tensor(proj_data2).to('cuda'))
 
-
-
-plt.cla()
-plt.plot(an_mod.kernel_frequency_interval(), an_mod.kernel.detach().cpu(), label="filter in frequency domain")
-plt.plot(ramp_function[3],label="filter ODL")
-plt.legend()
+plt.plot(img.cpu())
 plt.show()
