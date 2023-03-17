@@ -5,7 +5,7 @@ from utils.geometry import Geometry
 def test_fourier_transforms():
     geometry = Geometry(1.0, 150, 100)
 
-    x = torch.randn((geometry.t_size))
+    x = torch.randn((geometry.t_size)).to(device="cuda")
 
     xhat = geometry.fourier_transform(x)
 

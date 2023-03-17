@@ -76,12 +76,14 @@ class Geometry:
         """
         a = -self.rho #first sampled point in real space
         assert sino.shape[-1] == self.t_size, "Not an appropriate function"
-        return self.dt*torch.exp(-1j*a*self.fourier_domain)*torch.fft.rfft(sino, axis=-1)
+        return self.dt*(torch.cos(a*self.fourier_domain)-1j*torch.sin(a*self.fourier_domain))*torch.fft.rfft(sino, axis=-1)
+        #return self.dt*torch.exp(-1j*a*self.fourier_domain)*torch.fft.rfft(sino, axis=-1)
     
     def inverse_fourier_transform(self, sino_hat):
         "Inverse of Geometry.fourier_transform"
         a = -self.rho
-        back_scaled = torch.exp(1j*a*self.fourier_domain) / self.dt * sino_hat
+        #back_scaled = torch.exp(1j*a*self.fourier_domain) / self.dt * sino_hat
+        back_scaled = (torch.cos(a*self.fourier_domain)+1j*torch.sin(a*self.fourier_domain)) / self.dt * sino_hat
         return torch.fft.irfft(back_scaled, axis=-1)
     
 
@@ -149,7 +151,7 @@ class BasicModel(nn.Module):
 
         plt.pause(0.05)
 
-def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_phantoms: torch.Tensor = None):
+def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_phantoms: torch.Tensor = None,use_realistic=False, data_path=None):
     """
         Creates Geometry with appropriate forward and backward projections in the given angle ratio and generates random data as specified
         parameters
@@ -163,10 +165,13 @@ def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_
     """
 
     #Use stored data
-    # read_data: torch.Tensor = torch.load("/data/kits_phantoms_256.pt").moveaxis(0,1)
-    # read_data = torch.concat([read_data[1], read_data[0], read_data[2]])
-    # read_data = read_data[:600] # -- uncomment to read this data
-    read_data = torch.tensor([]).to(DEVICE)
+    if use_realistic:
+        read_data: torch.Tensor = torch.load(data_path).moveaxis(0,1).to(DEVICE)
+        read_data = torch.concat([read_data[1], read_data[0], read_data[2]])
+        read_data = read_data[:600] # -- uncomment to read this data
+    
+    else:
+        read_data = torch.tensor([]).to(DEVICE)
 
     ray_layer = odl_torch.OperatorModule(geometry.ray)
 
