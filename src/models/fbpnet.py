@@ -79,8 +79,11 @@ class FBPNet(nn.Module):
             self.kernelfig.savefig("kernels-while-running")
             print("Updated plots saved as files")
         else:
-            plt.draw()
-            plt.pause(0.05)
+            self.reconstructionfig.show()
+            self.kernelfig.show()
+            plt.show()
+            self.reconstructionfig = None
+            self.kernelfig = None
 
         
     

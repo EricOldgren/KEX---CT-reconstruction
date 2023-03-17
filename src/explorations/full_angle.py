@@ -22,7 +22,7 @@ for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
 
     for epoch in range(n_epochs):
         if epoch % 10 == 0:
-            model.visualize_output(test_sinos, test_y, loss_fn)
+            model.visualize_output(test_sinos, test_y, loss_fn, output_location="show")
         for sinos, y in dataloader:
             print(sinos.size())
             out = model(sinos)
