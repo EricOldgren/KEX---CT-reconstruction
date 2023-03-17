@@ -18,9 +18,6 @@ import odl
 from models.analyticmodels import RamLak
 from utils.geometry import Geometry
 import torch
-import odl.contrib.torch as odl_torch
-
-from utils import data_generator
 
 import matplotlib.pyplot as plt
 
@@ -29,8 +26,9 @@ import matplotlib.pyplot as plt
 
 
 # Reconstruction space: discretized functions on the rectangle
-# [-20, 20]^2 with 256 samples per dimension.
-reco_space = odl.uniform_discr(min_pt=[-20, -20], max_pt=[20, 20], shape=[256, 256], dtype='float32')
+# [-20, 20]^2 with 300 samples per dimension.
+reco_space = odl.uniform_discr(
+    min_pt=[-20, -20], max_pt=[20, 20], shape=[300, 300], dtype='float32')
 
 # Angles: uniformly spaced, n = 1000, min = 0, max = pi
 angle_partition = odl.uniform_partition(0, np.pi, 1000)
