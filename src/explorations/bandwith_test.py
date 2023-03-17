@@ -15,8 +15,8 @@ functionality could be implemented by hand in ODL.
 import numpy as np
 import odl
 
-from utils import analyticfilter
-from utils import geometry
+from models.analyticmodels import RamLak
+from utils.geometry import Geometry
 import torch
 import odl.contrib.torch as odl_torch
 
@@ -77,27 +77,25 @@ fbp_reconstruction = fbp(proj_data)
 # Shows a slice of the phantom, projections, and reconstruction
 #phantom.show(title='Phantom')
 #proj_data.show(title='Projection Data (Sinogram)')
-#fbp_reconstruction.show(title='Filtered Back-projection')
+fbp_reconstruction.show(title='Filtered Back-projection', force_show=True)
 #(phantom - fbp_reconstruction).show(title='Error', force_show=True)
 
 
 
-"addition"
-#fbp_reconstruction.show(title='Filtered Back-projection',force_show=True)
+# "addition"
+geometry2 = Geometry(1.0, 1000, 500, reco_space=reco_space)
+
+erikn = RamLak(geometry2)
+
+# an_mod=AnalyticModel(geometry2)
 
 
-
-geometry2=geometry.Geometry(angle_ratio=1,phi_size=1000,t_size=500)
-geometry2.reco_space=reco_space
-geometry2.geometry=geometry1
-an_mod=analyticfilter.analytic_model(geometry2)
-ray_layer = odl_torch.OperatorModule(geometry2.ray)
-proj_data2=torch.tensor(proj_data).to('cuda')
-sinos: torch.Tensor = ray_layer(proj_data2)
-img=an_mod(sinos)
-#ray_layer = odl_torch.OperatorModule(geometry2.ray)
-#proj_data2=torch.tensor(ray_layer(phantom))
-#img = an_mod.forward(torch.tensor(proj_data2).to('cuda'))
-
-plt.plot(img.cpu())
+erikn.visualize_output(torch.from_numpy(proj_data.asarray()[None]), torch.from_numpy(phantom.asarray()[None]))
 plt.show()
+
+
+# plt.cla()
+# plt.plot(erikn.geometry.fourier_domain, erikn.kernel.detach().cpu(), label="filter in frequency domain")
+# plt.plot(ramp_function[3],label="filter ODL")
+# plt.legend()
+# plt.show()
