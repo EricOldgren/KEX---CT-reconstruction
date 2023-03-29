@@ -5,6 +5,8 @@ from utils.geometry import Geometry, setup, BasicModel
 from models.fbpnet import FBPNet
 import random
 
+ANGLE_RATIOS = [0.5]#[0.8, 0.85, 0.9, 0.95, 1.0]
+EPOPCHS =      [3]#[100, 100, 100,  100, 60]
 ANGLE_RATIOS = [0.5]#, 0.8, 0.85, 0.9, 0.95, 1.0]
 EPOPCHS =      [100]#, 1000, 1000, 1000,  1000, 1000]
 TRAINED = {}
@@ -12,6 +14,8 @@ LAMBDA  = 0.01 #regularization parameter
 
 for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
     geometry = Geometry(ar, 300, 150) #50,40
+    (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_samples=3,use_realistic=False,data_path="data/kits_phantoms_256.pt")
+    model = FBPNet(geometry, n_fbps=5)
     (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_samples=400,use_realistic=True,data_path="data/kits_phantoms_256.pt")
     model = FBPNet(geometry, n_fbps=8)
 
@@ -22,7 +26,7 @@ for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
 
     for epoch in range(n_epochs):
         if epoch % 10 == 0:
-            model.visualize_output(test_sinos, test_y, loss_fn, output_location="show")
+            model.visualize_output(test_sinos, test_y, loss_fn, output_location="file")
         for sinos, y in dataloader:
             #print(sinos.size())
             out = model(sinos)
@@ -36,5 +40,7 @@ for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
     model.visualize_output(test_sinos, test_y, loss_fn, output_location="show")
     
     TRAINED[ar] = model
+
+torch.save(TRAINED[0.5].state_dict(), "test-path.pt")
 
 torch.save(model.state_dict(), "results\prev_res")
