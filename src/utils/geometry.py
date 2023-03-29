@@ -188,18 +188,21 @@ def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_
     constructed_data = np.zeros((to_construct, *geometry.reco_space.shape))
     for i in range(to_construct): #This is quite slow
         constructed_data[i] = unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=10).asarray()
-    constructed_data = torch.from_numpy(constructed_data).to(DEVICE)
+    constructed_data = torch.from_numpy(constructed_data).to(DEVICE).to(dtype=torch.float32)
     #Combine phantoms
-    permutation = list(range(pre_computed_phantoms.shape[0]))
+    
+    full_data=torch.concat((read_data, pre_computed_phantoms.to(DEVICE), constructed_data ))
+    permutation = list(range(full_data.shape[0]))
     random.shuffle(permutation) #give this as index to tensor to randomly reshuffle order of phantoms
-    full_data=torch.concat((read_data, pre_computed_phantoms[permutation].to(DEVICE), constructed_data ))
+    full_data=full_data[permutation]
+
 
     print("Calculating sinograms...")
     sinos: torch.Tensor = ray_layer(full_data)
 
-    n_training = int(num_samples*train_ratio)
-    train_y, train_sinos = full_data[:n_training], sinos[:n_training]
-    test_y, test_sinos = full_data[n_training:], sinos[n_training:]
+    n_training = int((num_samples+600)*train_ratio)
+    train_y, train_sinos = full_data[:n_training], sinos[:n_training] #torch.concat((full_data[:n_training-200],full_data[-200:])), torch.concat((sinos[:n_training-200],sinos[-200:])) 
+    test_y, test_sinos = full_data[n_training:], sinos[n_training:] #full_data[n_training-200:-200], sinos[n_training-200:-200]
 
     print("Constructed training dataset of shape ", train_y.shape)
 
