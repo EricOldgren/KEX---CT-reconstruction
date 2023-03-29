@@ -3,8 +3,8 @@ import torch.multiprocessing as mp
 from torch.utils.data import DataLoader, DistributedSampler, Dataset
 
 
-def train_thread(model: torch.nn.Module, dataloader: DataLoader, n_epochs: int = 100, regularisation_lambda: float = 1e-3, display_loss: bool = False):
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+def train_thread(model: torch.nn.Module, dataloader: DataLoader, n_epochs: int = 100, lr=0.01, regularisation_lambda: float = 1e-3, display_loss: bool = False):
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     loss_fn = lambda diff : torch.mean(diff*diff)
 
     for epoch in range(n_epochs):
@@ -27,7 +27,7 @@ def train_thread(model: torch.nn.Module, dataloader: DataLoader, n_epochs: int =
     del loss_fn; del batch_losses
     del sinos; del y
 
-def multi_threaded_training(model: torch.nn.Module, dataset: Dataset, n_epochs=100, batch_size=32, regularisation_lambda=1e-3, num_threads=8):
+def multi_threaded_training(model: torch.nn.Module, dataset: Dataset, n_epochs=100, batch_size=32, lr=0.01, regularisation_lambda=1e-3, num_threads=8):
     """
         Creates specified number of subprocesses via the 'torch.multiprocessing' submodule. The purpose is to make the training loop faster.
 
@@ -51,7 +51,7 @@ def multi_threaded_training(model: torch.nn.Module, dataset: Dataset, n_epochs=1
                         )
         )
 
-        p = mp.Process(target=train_thread, args=(model, dataloader, n_epochs, regularisation_lambda, rank==0))
+        p = mp.Process(target=train_thread, args=(model, dataloader, n_epochs, lr, regularisation_lambda, rank==0))
         p.start()
         processes.append(p)
     

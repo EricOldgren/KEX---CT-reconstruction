@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
         dataset = list(zip(train_sinos, train_y))
 
-        multi_threaded_training(model, dataset, n_epochs=40, batch_size=32, regularisation_lambda=0.01, num_threads=16)
+        multi_threaded_training(model, dataset, n_epochs=40, batch_size=32, lr=0.01, regularisation_lambda=0.01, num_threads=16)
 
         TRAINED[ar] = model
         torch.save(model.state_dict(), "testing.pt")
