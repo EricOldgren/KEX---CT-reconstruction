@@ -14,9 +14,9 @@ LAMBDA  = 0.01 #regularization parameter
 
 for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
     geometry = Geometry(ar, 300, 150) #50,40
-    (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_samples=3,use_realistic=False,data_path="data/kits_phantoms_256.pt")
+    (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_to_generate=3,use_realistic=False,data_path="data/kits_phantoms_256.pt")
     model = FBPNet(geometry, n_fbps=5)
-    (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_samples=400,use_realistic=True,data_path="data/kits_phantoms_256.pt")
+    (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_to_generate=400,use_realistic=True,data_path="data/kits_phantoms_256.pt")
     model = FBPNet(geometry, n_fbps=8)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)

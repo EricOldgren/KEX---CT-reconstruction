@@ -151,7 +151,7 @@ class BasicModel(nn.Module):
 
         plt.pause(0.05)
 
-def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_phantoms: torch.Tensor = None,use_realistic=False, data_path=None):
+def setup(geometry: Geometry, num_to_generate = 1000, train_ratio=0.8, pre_computed_phantoms: torch.Tensor = None,use_realistic=False, data_path=None):
     """
         Creates Geometry with appropriate forward and backward projections in the given angle ratio and generates random data as specified
         parameters
@@ -176,12 +176,12 @@ def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_
     ray_layer = odl_torch.OperatorModule(geometry.ray)
 
     #Use previously generated phantoms to save time
-    to_construct = num_samples
+    to_construct = num_to_generate
     if pre_computed_phantoms is None:
         pre_computed_phantoms = torch.tensor([]).to(DEVICE)
     else:
         assert pre_computed_phantoms.shape[1:] == geometry.reco_space.shape
-        to_construct = max(0, num_samples - pre_computed_phantoms.shape[0])
+        to_construct = max(0, num_to_generate - pre_computed_phantoms.shape[0])
     
     #Construct new phantoms
     print("Constructing random phantoms...")
@@ -192,15 +192,15 @@ def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_
     #Combine phantoms
     
     full_data=torch.concat((read_data, pre_computed_phantoms.to(DEVICE), constructed_data ))
-    permutation = list(range(full_data.shape[0]))
+    N_tot_samples = full_data.shape[0]
+    permutation = list(range(N_tot_samples))
     random.shuffle(permutation) #give this as index to tensor to randomly reshuffle order of phantoms
     full_data=full_data[permutation]
-
 
     print("Calculating sinograms...")
     sinos: torch.Tensor = ray_layer(full_data)
 
-    n_training = int((num_samples+600)*train_ratio)
+    n_training = int(N_tot_samples*train_ratio)
     train_y, train_sinos = full_data[:n_training], sinos[:n_training] #torch.concat((full_data[:n_training-200],full_data[-200:])), torch.concat((sinos[:n_training-200],sinos[-200:])) 
     test_y, test_sinos = full_data[n_training:], sinos[n_training:] #full_data[n_training-200:-200], sinos[n_training-200:-200]
 
