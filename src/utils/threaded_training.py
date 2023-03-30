@@ -2,6 +2,7 @@ import torch
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader, DistributedSampler, Dataset
 
+mp.set_sharing_strategy("file_system")
 
 def train_thread(model: torch.nn.Module, dataloader: DataLoader, n_epochs: int = 100, lr=0.01, regularisation_lambda: float = 1e-3, display_loss: bool = False):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
