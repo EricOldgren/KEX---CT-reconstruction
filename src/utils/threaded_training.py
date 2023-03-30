@@ -13,6 +13,7 @@ def train_thread(model: torch.nn.Module, dataloader: DataLoader, n_epochs: int =
         batch_losses = []
         for sinos, y in dataloader:
             optimizer.zero_grad()
+            sinos, y = sinos.to(DEVICE, non_blocking=True), y.to(DEVICE, non_blocking=True)
 
             out = model(sinos)
             loss = loss_fn(out-y)

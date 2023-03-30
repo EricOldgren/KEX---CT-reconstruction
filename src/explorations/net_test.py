@@ -16,7 +16,7 @@ if __name__ == '__main__':
         model = FBPNet(geometry)
 
         #dataset = list(zip(train_sinos.to(DEVICE, non_blocking=True), train_y.to(DEVICE, non_blocking=True)))
-        dataset = TensorDataset(train_sinos.to(DEVICE, non_blocking=True), train_y.to(DEVICE, non_blocking=True))
+        dataset = TensorDataset(train_sinos.cpu(), train_y.cpu())
 
         multi_threaded_training(model, dataset, n_epochs=40, batch_size=32, lr=0.01, regularisation_lambda=0.01, num_threads=8)
 
