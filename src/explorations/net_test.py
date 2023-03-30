@@ -1,6 +1,6 @@
 import torch
-from torch.utils.data import DataLoader, Dataset
-from utils.geometry import Geometry, setup, BasicModel
+from torch.utils.data import DataLoader, TensorDataset
+from utils.geometry import Geometry, setup, BasicModel, DEVICE
 from utils.threaded_training import multi_threaded_training
 from models.fbpnet import FBPNet
 
@@ -12,10 +12,11 @@ if __name__ == '__main__':
 
     for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
         geometry = Geometry(ar, 300, 150)
-        train_sinos, train_y, test_sinos, test_y = setup(geometry, num_to_generate=200, use_realistic=True, data_path="data/kits_phantoms_256.pt")
+        train_sinos, train_y, test_sinos, test_y = setup(geometry, num_to_generate=100, use_realistic=False, data_path="data/kits_phantoms_256.pt")
         model = FBPNet(geometry)
 
-        dataset = list(zip(train_sinos, train_y))
+        #dataset = list(zip(train_sinos.to(DEVICE, non_blocking=True), train_y.to(DEVICE, non_blocking=True)))
+        dataset = TensorDataset(train_sinos.to(DEVICE, non_blocking=True), train_y.to(DEVICE, non_blocking=True))
 
         multi_threaded_training(model, dataset, n_epochs=40, batch_size=32, lr=0.01, regularisation_lambda=0.01, num_threads=8)
 
