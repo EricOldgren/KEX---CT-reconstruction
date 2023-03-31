@@ -8,11 +8,14 @@ from models.analyticmodels import RamLak
 
 
 from math import ceil
-
-
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+import  random
 
 
 class CrazyKernels:
+
+    reconstructionfig: Figure = None
 
     def __init__(self, geometry: Geometry, angle_batch_size: int) -> None:
         #assert ceil(geometry.phi_size * 1.0 / geometry.ar) % angle_batch_size == 0, "bad choice"
@@ -42,3 +45,36 @@ class CrazyKernels:
         sinos_full = sinos_full.view(N, phi_size, t_size)
 
         return self.BP_layer(sinos_full)
+    
+    def visualize_output(self, test_sinos, test_y, loss_fn = lambda diff : torch.mean(diff*diff), output_location = "files"):
+
+        ind = random.randint(0, test_sinos.shape[0]-1)
+        with torch.no_grad():
+            test_out = self.forward(test_sinos)  
+        loss = loss_fn(test_y-test_out)
+        print()
+        print(f"Evaluating current model state, validation loss: {loss.item()} using angle ratio: {self.geometry.ar}. Displayiing sample nr {ind}: ")
+        sample_sino, sample_y, sample_out = test_sinos[ind].to("cpu"), test_y[ind].to("cpu"), test_out[ind].to("cpu")
+
+        if self.reconstructionfig is None:
+            self.reconstructionfig, (ax_gt, ax_recon) = plt.subplots(1,2)
+        else:
+            ax_gt, ax_recon = self.reconstructionfig.get_axes()
+
+        ax_gt.imshow(sample_y)
+        ax_gt.set_title("Real Data")
+        ax_recon.imshow(sample_out)
+        ax_recon.set_title("Reconstruction")
+
+        self.draw_kernels()
+
+        if output_location == "files":
+            self.reconstructionfig.savefig("data/output-while-running")
+            self.kernelfig.savefig("data/kernels-while-running")
+            print("Updated plots saved as files")
+        else:
+            self.reconstructionfig.show()
+            self.kernelfig.show()
+            plt.show()
+            self.reconstructionfig = None
+            self.kernelfig = None
