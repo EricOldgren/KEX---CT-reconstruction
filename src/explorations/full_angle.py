@@ -9,7 +9,7 @@ import random
 ANGLE_RATIOS = [0.5]#, 0.8, 0.85, 0.9, 0.95, 1.0]
 EPOPCHS =      [60]#[100, 100, 100,  100, 60]
 TRAINED = {}
-LAMBDA  = 0.01 #regularization parameter
+LAMBDA  = 10 #regularization parameter
 
 for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
     geometry = Geometry(ar, 300, 150) #50,40
