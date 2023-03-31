@@ -84,7 +84,8 @@ class Geometry:
         a = -self.rho
         #back_scaled = torch.exp(1j*a*self.fourier_domain) / self.dt * sino_hat
         back_scaled = (torch.cos(a*self.fourier_domain)+1j*torch.sin(a*self.fourier_domain)) / self.dt * sino_hat
-        return torch.fft.irfft(back_scaled, axis=-1)    #memory problem
+        return torch.fft.irfft(back_scaled, axis=-1)
+    
 
 class BasicModel(nn.Module):
 
@@ -96,9 +97,9 @@ class BasicModel(nn.Module):
         self.BP_layer = odl_torch.OperatorModule(geometry.BP)
 
         if kernel == None:
-            # start_kernel = np.linspace(0, 1.0, geometry.fourier_domain.shape[0]) * np.random.triangular(0, 25, 50)
-            # if random.random() < 0.5: start_kernel *= -1
-            # self.kernel = nn.Parameter(torch.from_numpy(start_kernel).to(DEVICE), requires_grad=trainable_kernel)
+            #start_kernel = np.linspace(0, 1.0, geometry.fourier_domain.shape[0]) * np.random.triangular(0, 25, 50)
+            #if random.random() < 0.5: start_kernel *= -1
+            #self.kernel = nn.Parameter(torch.from_numpy(start_kernel).to(DEVICE), requires_grad=trainable_kernel)
             self.kernel = nn.Parameter(torch.randn(geometry.fourier_domain.shape).to(DEVICE), requires_grad=trainable_kernel)
         else:
             assert kernel.shape == geometry.fourier_domain.shape, f"wrong formatted specific kernel {kernel.shape} for geometry {geometry}"
