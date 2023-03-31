@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import odl.contrib.torch as odl_torch
 
-from utils.geometry import Geometry
+from utils.geometry import Geometry, DEVICE
 from utils.fno_1d import FNO1d
 from models.analyticmodels import RamLak
 
@@ -13,12 +13,13 @@ from matplotlib.figure import Figure
 import  random
 
 
-class CrazyKernels:
+class CrazyKernels(nn.Module):
 
     reconstructionfig: Figure = None
 
     def __init__(self, geometry: Geometry, angle_batch_size: int) -> None:
-        #assert ceil(geometry.phi_size * 1.0 / geometry.ar) % angle_batch_size == 0, "bad choice"
+        super().__init__()
+
         if angle_batch_size > 10: print("Big batch size unexpected may bahave unexpectedly")
         self.angle_batch_size = angle_batch_size
         
@@ -32,7 +33,8 @@ class CrazyKernels:
         self.ray_layer = odl_torch.OperatorModule(self.geometry2.ray)
         self.BP_layer = odl_torch.OperatorModule(self.geometry2.BP)
 
-        self.fno = FNO1d(modes, in_channels=angle_batch_size, out_channels=angle_batch_size)
+        self.fno = FNO1d(modes, in_channels=angle_batch_size, out_channels=angle_batch_size, dtype=torch.float).to(DEVICE)
+        self.add_module("fno", self.fno)
 
     def forward(self, sinos: torch.Tensor):
         N, phi_size, t_size = sinos.shape
@@ -42,7 +44,7 @@ class CrazyKernels:
 
         sinos_full = sinos_full.view(-1, self.angle_batch_size, t_size)
         sinos_full = self.fno(sinos_full)
-        sinos_full = sinos_full.view(N, phi_size, t_size)
+        sinos_full = sinos_full.reshape(N, self.geometry2.phi_size, t_size)
 
         return self.BP_layer(sinos_full)
     
@@ -53,7 +55,7 @@ class CrazyKernels:
             test_out = self.forward(test_sinos)  
         loss = loss_fn(test_y-test_out)
         print()
-        print(f"Evaluating current model state, validation loss: {loss.item()} using angle ratio: {self.geometry.ar}. Displayiing sample nr {ind}: ")
+        print(f"Evaluating current model state, validation loss: {loss.item()} using angle ratio: {self.geometry1.ar}. Displayiing sample nr {ind}: ")
         sample_sino, sample_y, sample_out = test_sinos[ind].to("cpu"), test_y[ind].to("cpu"), test_out[ind].to("cpu")
 
         if self.reconstructionfig is None:
@@ -66,7 +68,6 @@ class CrazyKernels:
         ax_recon.imshow(sample_out)
         ax_recon.set_title("Reconstruction")
 
-        self.draw_kernels()
 
         if output_location == "files":
             self.reconstructionfig.savefig("data/output-while-running")
@@ -74,7 +75,5 @@ class CrazyKernels:
             print("Updated plots saved as files")
         else:
             self.reconstructionfig.show()
-            self.kernelfig.show()
             plt.show()
             self.reconstructionfig = None
-            self.kernelfig = None

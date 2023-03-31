@@ -20,7 +20,7 @@ def train_thread(model: torch.nn.Module, dataloader: DataLoader, n_epochs: int =
             if display_loss:
                 batch_losses.append(loss.item())
 
-            loss += model.regularization_term()*regularisation_lambda
+#            loss += model.regularization_term()*regularisation_lambda
 
             loss.backward()
             optimizer.step()
