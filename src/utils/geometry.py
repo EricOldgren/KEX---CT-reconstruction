@@ -84,7 +84,7 @@ class Geometry:
         a = -self.rho
         #back_scaled = torch.exp(1j*a*self.fourier_domain) / self.dt * sino_hat
         back_scaled = (torch.cos(a*self.fourier_domain)+1j*torch.sin(a*self.fourier_domain)) / self.dt * sino_hat
-        return torch.fft.irfft(back_scaled, axis=-1)
+        return torch.fft.irfft(back_scaled, axis=-1)    #memory problem
     
 
 class BasicModel(nn.Module):
@@ -105,7 +105,7 @@ class BasicModel(nn.Module):
     def forward(self, sinos):
         sino_freq = self.geometry.fourier_transform(sinos)
         filtered_sinos = self.kernel*sino_freq
-        filtered_sinos = self.geometry.inverse_fourier_transform(filtered_sinos)
+        filtered_sinos = self.geometry.inverse_fourier_transform(filtered_sinos)    #memory problem
 
         return self.BP_layer(filtered_sinos)
     

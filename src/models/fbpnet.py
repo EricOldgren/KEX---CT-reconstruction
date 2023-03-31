@@ -31,7 +31,7 @@ class FBPNet(nn.Module):
 
 
     def forward(self, x):
-        constructs = torch.stack([relu(fbp(x) + b) for fbp, b in self.fbps])
+        constructs = torch.stack([relu(fbp(x) + b) for fbp, b in self.fbps])    #memory problem
 
         out = torch.sum(constructs*self.weights[:, None, None, None], axis=0)
 
@@ -56,7 +56,7 @@ class FBPNet(nn.Module):
 
         ind = random.randint(0, test_sinos.shape[0]-1)
         with torch.no_grad():
-            test_out = self.forward(test_sinos)  
+            test_out = self.forward(test_sinos)  #memory problem
         loss = loss_fn(test_y-test_out)
         print()
         print(f"Evaluating current model state, validation loss: {loss.item()} using angle ratio: {self.geometry.ar}. Displayiing sample nr {ind}: ")
@@ -79,6 +79,7 @@ class FBPNet(nn.Module):
             self.kernelfig.savefig("kernels-while-running")
             print("Updated plots saved as files")
         else:
+            plt.draw()
             self.reconstructionfig.show()
             self.kernelfig.show()
             plt.show()

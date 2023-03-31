@@ -6,25 +6,25 @@ from models.fbpnet import FBPNet
 import random
 
 ANGLE_RATIOS = [0.5]#[0.8, 0.85, 0.9, 0.95, 1.0]
-EPOPCHS =      [100]#[100, 100, 100,  100, 60]
+EPOPCHS =      [60]#[100, 100, 100,  100, 60]
 TRAINED = {}
 LAMBDA  = 0.01 #regularization parameter
 
 for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
     geometry = Geometry(ar, 300, 150) #50,40
-    (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_samples=10,use_realistic=True,data_path="data/kits_phantoms_256.pt")
-    model = FBPNet(geometry, n_fbps=5)
+    (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_samples=200,use_realistic=False,data_path="data/kits_phantoms_256.pt")
+    model = FBPNet(geometry, n_fbps=1)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     loss_fn = lambda diff : torch.mean(diff*diff)
 
-    dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=25, shuffle=True)
+    dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=20, shuffle=True)
 
     for epoch in range(n_epochs):
-        if epoch % 10 == 0:
-            model.visualize_output(test_sinos, test_y, loss_fn, output_location="show")
+        if epoch % 10 == 0:    
+            model.visualize_output(test_sinos, test_y, loss_fn, output_location="show") #memory problem
         for sinos, y in dataloader:
-            print(sinos.size())
+
             out = model(sinos)
 
             loss = loss_fn(out - y) #+ abs(sum(out[int(geometry.omega):]))
