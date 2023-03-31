@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from utils.geometry import Geometry, BasicModel as FBP, DEVICE
 from typing import Literal
+from typing import Mapping, Any
 
 relu = nn.ReLU()
 
@@ -44,13 +45,30 @@ class FBPNet(nn.Module):
 
     def convert(self, geometry: Geometry):
         m2 = FBPNet(geometry, n_fbps=len(self.fbps))
-        m2.load_state_dict(self.state_dict()) #loads weights, biases and kernels -- however kernel loading may be incompatible
+        sd = self.state_dict()
+        sd["ar"] = geometry.ar; sd["phi_size"] = geometry.phi_size; sd["t_size"] = geometry.t_size
+        m2.load_state_dict(sd) 
         for i in range(len(self.fbps)):
             m2.fbps[i] = (self.fbps[i][0].convert(geometry), self.fbps[i][1]) #this will raise error if incompatible
             
         return m2
         
-        
+    def state_dict(self):
+        sd = super().state_dict()
+        sd["ar"] = self.geometry.ar; sd["phi_size"] = self.geometry.phi_size; sd["t_size"] = self.geometry.t_size
+        sd["n_fbps"] = len(self.fbps)
+        return sd
+
+    def load_state_dict(self, state_dict: Mapping[str, Any], strict: bool = True):
+        ar, phi_size, t_size = state_dict['ar'], state_dict['phi_size'], state_dict['t_size']
+        assert state_dict["n_fbps"] == len(self.fbps), f"Incompatible state dict"
+        super_states = {k: v for k, v in state_dict.items() if k not in ("ar", "phi_size", "t_size", "n_fbps")}
+        super().load_state_dict(super_states, strict) #loads weights, biases and kernels -- however kernel loading may be incompatible
+        geometry = Geometry(ar, phi_size, t_size)
+        self.geometry = geometry
+
+        for i in range(len(self.fbps)):
+            self.fbps[i] = (self.fbps[i][0].convert(geometry), self.fbps[i][1]) #this will raise error if incompatible
 
     def visualize_output(self, test_sinos, test_y, loss_fn = lambda diff : torch.mean(diff*diff), output_location = "files"):
 
@@ -101,4 +119,12 @@ class FBPNet(nn.Module):
         ax.plot([self.geometry.omega]*horizontal.shape[0], horizontal, dashes=[2,2], c='#000', label="omega")
 
         ax.legend(loc="lower left")
+
+def load_fbpnet_from_dict(path):
+    sd = torch.load(path)
+    ar, phi_size, t_size = sd["ar"], sd["phi_size"], sd["t_size"]
+    geometry = Geometry(ar, phi_size, t_size)
+    ret = FBPNet(geometry, n_fbps=sd["n_fbps"])
+    ret.load_state_dict(sd)
+    return ret
 

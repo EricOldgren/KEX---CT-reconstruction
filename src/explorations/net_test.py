@@ -1,31 +1,27 @@
 import torch
-from torch.utils.data import DataLoader
-from utils.geometry import Geometry, setup, BasicModel
+from torch.utils.data import DataLoader, TensorDataset
+from utils.geometry import Geometry, setup, BasicModel, DEVICE
+from utils.threaded_training import multi_threaded_training
 from models.fbpnet import FBPNet
 
 ANGLE_RATIOS = [0.8, 0.85, 0.9, 0.95, 1.0]
 EPOPCHS =      [100, 100, 100,  100, 60]
 TRAINED = {}
 
-for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
-    (train_sinos, train_y, test_sinos, test_y), geometry = setup(ar, phi_size=300, t_size=100, num_samples=10)
-    model = FBPNet(geometry)
+if __name__ == '__main__':
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-    loss_fn = lambda diff : torch.mean(diff*diff)
+    for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
+        geometry = Geometry(ar, 300, 150)
+        train_sinos, train_y, test_sinos, test_y = setup(geometry, num_to_generate=100, use_realistic=False, data_path="data/kits_phantoms_256.pt")
+        model = FBPNet(geometry)
 
-    dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=25, shuffle=True)
+        #dataset = list(zip(train_sinos.to(DEVICE, non_blocking=True), train_y.to(DEVICE, non_blocking=True)))
+        dataset = TensorDataset(train_sinos.cpu(), train_y.cpu())
 
-    for epoch in range(n_epochs):
-        if epoch % 10 == 0:
-            model.visualize_output(test_sinos, test_y, loss_fn)
-        for sinos, y in dataloader:
-            out = model(sinos)
+        multi_threaded_training(model, dataset, n_epochs=40, batch_size=32, lr=0.01, regularisation_lambda=0.01, num_threads=8)
 
-            loss = loss_fn(out - y) #+ abs(sum(out[int(geometry.omega):]))
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-        print(f"epoch {epoch} loss: {loss.item()}")
+        TRAINED[ar] = model
+        torch.save(model.state_dict(), "testing.pt")
+        print("Done")
     
-    TRAINED[ar] = model
+

@@ -122,7 +122,7 @@ class BasicModel(nn.Module):
     def convert(self, geometry: Geometry):
         "Create a new model with the same kernels but for reconstruction in a different geometry"
         if (geometry.fourier_domain != self.geometry.fourier_domain).any(): # this depends on t_size and rho
-            raise NotImplementedError("Can only convert to geometries with the same fourier domain at the moment. Models have the same fourier domain of t_size and rho ae the same!") #maybe add way to convert between later
+            raise NotImplementedError("Can only convert to geometries with the same fourier domain at the moment. Models have the same fourier domain if t_size and rho are the same!") #maybe add way to convert between later
         return BasicModel(geometry, kernel=self.kernel)
 
     def visualize_output(self, test_sinos, test_y, loss_fn = lambda diff : torch.mean(diff*diff)):
@@ -151,7 +151,7 @@ class BasicModel(nn.Module):
 
         plt.pause(0.05)
 
-def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_phantoms: torch.Tensor = None,use_realistic=False, data_path=None):
+def setup(geometry: Geometry, num_to_generate = 1000, train_ratio=0.8, pre_computed_phantoms: torch.Tensor = None,use_realistic=False, data_path=None):
     """
         Creates Geometry with appropriate forward and backward projections in the given angle ratio and generates random data as specified
         parameters
@@ -176,30 +176,33 @@ def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_
     ray_layer = odl_torch.OperatorModule(geometry.ray)
 
     #Use previously generated phantoms to save time
-    to_construct = num_samples
+    to_construct = num_to_generate
     if pre_computed_phantoms is None:
         pre_computed_phantoms = torch.tensor([]).to(DEVICE)
     else:
         assert pre_computed_phantoms.shape[1:] == geometry.reco_space.shape
-        to_construct = max(0, num_samples - pre_computed_phantoms.shape[0])
+        to_construct = max(0, num_to_generate - pre_computed_phantoms.shape[0])
     
     #Construct new phantoms
     print("Constructing random phantoms...")
     constructed_data = np.zeros((to_construct, *geometry.reco_space.shape))
     for i in range(to_construct): #This is quite slow
         constructed_data[i] = unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=10).asarray()
-    constructed_data = torch.from_numpy(constructed_data).to(DEVICE)
+    constructed_data = torch.from_numpy(constructed_data).to(DEVICE).to(dtype=torch.float32)
     #Combine phantoms
-    permutation = list(range(pre_computed_phantoms.shape[0]))
+    
+    full_data=torch.concat((read_data, pre_computed_phantoms.to(DEVICE), constructed_data ))
+    N_tot_samples = full_data.shape[0]
+    permutation = list(range(N_tot_samples))
     random.shuffle(permutation) #give this as index to tensor to randomly reshuffle order of phantoms
-    full_data=torch.concat((read_data, pre_computed_phantoms[permutation].to(DEVICE), constructed_data ))
+    full_data=full_data[permutation]
 
     print("Calculating sinograms...")
     sinos: torch.Tensor = ray_layer(full_data)
 
-    n_training = int(num_samples*train_ratio)
-    train_y, train_sinos = full_data[:n_training], sinos[:n_training]
-    test_y, test_sinos = full_data[n_training:], sinos[n_training:]
+    n_training = int(N_tot_samples*train_ratio)
+    train_y, train_sinos = full_data[:n_training], sinos[:n_training] #torch.concat((full_data[:n_training-200],full_data[-200:])), torch.concat((sinos[:n_training-200],sinos[-200:])) 
+    test_y, test_sinos = full_data[n_training:], sinos[n_training:] #full_data[n_training-200:-200], sinos[n_training-200:-200]
 
     print("Constructed training dataset of shape ", train_y.shape)
 
