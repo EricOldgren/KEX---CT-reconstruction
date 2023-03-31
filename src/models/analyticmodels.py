@@ -8,7 +8,7 @@ class RamLak(BasicModel):
 
     def __init__(self, geometry: Geometry, **kwargs):
         "FBP based on Radon's invesrion formula and Nattarer's sampling theorem. Uses a |x| filter with a hard cut"
-        super(RamLak, self).__init__(geometry,**kwargs)
+        super(BasicModel, self).__init__(**kwargs)
         
         self.geometry = geometry
         self.BP_layer = odl_torch.OperatorModule(geometry.BP)

@@ -87,8 +87,6 @@ class Geometry:
         return torch.fft.irfft(back_scaled, axis=-1)
     
 
-triangular_dist = torch.distributions.triangular
-
 class BasicModel(nn.Module):
 
     def __init__(self, geometry: Geometry, kernel: torch.Tensor = None, trainable_kernel=True, **kwargs):
@@ -99,10 +97,10 @@ class BasicModel(nn.Module):
         self.BP_layer = odl_torch.OperatorModule(geometry.BP)
 
         if kernel == None:
-            start_kernel = np.linspace(0, 1.0, geometry.fourier_domain.shape[0]) * np.random.triangular(0, 50, 25)
-            if random.random() < 0.5: start_kernel *= -1
-            self.kernel = nn.Parameter(torch.from_numpy(start_kernel).to(DEVICE), requires_grad=trainable_kernel)
-            # self.kernel = nn.Parameter(torch.randn(geometry.fourier_domain.shape).to(DEVICE), requires_grad=trainable_kernel)
+            #start_kernel = np.linspace(0, 1.0, geometry.fourier_domain.shape[0]) * np.random.triangular(0, 25, 50)
+            #if random.random() < 0.5: start_kernel *= -1
+            #self.kernel = nn.Parameter(torch.from_numpy(start_kernel).to(DEVICE), requires_grad=trainable_kernel)
+            self.kernel = nn.Parameter(torch.randn(geometry.fourier_domain.shape).to(DEVICE), requires_grad=trainable_kernel)
         else:
             assert kernel.shape == geometry.fourier_domain.shape, f"wrong formatted specific kernel {kernel.shape} for geometry {geometry}"
             self.kernel = nn.Parameter(kernel.to(DEVICE), requires_grad=trainable_kernel)
