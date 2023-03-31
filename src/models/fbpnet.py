@@ -4,27 +4,31 @@ import torch.nn as nn
 import random
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
-from utils.geometry import Geometry, BasicModel as FBP, DEVICE
+from utils.geometry import Geometry, BasicModel, DEVICE
+from utils.smoothing import SmoothedModel
 from typing import Literal
 from typing import Mapping, Any
 
-relu = nn.ReLU()
 
 class FBPNet(nn.Module):
 
     reconstructionfig: Figure = None
     kernelfig: Figure = None
 
-    def __init__(self, geometry: Geometry, n_fbps = 8, **kwargs):
+    def __init__(self, geometry: Geometry, n_fbps = 8, use_smooth_filters = False, **kwargs):
         "2 layer network consisting of sums of FBPs"
 
         super(FBPNet, self).__init__(**kwargs)
 
         self.geometry = geometry
+        if use_smooth_filters:
+            self.fbps = [(SmoothedModel(geometry), nn.Parameter(torch.randn(1).to(DEVICE))) for _ in range(n_fbps)]
+        else:
+            self.fbps = [(BasicModel(geometry), nn.Parameter(torch.randn(1).to(DEVICE))) for _ in range(n_fbps)]
 
-        self.fbps = [(FBP(geometry), nn.Parameter(torch.randn(1).to(DEVICE))) for _ in range(n_fbps)]
         self.weights = nn.Parameter(torch.randn(n_fbps).to(DEVICE))
         self.bout = nn.Parameter(torch.randn(1).to(DEVICE))
+        self.relu = nn.ReLU()
 
         for i, (fbp, b) in enumerate(self.fbps):
             self.add_module(f"fbp{i}", fbp)
@@ -32,11 +36,11 @@ class FBPNet(nn.Module):
 
 
     def forward(self, x):
-        constructs = torch.stack([relu(fbp(x) + b) for fbp, b in self.fbps])
+        constructs = torch.stack([self.relu(fbp(x) + b) for fbp, b in self.fbps])
 
         out = torch.sum(constructs*self.weights[:, None, None, None], axis=0)
 
-        return relu(out + self.bout)
+        return self.relu(out)
 
     def regularization_term(self):
         "Returns a sum which penalizies large kernel values at large frequencies, in accordance with Nattarer's sampling Theorem"
@@ -93,8 +97,8 @@ class FBPNet(nn.Module):
         self.draw_kernels()
 
         if output_location == "files":
-            self.reconstructionfig.savefig("output-while-running")
-            self.kernelfig.savefig("kernels-while-running")
+            self.reconstructionfig.savefig("data/output-while-running")
+            self.kernelfig.savefig("data/kernels-while-running")
             print("Updated plots saved as files")
         else:
             self.reconstructionfig.show()
@@ -119,11 +123,11 @@ class FBPNet(nn.Module):
 
         ax.legend(loc="lower left")
 
-def load_fbpnet_from_dict(path):
+def load_fbpnet_from_dict(path, smooth_filters: bool = False):
     sd = torch.load(path)
     ar, phi_size, t_size = sd["ar"], sd["phi_size"], sd["t_size"]
     geometry = Geometry(ar, phi_size, t_size)
-    ret = FBPNet(geometry, n_fbps=sd["n_fbps"])
+    ret = FBPNet(geometry, n_fbps=sd["n_fbps"], use_smooth_filters=smooth_filters)
     ret.load_state_dict(sd)
     return ret
 
