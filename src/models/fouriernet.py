@@ -46,14 +46,14 @@ class CrazyKernels(nn.Module):
     def forward(self, sinos: torch.Tensor):
         N, phi_size, t_size = sinos.shape
 
-        filtered_bad = self.spectralconv1(sinos.reshape(-1, self.angle_batch_size, t_size)).reshape(N, phi_size, t_size)
+        filtered_bad = self.spectralconv1(sinos.view(-1, self.angle_batch_size, t_size)).view(N, phi_size, t_size)
         back_bad = self.BP_l1(filtered_bad)
         # back_bad = F.gelu(back_bad)
         #back_bad = self.back1(sinos)
         sinos_full: torch.Tensor = self.ray_layer(back_bad)
         sinos_full = F.gelu(sinos_full)
 
-        sinos_full = self.fno(sinos_full.reshape(-1, self.angle_batch_size, t_size)).reshape(N, self.geometry2.phi_size, t_size)
+        sinos_full = self.fno(sinos_full.view(-1, self.angle_batch_size, t_size)).view(N, self.geometry2.phi_size, t_size)
         # sinos_full = F.gelu(sinos_full)
 
         return self.BP_layer(sinos_full)
