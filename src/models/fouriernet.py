@@ -32,7 +32,7 @@ class CrazyKernels(nn.Module):
         modes1 = torch.where(self.geometry1.fourier_domain > self.geometry1.omega)[0].shape[0]
         self.spectralconv1 = SpectralConv1d(in_channels=angle_batch_size, out_channels=angle_batch_size, max_mode=modes1)
         self.add_module("spectralconv1", self.spectralconv1)
-        self.BP_l1 = odl_torch.OperatorModule(self.geometry1.BP)
+        self.BP_l1 = odl_torch.OperatorModule(self.geometry1.BP).to(DEVICE)
 
         full_phi_size  = round((geometry.phi_size * 1.0 / geometry.ar) / angle_batch_size) * angle_batch_size #maybe make cyclic in future
         self.geometry2 = Geometry(1.0, full_phi_size, geometry.t_size, reco_shape=geometry.reco_space.shape)
@@ -40,7 +40,7 @@ class CrazyKernels(nn.Module):
         self.ray_layer = odl_torch.OperatorModule(self.geometry2.ray)
         self.BP_layer = odl_torch.OperatorModule(self.geometry2.BP)
 
-        self.fno = SpectralConv1d(in_channels=angle_batch_size, out_channels=angle_batch_size, max_mode=modes)  #FNO1d(modes, in_channels=angle_batch_size, out_channels=angle_batch_size, dtype=torch.float).to(DEVICE)
+        self.fno = SpectralConv1d(in_channels=angle_batch_size, out_channels=angle_batch_size, max_mode=modes).to(DEVICE)  #FNO1d(modes, in_channels=angle_batch_size, out_channels=angle_batch_size, dtype=torch.float).to(DEVICE)
         self.add_module("fno", self.fno)
 
     def forward(self, sinos: torch.Tensor):
