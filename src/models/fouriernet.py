@@ -30,9 +30,9 @@ class CrazyKernels(nn.Module):
 
         assert geometry.phi_size % self.angle_batch_size == 0
         modes1 = torch.where(self.geometry1.fourier_domain > self.geometry1.omega)[0].shape[0]
-        self.spectralconv1 = SpectralConv1d(in_channels=angle_batch_size, out_channels=angle_batch_size, max_mode=modes1)
+        self.spectralconv1 = SpectralConv1d(in_channels=angle_batch_size, out_channels=angle_batch_size, max_mode=modes1).to(DEVICE)
         self.add_module("spectralconv1", self.spectralconv1)
-        self.BP_l1 = odl_torch.OperatorModule(self.geometry1.BP).to(DEVICE)
+        self.BP_l1 = odl_torch.OperatorModule(self.geometry1.BP)
 
         full_phi_size  = round((geometry.phi_size * 1.0 / geometry.ar) / angle_batch_size) * angle_batch_size #maybe make cyclic in future
         self.geometry2 = Geometry(1.0, full_phi_size, geometry.t_size, reco_shape=geometry.reco_space.shape)
