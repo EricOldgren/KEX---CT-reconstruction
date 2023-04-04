@@ -5,7 +5,8 @@ import odl.contrib.torch as odl_torch
 
 from utils.geometry import Geometry, DEVICE
 from utils.fno_1d import FNO1d, SpectralConv1d
-from models.analyticmodels import RamLak
+from models.analyticmodels import RamLak, ramlak_filter
+from models.modelbase import ModelBase
 
 
 from math import ceil
@@ -14,7 +15,33 @@ from matplotlib.figure import Figure
 import  random
 
 
-class CrazyKernels(nn.Module):
+class GeneralFBP(ModelBase):
+
+    def __init__(self, geometry: Geometry, initial_kernel: torch.Tensor = None, trainable_kernel = True, **kwargs):
+        """
+            FBP with a kernel that depends on angle, kernel of shape (phi_size x fourier_shape), initialized with a ramlak filter
+        """
+
+        super().__init__(geometry, **kwargs)
+        if initial_kernel is not None:
+            assert initial_kernel.shape == (geometry.phi_size, geometry.fourier_domain.shape[0]), f"Unexpected shape {initial_kernel.shape}"
+            self.kernel = nn.Parameter(initial_kernel, requires_grad=trainable_kernel)
+        else:
+            ramlak = ramlak_filter(geometry)
+            self.kernel = nn.Parameter(ramlak[None].repeat(geometry.phi_size, 1), requires_grad=trainable_kernel)
+    
+    def forward(self, X: torch.Tensor):
+        out = self.geometry.fourier_transform(X)
+        out = out*self.kernel
+        out = self.geometry.inverse_fourier_transform(out)
+
+        return F.relu(self.BP_layer(out))
+
+
+        
+
+
+class CrazyKernels(ModelBase):
 
     reconstructionfig: Figure = None
 
@@ -57,33 +84,3 @@ class CrazyKernels(nn.Module):
         # sinos_full = F.gelu(sinos_full)
 
         return self.BP_layer(sinos_full)
-    
-    def visualize_output(self, test_sinos, test_y, loss_fn = lambda diff : torch.mean(diff*diff), output_location = "files"):
-
-        ind = random.randint(0, test_sinos.shape[0]-1)
-        with torch.no_grad():
-            test_out = self.forward(test_sinos)  
-        loss = loss_fn(test_y-test_out)
-        print()
-        print(f"Evaluating current model state, validation loss: {loss.item()} using angle ratio: {self.geometry1.ar}. Displayiing sample nr {ind}: ")
-        sample_sino, sample_y, sample_out = test_sinos[ind].to("cpu"), test_y[ind].to("cpu"), test_out[ind].to("cpu")
-
-        if self.reconstructionfig is None:
-            self.reconstructionfig, (ax_gt, ax_recon) = plt.subplots(1,2)
-        else:
-            ax_gt, ax_recon = self.reconstructionfig.get_axes()
-
-        ax_gt.imshow(sample_y)
-        ax_gt.set_title("Real Data")
-        ax_recon.imshow(sample_out)
-        ax_recon.set_title("Reconstruction")
-
-
-        if output_location == "files":
-            self.reconstructionfig.savefig("data/output-while-running")
-            self.kernelfig.savefig("data/kernels-while-running")
-            print("Updated plots saved as files")
-        else:
-            self.reconstructionfig.show()
-            plt.show()
-            self.reconstructionfig = None
