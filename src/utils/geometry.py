@@ -171,7 +171,7 @@ def setup(geometry: Geometry, num_to_generate = 1000, train_ratio=0.8, pre_compu
     if use_realistic:
         read_data: torch.Tensor = torch.load(data_path).moveaxis(0,1).to(DEVICE)
         read_data = torch.concat([read_data[1], read_data[0], read_data[2]])
-        read_data = read_data[:600] # -- uncomment to read this data
+        read_data = read_data[:min(600,num_to_generate)] # -- uncomment to read this data
     
     else:
         read_data = torch.tensor([]).to(DEVICE)
@@ -180,9 +180,9 @@ def setup(geometry: Geometry, num_to_generate = 1000, train_ratio=0.8, pre_compu
 
     #Use previously generated phantoms to save time
     if use_realistic:
-        to_construct = num_samples-min(num_samples,600)
+        to_construct = num_to_generate-min(num_to_generate,600)
     else:
-        to_construct = num_samples
+        to_construct = num_to_generate
         
     if pre_computed_phantoms is None:
         pre_computed_phantoms = torch.tensor([]).to(DEVICE)
