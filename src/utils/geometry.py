@@ -168,7 +168,7 @@ def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_
     if use_realistic:
         read_data: torch.Tensor = torch.load(data_path).moveaxis(0,1).to(DEVICE)
         read_data = torch.concat([read_data[1], read_data[0], read_data[2]])
-        read_data = read_data[:600] # -- uncomment to read this data
+        read_data = read_data[:min(num_samples,600)] # -- uncomment to read this data
     
     else:
         read_data = torch.tensor([]).to(DEVICE)
@@ -176,7 +176,11 @@ def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_
     ray_layer = odl_torch.OperatorModule(geometry.ray)
 
     #Use previously generated phantoms to save time
-    to_construct = num_samples
+    if use_realistic:
+        to_construct = num_samples-min(num_samples,600)
+    else:
+        to_construct = num_samples
+        
     if pre_computed_phantoms is None:
         pre_computed_phantoms = torch.tensor([]).to(DEVICE)
     else:
@@ -201,8 +205,8 @@ def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_
     sinos: torch.Tensor = ray_layer(full_data)
 
     n_training = int((num_samples+600)*train_ratio)
-    train_y, train_sinos = full_data[:n_training], sinos[:n_training] #torch.concat((full_data[:n_training-200],full_data[-200:])), torch.concat((sinos[:n_training-200],sinos[-200:])) 
-    test_y, test_sinos = full_data[n_training:], sinos[n_training:] #full_data[n_training-200:-200], sinos[n_training-200:-200]
+    train_y, train_sinos = full_data[:n_training], sinos[:n_training] 
+    test_y, test_sinos = full_data[n_training:], sinos[n_training:] 
 
     print("Constructed training dataset of shape ", train_y.shape)
 
