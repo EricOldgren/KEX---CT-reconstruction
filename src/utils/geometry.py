@@ -97,6 +97,9 @@ class BasicModel(nn.Module):
         self.BP_layer = odl_torch.OperatorModule(geometry.BP)
 
         if kernel == None:
+            #start_kernel = np.linspace(0, 1.0, geometry.fourier_domain.shape[0]) * np.random.triangular(0, 25, 50)
+            #if random.random() < 0.5: start_kernel *= -1
+            #self.kernel = nn.Parameter(torch.from_numpy(start_kernel).to(DEVICE), requires_grad=trainable_kernel)
             self.kernel = nn.Parameter(torch.randn(geometry.fourier_domain.shape).to(DEVICE), requires_grad=trainable_kernel)
         else:
             assert kernel.shape == geometry.fourier_domain.shape, f"wrong formatted specific kernel {kernel.shape} for geometry {geometry}"
@@ -151,7 +154,7 @@ class BasicModel(nn.Module):
 
         plt.pause(0.05)
 
-def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_phantoms: torch.Tensor = None,use_realistic=False, data_path=None):
+def setup(geometry: Geometry, num_to_generate = 1000, train_ratio=0.8, pre_computed_phantoms: torch.Tensor = None,use_realistic=False, data_path=None):
     """
         Creates Geometry with appropriate forward and backward projections in the given angle ratio and generates random data as specified
         parameters
@@ -168,7 +171,7 @@ def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_
     if use_realistic:
         read_data: torch.Tensor = torch.load(data_path).moveaxis(0,1).to(DEVICE)
         read_data = torch.concat([read_data[1], read_data[0], read_data[2]])
-        read_data = read_data[:min(num_samples,600)] # -- uncomment to read this data
+        read_data = read_data[:600] # -- uncomment to read this data
     
     else:
         read_data = torch.tensor([]).to(DEVICE)
@@ -185,28 +188,28 @@ def setup(geometry: Geometry, num_samples = 1000, train_ratio=0.8, pre_computed_
         pre_computed_phantoms = torch.tensor([]).to(DEVICE)
     else:
         assert pre_computed_phantoms.shape[1:] == geometry.reco_space.shape
-        to_construct = max(0, num_samples - pre_computed_phantoms.shape[0])
+        to_construct = max(0, num_to_generate - pre_computed_phantoms.shape[0])
     
     #Construct new phantoms
     print("Constructing random phantoms...")
     constructed_data = np.zeros((to_construct, *geometry.reco_space.shape))
     for i in range(to_construct): #This is quite slow
-        constructed_data[i] = unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=10).asarray()
+        constructed_data[i] = unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=30).asarray()
     constructed_data = torch.from_numpy(constructed_data).to(DEVICE).to(dtype=torch.float32)
     #Combine phantoms
     
     full_data=torch.concat((read_data, pre_computed_phantoms.to(DEVICE), constructed_data ))
-    permutation = list(range(full_data.shape[0]))
+    N_tot_samples = full_data.shape[0]
+    permutation = list(range(N_tot_samples))
     random.shuffle(permutation) #give this as index to tensor to randomly reshuffle order of phantoms
     full_data=full_data[permutation]
-
 
     print("Calculating sinograms...")
     sinos: torch.Tensor = ray_layer(full_data)
 
-    n_training = int((num_samples+600)*train_ratio)
-    train_y, train_sinos = full_data[:n_training], sinos[:n_training] 
-    test_y, test_sinos = full_data[n_training:], sinos[n_training:] 
+    n_training = int(N_tot_samples*train_ratio)
+    train_y, train_sinos = full_data[:n_training], sinos[:n_training] #torch.concat((full_data[:n_training-200],full_data[-200:])), torch.concat((sinos[:n_training-200],sinos[-200:])) 
+    test_y, test_sinos = full_data[n_training:], sinos[n_training:] #full_data[n_training-200:-200], sinos[n_training-200:-200]
 
     print("Constructed training dataset of shape ", train_y.shape)
 
