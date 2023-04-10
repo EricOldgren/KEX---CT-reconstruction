@@ -4,10 +4,10 @@ import torch
 import numpy as np
 from math import ceil
 
-def ramlak_filter(geometry: Geometry):
+def ramlak_filter(geometry: Geometry, dtype=torch.complex64):
     kernel = geometry.fourier_domain /  (2*np.pi)
     kernel[geometry.fourier_domain > geometry.omega * 1.0] = 0
-    return kernel
+    return kernel.to(dtype=dtype)
 
 
 class RamLak(BasicModel):

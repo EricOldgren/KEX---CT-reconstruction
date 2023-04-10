@@ -15,37 +15,11 @@ from matplotlib.figure import Figure
 import  random
 
 
-class GeneralFBP(ModelBase):
-
-    def __init__(self, geometry: Geometry, initial_kernel: torch.Tensor = None, trainable_kernel = True, **kwargs):
-        """
-            FBP with a kernel that depends on angle, kernel of shape (phi_size x fourier_shape), initialized with a ramlak filter
-        """
-
-        super().__init__(geometry, **kwargs)
-        if initial_kernel is not None:
-            assert initial_kernel.shape == (geometry.phi_size, geometry.fourier_domain.shape[0]), f"Unexpected shape {initial_kernel.shape}"
-            self.kernel = nn.Parameter(initial_kernel, requires_grad=trainable_kernel)
-        else:
-            ramlak = ramlak_filter(geometry)
-            self.kernel = nn.Parameter(ramlak[None].repeat(geometry.phi_size, 1), requires_grad=trainable_kernel)
-    
-    def forward(self, X: torch.Tensor):
-        out = self.geometry.fourier_transform(X)
-        out = out*self.kernel
-        out = self.geometry.inverse_fourier_transform(out)
-
-        return F.relu(self.BP_layer(out))
-
-
-        
-
-
 class CrazyKernels(ModelBase):
 
     reconstructionfig: Figure = None
 
-    def __init__(self, geometry: Geometry, angle_batch_size: int) -> None:
+    def __init__(self, geometry: Geometry, angle_batch_size: int, layer_widths = []) -> None:
         super().__init__()
 
         if angle_batch_size > 10: print("Big batch size unexpected may bahave unexpectedly")
@@ -67,7 +41,7 @@ class CrazyKernels(ModelBase):
         self.ray_layer = odl_torch.OperatorModule(self.geometry2.ray)
         self.BP_layer = odl_torch.OperatorModule(self.geometry2.BP)
 
-        self.fno = SpectralConv1d(in_channels=angle_batch_size, out_channels=angle_batch_size, max_mode=modes).to(DEVICE)  #FNO1d(modes, in_channels=angle_batch_size, out_channels=angle_batch_size, dtype=torch.float).to(DEVICE)
+        self.fno = FNO1d(modes, in_channels=angle_batch_size, out_channels=angle_batch_size, layer_widths=layer_widths, dtype=torch.float).to(DEVICE)
         self.add_module("fno", self.fno)
 
     def forward(self, sinos: torch.Tensor):
