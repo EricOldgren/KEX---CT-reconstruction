@@ -194,7 +194,7 @@ def setup(geometry: Geometry, num_to_generate = 1000, train_ratio=0.8, pre_compu
     for i in range(to_construct): #This is quite slow
         constructed_data[i] = unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=30).asarray()
     constructed_data = torch.from_numpy(constructed_data).to(DEVICE).to(dtype=torch.float32)
-    '
+
     #Combine phantoms
     full_data=torch.concat((read_data, pre_computed_phantoms.to(DEVICE), constructed_data ))
     N_tot_samples = full_data.shape[0]
