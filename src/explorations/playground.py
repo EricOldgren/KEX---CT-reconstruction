@@ -1,18 +1,8 @@
 import torch
-import torch.nn as nn
+from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+from utils.geometry import Geometry, setup, BasicModel
+from models.fbpnet import FBPNet
+from models.fouriernet import CrazyKernels
+import random
 
-
-lin = nn.Linear(2,2)
-
-
-X = torch.tensor([
-    [[1,2], [1,2], [1,2]],
-
-    [[1,2], [1,2], [1,2]]
-    
-    ], dtype=torch.float32)
-
-
-print(lin(torch.tensor([1,2], dtype=torch.float32)[None]))
-
-print(lin(X))
