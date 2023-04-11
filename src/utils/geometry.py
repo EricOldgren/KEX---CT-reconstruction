@@ -7,6 +7,7 @@ from .data_generator import unstructured_random_phantom, random_phantom
 import torch.nn as nn
 import random
 import matplotlib.pyplot as plt
+from math import ceil
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -89,7 +90,7 @@ class Geometry:
 
 class BasicModel(nn.Module):
 
-    def __init__(self, geometry: Geometry, kernel: torch.Tensor = None, trainable_kernel=True, **kwargs):
+    def __init__(self, geometry: Geometry, kernel: torch.Tensor = None, trainable_kernel=True, dtype=torch.complex64, **kwargs):
         "Linear layer consisting of a 1D sinogram kernel in frequency domain"
         super(BasicModel, self).__init__(**kwargs)
         
@@ -100,7 +101,7 @@ class BasicModel(nn.Module):
             #start_kernel = np.linspace(0, 1.0, geometry.fourier_domain.shape[0]) * np.random.triangular(0, 25, 50)
             #if random.random() < 0.5: start_kernel *= -1
             #self.kernel = nn.Parameter(torch.from_numpy(start_kernel).to(DEVICE), requires_grad=trainable_kernel)
-            self.kernel = nn.Parameter(torch.randn(geometry.fourier_domain.shape).to(DEVICE), requires_grad=trainable_kernel)
+            self.kernel = nn.Parameter(torch.randn(geometry.fourier_domain.shape, dtype=dtype).to(DEVICE), requires_grad=trainable_kernel)
         else:
             assert kernel.shape == geometry.fourier_domain.shape, f"wrong formatted specific kernel {kernel.shape} for geometry {geometry}"
             self.kernel = nn.Parameter(kernel.to(DEVICE), requires_grad=trainable_kernel)
@@ -171,7 +172,7 @@ def setup(geometry: Geometry, num_to_generate = 1000, train_ratio=0.8, pre_compu
     if use_realistic:
         read_data: torch.Tensor = torch.load(data_path).moveaxis(0,1).to(DEVICE)
         read_data = torch.concat([read_data[1], read_data[0], read_data[2]])
-        read_data = read_data[:600] # -- uncomment to read this data
+        read_data = read_data[:min(600,num_to_generate)] # -- uncomment to read this data
     
     else:
         read_data = torch.tensor([]).to(DEVICE)
@@ -179,7 +180,11 @@ def setup(geometry: Geometry, num_to_generate = 1000, train_ratio=0.8, pre_compu
     ray_layer = odl_torch.OperatorModule(geometry.ray)
 
     #Use previously generated phantoms to save time
-    to_construct = num_to_generate
+    if use_realistic:
+        to_construct = num_to_generate-min(num_to_generate,600)
+    else:
+        to_construct = num_to_generate
+        
     if pre_computed_phantoms is None:
         pre_computed_phantoms = torch.tensor([]).to(DEVICE)
     else:
@@ -210,3 +215,10 @@ def setup(geometry: Geometry, num_to_generate = 1000, train_ratio=0.8, pre_compu
     print("Constructed training dataset of shape ", train_y.shape)
 
     return (train_sinos, train_y, test_sinos, test_y)
+
+def extend_geometry(geometry: Geometry):
+    "Extends a geometry from limited angle to a full angle geometry in which a subregion of sinograms corresponds to sinograms in the limited geometry."
+    ar, phi_size, t_size = geometry.ar, geometry.phi_size, geometry.t_size
+
+    full_phi_size = ceil(1.0 / ar * phi_size)
+    return Geometry(1.0, full_phi_size, t_size, reco_space=geometry.reco_space)

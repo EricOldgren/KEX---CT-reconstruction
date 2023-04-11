@@ -29,7 +29,7 @@ def train(model, dataloader, display_loss = False):
             if display_loss:
                 batch_losses.append(loss.item())
 
-            loss += model.regularization_term()*LAMBDA
+            # loss += model.regularization_term()*LAMBDA
 
             loss.backward()
             optimizer.step()
