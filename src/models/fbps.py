@@ -10,19 +10,19 @@ from utils.smoothing import linear_bandlimited_basis
 
 class FBP(ModelBase):
 
-    def __init__(self, geometry: Geometry, kernel: torch.Tensor = None, trainable_kernel=True, dtype=torch.complex64, **kwargs):
+    def __init__(self, geometry: Geometry, initial_kernel: torch.Tensor = None, trainable_kernel=True, dtype=torch.complex64, **kwargs):
         "Linear layer consisting of a 1D sinogram kernel in frequency domain"
         super().__init__(geometry, **kwargs)
         self.plotkernels = True
 
-        if kernel == None:
+        if initial_kernel == None:
             #start_kernel = np.linspace(0, 1.0, geometry.fourier_domain.shape[0]) * np.random.triangular(0, 25, 50)
             #if random.random() < 0.5: start_kernel *= -1
             #self.kernel = nn.Parameter(torch.from_numpy(start_kernel).to(DEVICE), requires_grad=trainable_kernel)
             self.kernel = nn.Parameter(torch.randn(geometry.fourier_domain.shape, dtype=dtype).to(DEVICE), requires_grad=trainable_kernel)
         else:
-            assert kernel.shape == geometry.fourier_domain.shape, f"wrong formatted specific kernel {kernel.shape} for geometry {geometry}"
-            self.kernel = nn.Parameter(kernel.to(DEVICE), requires_grad=trainable_kernel)
+            assert initial_kernel.shape == geometry.fourier_domain.shape, f"wrong formatted specific kernel {initial_kernel.shape} for geometry {geometry}"
+            self.kernel = nn.Parameter(initial_kernel.to(DEVICE, dtype=dtype), requires_grad=trainable_kernel)
     
     def kernels(self) -> List[torch.Tensor]:
         return [self.kernel]
@@ -54,7 +54,7 @@ class GeneralizedFBP(ModelBase):
         super().__init__(geometry, **kwargs)
         if initial_kernel is not None:
             assert initial_kernel.shape == (geometry.phi_size, geometry.fourier_domain.shape[0]), f"Unexpected shape {initial_kernel.shape}"
-            self.kernel = nn.Parameter(initial_kernel, requires_grad=trainable_kernel)
+            self.kernel = nn.Parameter(initial_kernel.to(DEVICE, dtype=dtype), requires_grad=trainable_kernel)
         else:
             ramlak = ramlak_filter(geometry, dtype)
             self.kernel = nn.Parameter(ramlak[None].repeat(geometry.phi_size, 1), requires_grad=trainable_kernel)
