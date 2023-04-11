@@ -7,6 +7,7 @@ from .data_generator import unstructured_random_phantom, random_phantom
 import torch.nn as nn
 import random
 import matplotlib.pyplot as plt
+from math import ceil
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -210,3 +211,10 @@ def setup(geometry: Geometry, num_to_generate = 1000, train_ratio=0.8, pre_compu
     print("Constructed training dataset of shape ", train_y.shape)
 
     return (train_sinos, train_y, test_sinos, test_y)
+
+def extend_geometry(geometry: Geometry):
+    "Extends a geometry from limited angle to a full angle geometry in which a subregion of sinograms corresponds to sinograms in the limited geometry."
+    ar, phi_size, t_size = geometry.ar, geometry.phi_size, geometry.t_size
+
+    full_phi_size = ceil(1.0 / ar * phi_size)
+    return Geometry(1.0, full_phi_size, t_size, reco_space=geometry.reco_space)
