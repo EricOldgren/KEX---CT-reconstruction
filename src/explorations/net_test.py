@@ -9,6 +9,7 @@ from utils.fno_1d import FNO1d
 from models.fouriernet import FNO_BP, GeneralizedFNO_BP as GFNO_BP
 from models.fbps import FBP, GeneralizedFBP as GFBP
 from models.analyticmodels import RamLak, ramlak_filter
+from models.expnet import ExtrapolationNet
 
 ANGLE_RATIOS = [0.5]#, 0.85, 0.9, 0.95, 1.0]
 EPOPCHS =      [40] #, 100, 100,  100, 60]
@@ -20,7 +21,7 @@ scale_factor = 1.0 #10 #output is zero all the time, a large scale factor will i
 if __name__ == '__main__':
 
     for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
-        geometry = Geometry(ar, 160, 100, reco_shape=(256, 256))
+        geometry = Geometry(ar, 200, 100, reco_shape=(256, 256))
         ext_geom = Geometry(1.0, 320, 100, reco_shape=(256, 256))
         modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0]
         geom2 = Geometry(1.0, 200, 100)
@@ -31,8 +32,9 @@ if __name__ == '__main__':
         # model = FBP(geometry, kernel=ramlak_filter(geometry, dtype=torch.float64))
         # model = GFBP(geometry)
         # model = FNO_BP(geometry, 200, layer_widths=[], dtype=torch.float32)
-        fno = FNO1d(modes, 160, 320, hidden_layer_widths=[40], verbose=True, dtype=torch.float32)
-        model = GFNO_BP(geometry, fno, ext_geom, dtype=torch.float32)
+        # fno = FNO1d(modes, 160, 320, hidden_layer_widths=[40], verbose=True, dtype=torch.float32)
+        # model = GFNO_BP(geometry, fno, ext_geom, dtype=torch.float32)
+        model = ExtrapolationNet(geometry)
         # model = ChainedModels(FBP(geometry, initial_kernel=ramlak_filter(geometry, dtype=torch.complex64)), GFBP(geom2, dtype=torch.complex64))
 
         #dataset = list(zip(train_sinos.to(DEVICE, non_blocking=True), train_y.to(DEVICE, non_blocking=True)))
