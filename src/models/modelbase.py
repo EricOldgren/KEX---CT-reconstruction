@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.axes._axes import Axes
 from typing import Literal, Mapping, Any, List
-from utils.geometry import Geometry
+from utils.geometry import Geometry, DEVICE
 import odl.contrib.torch as odl_torch
 import numpy as np
 import os
@@ -70,7 +70,7 @@ class ModelBase(nn.Module):
 
         return m2
 
-    def visualize_output(self, test_sinos: torch.Tensor, test_y: torch.Tensor, loss_fn = lambda diff : torch.mean(diff*diff), output_location: Literal["files", "show"] = "files", dirname = "data"):
+    def visualize_output(self, test_sinos: torch.Tensor, test_y: torch.Tensor, loss_fn = lambda diff : torch.mean(diff*diff), output_location: Literal["files", "show"] = "files", dirname = "data", prettify_output = True):
         """
             Evaluates loss with respect to input and displays a random sample.
 
@@ -79,7 +79,8 @@ class ModelBase(nn.Module):
                 - test_y: (batch_size x reco_shape) batch of corresponding image data
                 - loss_fn: loss function to use to evaluate loss
                 - output_location: whether to show plots or store to files
-                - dirnam: only used when output_location = files, path to folder where plots are stored - names are output-while-running and kernels-while-running
+                - dirname: only used when output_location = files, path to folder where plots are stored - names are output-while-running and kernels-while-running
+                - prettify_output (bool): if True pixel values larger than the maximum of the ground truth are truncated to maintain the same color scaling in the gt and recon images
         """
         ind = random.randint(0, test_sinos.shape[0]-1)
         with torch.no_grad():
@@ -88,6 +89,8 @@ class ModelBase(nn.Module):
         print()
         print(f"Evaluating current model state, validation loss: {loss.item()}. Displayiing sample nr {ind}: ")
         sample_sino, sample_y, sample_out = test_sinos[ind].to("cpu"), test_y[ind].to("cpu"), test_out[ind].to("cpu")
+        if prettify_output:
+            sample_out = torch.minimum(sample_out, torch.ones(sample_out.shape, device=DEVICE)*torch.max(sample_y))
 
         if self.reconstructionfig is None:
             self.reconstructionfig, (ax_gt, ax_recon) = plt.subplots(1,2)
