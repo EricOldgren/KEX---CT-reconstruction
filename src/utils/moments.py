@@ -54,7 +54,7 @@ def get_ON(basis: torch.Tensor, B: torch.Tensor = None):
     if B is None:
         B = torch.tensor([
             [torch.sum(basis[i]*basis[j]) for j in range(n)] for i in range(n)
-        ])
+        ], device=DEVICE)
     else:
         assert B.shape == (n,n) and B.T.conj() == B, "B should be a hermitian positive definite matrix defining the inner product"
     
