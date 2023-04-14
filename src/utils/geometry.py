@@ -3,7 +3,7 @@ from odl import DiscretizedSpace
 import odl.contrib.torch as odl_torch
 import torch
 import numpy as np
-from .data_generator import unstructured_random_phantom, random_phantom
+from utils.data_generator import unstructured_random_phantom, random_phantom
 import torch.nn as nn
 import random
 import matplotlib.pyplot as plt
@@ -87,6 +87,9 @@ class Geometry:
         back_scaled = (torch.cos(a*self.fourier_domain)+1j*torch.sin(a*self.fourier_domain)) / self.dt * sino_hat
         return torch.fft.irfft(back_scaled, axis=-1)
     
+
+
+
 
 class BasicModel(nn.Module):
 
@@ -219,3 +222,4 @@ def extend_geometry(geometry: Geometry):
 
     full_phi_size = ceil(1.0 / ar * phi_size)
     return Geometry(1.0, full_phi_size, t_size, reco_space=geometry.reco_space)
+
