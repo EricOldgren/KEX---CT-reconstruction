@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 import odl.contrib.torch as odl_torch
 
-from utils.geometry import Geometry, extend_geometry, setup
+from utils.geometry import Geometry, extend_geometry, setup, DEVICE
 from models.modelbase import ModelBase
 from models.fbps import FBP
 from models.analyticmodels import ramlak_filter
@@ -25,7 +25,7 @@ class ExtrapolatingBP(ModelBase):
         assert ext_phi_size > phi_size
 
         modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0]
-        self.sin2fill = FNO1d(modes, phi_size, ext_phi_size-phi_size, hidden_layer_widths=[40], verbose=True, dtype=torch.float)
+        self.sin2fill = FNO1d(modes, phi_size, ext_phi_size-phi_size, hidden_layer_widths=[40], verbose=True, dtype=torch.float).to(DEVICE)
         # self.sin2fill = nn.Sequential(nn.Conv1d(phi_size, 10, kernel_size=1, padding="same", bias=False), nn.ReLU(), nn.Conv1d(10, ext_phi_size-phi_size, kernel_size=1, padding="same", bias=False), nn.ReLU())
 
         # self.sin2mom = nn.Conv2d(1, t_size, kernel_size=(1, t_size), padding="valid", bias=False)
