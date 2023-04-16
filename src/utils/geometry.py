@@ -144,13 +144,12 @@ class BasicModel(nn.Module):
         plt.plot(self.geometry.fourier_domain.cpu(), self.kernel.detach().cpu(), label="filter in frequency domain")
         plt.legend()
         plt.figure()
-        plt.subplot(121)
+        plt.subplot(131)
         plt.imshow(sample_y)
         plt.title("Real data")
-        plt.subplot(122)
+        plt.subplot(132)
         plt.imshow(sample_out)
         plt.title("Filtered Backprojection")
-        plt.draw()
 
         plt.pause(0.05)
 
