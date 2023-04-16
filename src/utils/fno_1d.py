@@ -82,7 +82,7 @@ class SpectralConv1d(nn.Module):
 #                                    FNO 1D Using spectral convolution module                                 #
 ###############################################################################################################
 class FNO1d(nn.Module):
-    def __init__(self, modes, in_channels, out_channels, layer_widths=None, verbose=False, dtype=None):
+    def __init__(self, modes, in_channels, out_channels, hidden_layer_widths=None, verbose=False, dtype=None):
         super(FNO1d, self).__init__()
 
         """
@@ -134,14 +134,14 @@ class FNO1d(nn.Module):
         """
         
         self.verbose = verbose
-        
-        if layer_widths is None:
-            self.n_layers = 4
-            self.layer_widths = [2 * in_channels,] * (self.n_layers+1)
-            self.print_msg(f"Employing default layer structure, {self.layer_widths}")
-        else:
-            self.n_layers = len(layer_widths)-1
-            self.layer_widths = layer_widths
+        #Modified
+        if hidden_layer_widths is None:
+            hidden_layer_widths = [2 * in_channels,] * 4
+            self.print_msg(f"Employing default layer structure, {hidden_layer_widths}")
+
+        #Modified
+        self.layer_widths = [in_channels] + hidden_layer_widths + [out_channels]
+        self.n_layers = len(self.layer_widths)-1
             
         if (dtype == "float") or (dtype is torch.float):
             self.dtype = torch.float
@@ -150,8 +150,8 @@ class FNO1d(nn.Module):
             self.dtype = torch.double
             self.cdtype = torch.cdouble    
             
-        
-        self.inp = nn.Linear(in_channels, self.layer_widths[0], dtype=self.dtype)        
+        #Modified
+        #self.inp = SpectralConv1d(in_channels, self.layer_widths[0], modes, dtype=self.dtype)      
         
         # Convolution layers
         self.conv_list = nn.ModuleList([SpectralConv1d(self.layer_widths[i], self.layer_widths[i+1], modes, dtype=self.dtype) for i in range(self.n_layers)])
@@ -159,8 +159,8 @@ class FNO1d(nn.Module):
         # Linear layers
         self.lin_list = nn.ModuleList([nn.Conv1d(self.layer_widths[i], self.layer_widths[i+1], 1, dtype=self.dtype) for i in range(self.n_layers)])
         
-
-        self.out = nn.Linear(self.layer_widths[-1], out_channels, dtype=self.dtype)
+        #Modified
+        #self.out = SpectralConv1d(self.layer_widths[-1], out_channels, modes, dtype=self.dtype) #nn.Linear(self.layer_widths[-1], out_channels, dtype=self.dtype)
 
         
     def print_msg(self, msg):
@@ -168,21 +168,27 @@ class FNO1d(nn.Module):
             print(msg)
         pass
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         
-        # Project to FNO width
-        #print(self.inp.weight.dtype)
-        x = self.inp(x.permute(0,2,1)).permute(0,2,1)
-        
+        x0 = x
         # Evaluate FNO
         for conv_op, lin_op in zip(self.conv_list, self.lin_list):
-            x = F.gelu(conv_op(x) + lin_op(x))
-        
+            x = F.gelu(conv_op(x))
+        return x
         # Project to out_channels width
-        return self.out(x.permute(0,2,1)).permute(0,2,1)
+        #return self.out(x.permute(0,2,1)).permute(0,2,1)
 
     def get_grid(self, shape, device):
         batchsize, size_x = shape[0], shape[1]
         gridx = torch.tensor(np.linspace(0, 1, size_x), dtype=self.cdtype)
         gridx = gridx.reshape(1, size_x, 1).repeat([batchsize, 1, 1])
         return gridx.to(device)
+
+#added for experimentation
+if __name__ == '__main__':
+    fno = FNO1d(100, 4, 4, hidden_layer_widths=[], verbose=True, dtype=torch.complex64)
+
+
+    print(list(fno.parameters()))
+
+    print(fno)
