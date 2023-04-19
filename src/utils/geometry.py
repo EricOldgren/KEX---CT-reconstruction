@@ -174,7 +174,7 @@ def setup(geometry: Geometry, num_to_generate = 1000, train_ratio=0.8, pre_compu
     if use_realistic:
         read_data: torch.Tensor = torch.load(data_path).moveaxis(0,1).to(DEVICE)
         read_data = torch.concat([read_data[1], read_data[0], read_data[2]])
-        read_data = read_data[:600] # -- uncomment to read this data
+        read_data = read_data[:500] # -- uncomment to read this data
         read_data /= torch.max(torch.max(read_data, dim=-1).values, dim=-1).values[:, None, None]
     else:
         read_data = torch.tensor([]).to(DEVICE)
