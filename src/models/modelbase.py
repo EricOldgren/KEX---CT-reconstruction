@@ -90,7 +90,7 @@ class ModelBase(nn.Module):
         print(f"Evaluating current model state, validation loss: {loss.item()}. Displayiing sample nr {ind}: ")
         sample_sino, sample_y, sample_out = test_sinos[ind].to("cpu"), test_y[ind].to("cpu"), test_out[ind].to("cpu")
         if prettify_output:
-            sample_out = torch.minimum(sample_out, torch.ones(sample_out.shape, device=DEVICE)*torch.max(sample_y))
+            sample_out = torch.minimum(sample_out, torch.ones(sample_out.shape, device="cpu")*torch.max(sample_y))
 
         if self.reconstructionfig is None:
             self.reconstructionfig, (ax_gt, ax_recon) = plt.subplots(1,2)
