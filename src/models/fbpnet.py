@@ -68,7 +68,7 @@ def load_fbpnet_from_dict(path, smooth_filters: bool = False):
     sd = torch.load(path)
     ar, phi_size, t_size = sd["ar"], sd["phi_size"], sd["t_size"]
     geometry = Geometry(ar, phi_size, t_size)
-    ret = FBPNet(geometry, n_fbps=sd["n_fbps"], use_smooth_filters=smooth_filters)
-    ret.load_state_dict(sd)
+    ret = FBPNet(geometry, n_fbps=sd["n_fbps"])#, use_smooth_filters=smooth_filters)
+    ret.load_state_dict(sd, strict=False)
     return ret
 
