@@ -130,4 +130,33 @@ class GeneralizedFNO_BP(ModelBase):
         out = out + torch.concatenate([out_base, unknown], dim=1)
 
         return F.relu(self.extended_BP_layer(out))
+    
+    @classmethod
+    def model_from_state_dict(clc, state_dict):
+        ar, phi_size, t_size = state_dict['ar'], state_dict['phi_size'], state_dict['t_size']
+        g = Geometry(ar, phi_size, t_size)
+        
+        fno_sd = {k[4:]: v for k, v in state_dict.items() if k.startswith("fno.")}
+        in_channels, out_channels, modes = fno_sd["conv_list.0.weights"].shape
+        dtype = torch.float if state_dict["basefilter"].dtype == torch.cfloat else torch.double
+        hidden_layer_widths = []
+        li = 1
+        while True:
+            if f"conv_list.{li}.weights" in fno_sd:
+                w = fno_sd[f"conv_list.{li}.weights"]
+                hidden_layer_widths.append(w.shape[0])
+                out_channels = w.shape[1]
+                li += 1
+            else:
+                break
+
+        fno = FNO1d(modes, in_channels, out_channels, hidden_layer_widths=hidden_layer_widths, verbose=True, dtype=dtype)
+
+        m = clc(g, fno, dtype=dtype)
+        m.load_state_dict(state_dict)
+
+        return m
+
+
+
 
