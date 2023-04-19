@@ -120,6 +120,8 @@ class GeneralizedFNO_BP(ModelBase):
         N, phi_size, t_size = X.shape
 
         out = self.fno(X)
+        #print(out.shape)
+        #print(N, self.extended_geometry.phi_size, self.extended_geometry.t_size)
         assert out.shape == (N, self.extended_geometry.phi_size, self.extended_geometry.t_size), "fno incompatible with geometries"
 
         out_base = self.geometry.inverse_fourier_transform(self.geometry.fourier_transform(X) * self.basefilter)
