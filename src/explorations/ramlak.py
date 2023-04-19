@@ -10,8 +10,6 @@ from models.modelbase import ChainedModels
 from models.fbps import FBP
 
 ANGLE_RATIOS = [0.5]
-EPOPCHS =      [100, 60]
-TRAINED = {}
 
 
 for ar in ANGLE_RATIOS:

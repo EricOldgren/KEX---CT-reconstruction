@@ -16,14 +16,15 @@ geometry2 = Geometry(0.5, 450, 300)
 
 data: torch.Tensor = torch.load("data\kits_phantoms_256.pt").moveaxis(0,1).to("cuda")
 data = torch.concat([data[1], data[0], data[2]])
-test_img = data[:600]
+test_img = data[:10]
+test_img /= torch.max(torch.max(test_img, dim=-1).values, dim=-1).values[:, None, None]
 
 def display_result_img(img, model_path_multi=None, model_path_single=None, model_path_fno=None):
     ray_layer = odl_torch.OperatorModule(geometry.ray)
     sinos: torch.Tensor = ray_layer(img)
     ray_layer2 = odl_torch.OperatorModule(geometry2.ray)
     sinos2: torch.Tensor = ray_layer2(img)
-    index = rnd.randrange(0,600)
+    index = rnd.randrange(0,10)
     original_img = test_img[index].cpu()
 
     modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0]
@@ -53,30 +54,39 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
 
     plt.subplot(251)
     plt.imshow(original_img, cmap='gray')
+    plt.axis('off')
 
     plt.subplot(252)
     plt.imshow(recon_analytic, cmap='gray')
+    plt.axis('off')
     plt.title("Result using FBP with analytic kernel")
     plt.subplot(257)
-    plt.imshow(recon_analytic-original_img, cmap='gray')
+    plt.imshow(abs(recon_analytic-original_img), cmap='gray')
+    plt.axis('off')
 
     plt.subplot(253)
     plt.imshow(recon_single, cmap='gray')
+    plt.axis('off')
     plt.title("Result using FBP with a single trained filter")
     plt.subplot(258)
-    plt.imshow(recon_single-original_img, cmap='gray')
+    plt.imshow(abs(recon_single-original_img), cmap='gray')
+    plt.axis('off')
 
     plt.subplot(254)
     plt.imshow(recon_multi, cmap='gray')
+    plt.axis('off')
     plt.title("Result combining FBPs")
     plt.subplot(259)
-    plt.imshow(recon_multi-original_img, cmap='gray')
+    plt.imshow(abs(recon_multi-original_img), cmap='gray')
+    plt.axis('off')
 
     plt.subplot(255)
     plt.imshow(recon_fno, cmap='gray')
+    plt.axis('off')
     plt.title("Results using FNO to reconstruct to expand sinogram")
     plt.subplot(2,5,10)
-    plt.imshow(recon_fno-original_img,cmap='gray')
+    plt.imshow(abs(recon_fno-original_img),cmap='gray')
+    plt.axis('off')
 
 
     plt.show()

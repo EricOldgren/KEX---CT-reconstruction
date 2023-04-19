@@ -112,7 +112,7 @@ class BasicModel(nn.Module):
     def forward(self, sinos):
         sino_freq = self.geometry.fourier_transform(sinos)
         filtered_sinos = self.kernel*sino_freq
-        filtered_sinos = self.geometry.inverse_fourier_transform(filtered_sinos)
+        filtered_sinos = self.geometry.inverse_fourier_transform(filtered_sinos)    #memory problem
 
         return self.BP_layer(filtered_sinos)
     
@@ -194,7 +194,7 @@ def setup(geometry: Geometry, num_to_generate = 1000, train_ratio=0.8, pre_compu
     print("Constructing random phantoms...")
     constructed_data = np.zeros((to_construct, *geometry.reco_space.shape))
     for i in range(to_construct): #This is quite slow
-        constructed_data[i] = unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=30).asarray()
+        constructed_data[i] = unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=10).asarray()
     constructed_data = torch.from_numpy(constructed_data).to(DEVICE).to(dtype=torch.float32)
 
     #Combine phantoms
