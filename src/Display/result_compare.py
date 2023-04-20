@@ -10,14 +10,15 @@ from src.models.analyticmodels import RamLak
 import random as rnd
 import math
 from src.utils.fno_1d import FNO1d
-from statistical_measures import ssim
+from statistical_measures import ssim, psnr
+from src.models.fbps import FBP
 
 geometry = Geometry(0.5, 300, 150)
 geometry2 = Geometry(0.5, 450, 300)
 
 data: torch.Tensor = torch.load("data\kits_phantoms_256.pt").moveaxis(0,1).to("cuda")
 data = torch.concat([data[1], data[0], data[2]])
-test_img = data[:100]
+test_img = data[-100:]
 index = rnd.randrange(0,100)
 test_img /= torch.max(torch.max(test_img, dim=-1).values, dim=-1).values[:, None, None]
 
@@ -37,6 +38,7 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
         recon_fnos = model_fno.forward(sinos)
         recon_fno = recon_fnos[index].to("cpu")
     print("FNO ssim:", ssim(recon_fno,original_img))
+    print("FNO psnr:", psnr(recon_fno,original_img))
 
     model_multi = FBPNet(geometry2, 4)
     model_multi.load_state_dict(torch.load(model_path_multi), strict=False)
@@ -44,13 +46,15 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
         recon_multis = model_multi.forward(sinos2)
         recon_multi = recon_multis[index].to("cpu")
     print("Multi ssim:", ssim(recon_multi,original_img))
+    print("Multi psnr:", psnr(recon_multi,original_img))
     
-    model_single = FBPNet(geometry2, 1)
+    model_single = FBP(geometry2)
     model_single.load_state_dict(torch.load(model_path_single), strict=False)
     with torch.no_grad():
         recon_singles = model_single.forward(sinos2)
         recon_single = recon_singles[index].to("cpu")
     print("Single ssim:", ssim(recon_single,original_img))
+    print("Single psnr:", psnr(recon_single,original_img))
 
     
     #model_analytic = RamLak(geometry2)
@@ -61,6 +65,7 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
     recon_analytic = torch.Tensor(fbp(proj_data).asarray())
 
     print("Analytic ssim:", ssim(recon_analytic,original_img))
+    print("Analytic psnr:", psnr(recon_analytic,original_img))
     
 
     plt.subplot(251)
