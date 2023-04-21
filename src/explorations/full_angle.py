@@ -13,13 +13,13 @@ LAMBDA  = 10 #regularization parameter
 for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
     geometry = Geometry(ar, 450, 300) #50,40
 
-    (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_to_generate=4000,use_realistic=True,data_path="data/kits_phantoms_256.pt")
-    model = FBPNet(geometry, n_fbps=1)
+    (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_to_generate=500,use_realistic=True,data_path="data/kits_phantoms_256.pt")
+    model = FBPNet(geometry, n_fbps=4)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     loss_fn = lambda diff : torch.mean(diff*diff)
 
-    dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=20, shuffle=True)
+    dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=10, shuffle=True)
 
     for epoch in range(n_epochs):
         #if epoch % 10 == 0:
