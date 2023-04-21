@@ -26,4 +26,6 @@ m2 = model
 
 print("Done")
 
+import pickle
+pickle.dump(model, "hello_there.pickle")
 # x = 100
