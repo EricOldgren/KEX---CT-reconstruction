@@ -15,7 +15,7 @@ ANGLE_RATIOS = [0.5]
 for ar in ANGLE_RATIOS:
 
     #For maximazing omega - phi_size ~ pi * t_size / 2
-    geometry = Geometry(0.5, phi_size=300, t_size=150)
+    geometry = Geometry(1.0, phi_size=300, t_size=150)
     geom2 = Geometry(1.0, 300, 150)
     ray = odl_torch.OperatorModule(geom2.ray)
     (test_sinos, test_y, _, _) = setup(geometry, train_ratio=0.03, num_to_generate=0, use_realistic=True, data_path="data/kits_phantoms_256.pt")
