@@ -13,11 +13,11 @@ from src.utils.fno_1d import FNO1d
 from statistical_measures import ssim, psnr
 from src.models.fbps import FBP
 
-geometry = Geometry(0.25, 450, 300)
+geometry = Geometry(1.0, 450, 300)
 
 data: torch.Tensor = torch.load("data\kits_phantoms_256.pt").moveaxis(0,1).to("cuda")
 data = torch.concat([data[1], data[0], data[2]])
-test_img = data[-100:]
+test_img = data[500:600]
 index = rnd.randrange(0,100)
 test_img /= torch.max(torch.max(test_img, dim=-1).values, dim=-1).values[:, None, None]
 
@@ -64,8 +64,7 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
 
     print("Analytic ssim:", ssim(recon_analytic,original_img))
     print("Analytic psnr:", psnr(recon_analytic,original_img))
-    
-    plt.clc()
+
 
     plt.subplot(251)
     plt.imshow(original_img, cmap='gray')
@@ -107,8 +106,8 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
     plt.show()
 
 def display_result_sino(img, model_path_fno):
-    ext_geom = Geometry(1.0, 1800, 300)
-    geom = Geometry(0.25, 450, 300)
+    ext_geom = Geometry(1.0, 450, 300)
+    geom = geometry
     ray_layer = odl_torch.OperatorModule(geom.ray)
     sinos: torch.Tensor = ray_layer(img)
     ray_layer_full = odl_torch.OperatorModule(ext_geom.ray)
@@ -141,7 +140,10 @@ def display_result_sino(img, model_path_fno):
 
 
 def test():
-    display_result_sino(test_img, "results\gfno_bp-ar0.25-state-dict-450x300.pt")
-    display_result_img(img=test_img, model_path_multi="results\final ar0.25 multi ver 2.pt", model_path_single="results\final ar0.25 single ver2.pt", model_path_fno="results\gfno_bp-ar0.25-state-dict-450x300.pt")
+    #display_result_sino(test_img, "results\gfno_bp-ar0.25-state-dict-450x300.pt")
+    #display_result_img(test_img, model_path_multi="results\Final-ar0.25-multi-ver-2.pt", model_path_single="results\Final-ar0.25-single-ver-2.pt", model_path_fno="results\gfno_bp-ar0.25-state-dict-450x300.pt")
+
+    display_result_sino(test_img, "results\gfno_bp-ar1.0-state-dict-450x300.pt")
+    display_result_img(test_img, model_path_multi="results\Final-ar1-multi-ver-2.pt", model_path_single="results\Final-ar1-single-ver-2.pt", model_path_fno="results\gfno_bp-ar1.0-state-dict-450x300.pt")
 
 test()
