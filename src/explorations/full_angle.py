@@ -6,7 +6,7 @@ from models.fbpnet import FBPNet
 from models.fouriernet import FNO_BP
 from models.fbps import FBP
 
-ANGLE_RATIOS = [0.75]# 0.8, 0.85, 0.9, 0.95, 1.0]
+ANGLE_RATIOS = [0.25]# 0.8, 0.85, 0.9, 0.95, 1.0]
 EPOPCHS =      [100]# 100, 100, 100,  100, 60]
 TRAINED = {}
 LAMBDA  = 10 #regularization parameter
@@ -14,13 +14,13 @@ LAMBDA  = 10 #regularization parameter
 for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
     geometry = Geometry(ar, 450, 300) #50,40
 
-    (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_to_generate=4000,use_realistic=True,data_path="data/kits_phantoms_256.pt")
+    (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_to_generate=1500,use_realistic=True, pre_computed_phantoms=torch.load("data\constructed_data.pt"),data_path="data/kits_phantoms_256.pt") #, pre_computed_phantoms=torch.load("data\constructed_data.pt")
     model = FBP(geometry)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     loss_fn = lambda diff : torch.mean(diff*diff)
 
-    dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=20, shuffle=True)
+    dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=10, shuffle=True)
 
     for epoch in range(n_epochs):
         #if epoch % 10 == 0:
@@ -38,5 +38,5 @@ for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
     
     TRAINED[ar] = model
 
-torch.save(TRAINED[0.75].state_dict(), "results\prev_res.pt")
+torch.save(TRAINED[0.25].state_dict(), "results\prev_res.pt")
 
