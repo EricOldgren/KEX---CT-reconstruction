@@ -38,8 +38,10 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
     print("FNO psnr:", psnr(recon_fno,original_img))
 
     model_multi = FBPNet(geometry, 4)
+    model_multi = FBPNet(geometry, 4)
     model_multi.load_state_dict(torch.load(model_path_multi), strict=False)
     with torch.no_grad():
+        recon_multis = model_multi.forward(sinos)
         recon_multis = model_multi.forward(sinos)
         recon_multi = recon_multis[index].to("cpu")
     print("Multi ssim:", ssim(recon_multi,original_img))
