@@ -20,7 +20,7 @@ for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     loss_fn = lambda diff : torch.mean(diff*diff)
 
-    dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=20, shuffle=True)
+    dataloader = DataLoader(list(zip(train_sinos, train_y)), batch_size=10, shuffle=True)
 
     for epoch in range(n_epochs):
         #if epoch % 10 == 0:

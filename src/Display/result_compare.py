@@ -40,10 +40,10 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
     print("FNO ssim:", ssim(recon_fno,original_img))
     print("FNO psnr:", psnr(recon_fno,original_img))
 
-    model_multi = FBPNet(geometry2, 4)
+    model_multi = FBPNet(geometry, 4)
     model_multi.load_state_dict(torch.load(model_path_multi), strict=False)
     with torch.no_grad():
-        recon_multis = model_multi.forward(sinos2)
+        recon_multis = model_multi.forward(sinos)
         recon_multi = recon_multis[index].to("cpu")
     print("Multi ssim:", ssim(recon_multi,original_img))
     print("Multi psnr:", psnr(recon_multi,original_img))
@@ -144,6 +144,6 @@ def display_result_sino(img, model_path_fno):
 
 def test():
     #display_result_sino(test_img, "results\gfno_bp0.5-state-dict.pt")
-    display_result_img(img=test_img, model_path_multi="results\prev_res ar0.5 4fbp 450_300 ver2.pt", model_path_single="results\prev_res ar0.5 1fbp 450_300 ver1.pt", model_path_fno="results\gfno_bp0.5-state-dict.pt")
+    display_result_img(img=test_img, model_path_multi="results\prev_res only emmanuel.pt", model_path_single="results\prev_res ar0.5 1fbp 450_300 ver1.pt", model_path_fno="results\gfno_bp0.5-state-dict.pt")
 
 test()
