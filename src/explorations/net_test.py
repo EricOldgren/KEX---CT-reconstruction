@@ -34,7 +34,7 @@ if __name__ == '__main__':
         # model = FBP(geometry, kernel=ramlak_filter(geometry, dtype=torch.float64))
         # model = GFBP(geometry)
         # model = FNO_BP(geometry, 200, layer_widths=[], dtype=torch.float32)
-        # fno = FNO1d(modes, 160, 320, hidden_layer_widths=[40], verbose=True, dtype=torch.float32)
+        # fno = FNO1d(modes, 160, 320, layer_widths=[40,40], verbose=True, dtype=torch.float32)
         # model = GFNO_BP(geometry, fno, ext_geom, dtype=torch.float32)
         model = ExtrapolatingBP(geometry)
         # model = ChainedModels(FBP(geometry, initial_kernel=ramlak_filter(geometry, dtype=torch.complex64)), GFBP(geom2, dtype=torch.complex64))
