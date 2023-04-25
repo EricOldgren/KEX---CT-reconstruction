@@ -9,7 +9,7 @@ from models.fouriernet import GeneralizedFNO_BP as GFNO_BP
 from models.fbps import FBP
 
 # model = load_fbpnet_from_dict("testing.pt", smooth_filters=True)
-sd = torch.load("data/gfno-report-test/gfno_bp-ar1.0-state-dict-450x300.pt", map_location="cpu")
+sd = torch.load("data/gfno-report-test/gfno-ar0.5-450x300.pt", map_location="cpu")
 
 model = GFNO_BP.model_from_state_dict(sd)
 
