@@ -78,10 +78,10 @@ class ExtrapolatingBP(ModelBase):
             ax_gt, ax_exp = self.reconstructionfig.get_axes()
         print("Validation loss for sinogram extrapolation is", loss.item(), " displaying sample nr", ind)
 
-        ax_gt.imshow(full_test_sinos[ind])
+        ax_gt.imshow(full_test_sinos[ind].cpu())
         ax_gt.set_title("Real, full sino")
 
-        ax_exp.imshow(exp_sinos[ind])
+        ax_exp.imshow(exp_sinos[ind].cpu())
         ax_exp.set_title("Extrapolated sino")
 
         self.sinofig.suptitle(f"Averagred sino MSE {loss.item()}")
