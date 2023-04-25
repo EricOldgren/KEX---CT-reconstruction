@@ -13,27 +13,25 @@ from src.utils.fno_1d import FNO1d
 from statistical_measures import ssim, psnr
 from src.models.fbps import FBP
 
-geometry = Geometry(0.5, 300, 150)
-geometry2 = Geometry(0.5, 450, 300)
+geometry = Geometry(1.0, 450, 300)
 
 data: torch.Tensor = torch.load("data\kits_phantoms_256.pt").moveaxis(0,1).to("cuda")
 data = torch.concat([data[1], data[0], data[2]])
-test_img = data[-100:]
+test_img = data[500:600]
 index = rnd.randrange(0,100)
 test_img /= torch.max(torch.max(test_img, dim=-1).values, dim=-1).values[:, None, None]
 
 def display_result_img(img, model_path_multi=None, model_path_single=None, model_path_fno=None):
     ray_layer = odl_torch.OperatorModule(geometry.ray)
     sinos: torch.Tensor = ray_layer(img)
-    ray_layer2 = odl_torch.OperatorModule(geometry2.ray)
-    sinos2: torch.Tensor = ray_layer2(img)
     original_img = test_img[index].cpu()
 
-    modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0]
-    fno = FNO1d(modes, 300, 600, hidden_layer_widths=[40], verbose=True, dtype=torch.float32)
-    ext_geom = Geometry(1.0, phi_size=600, t_size=150)
-    model_fno = GeneralizedFNO_BP(geometry, fno, ext_geom)
-    model_fno.load_state_dict(torch.load(model_path_fno))
+    #modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0]
+    #fno = FNO1d(modes, 300, 600, hidden_layer_widths=[30 30], verbose=True, dtype=torch.float32)
+    #ext_geom = Geometry(1.0, phi_size=1200, t_size=150)
+    #model_fno = GeneralizedFNO_BP(geometry, fno, ext_geom)
+    #model_fno.load_state_dict(torch.load(model_path_fno),strict=False)
+    model_fno = GeneralizedFNO_BP.model_from_state_dict(torch.load(model_path_fno))
     with torch.no_grad():
         recon_fnos = model_fno.forward(sinos)
         recon_fno = recon_fnos[index].to("cpu")
@@ -48,25 +46,25 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
     print("Multi ssim:", ssim(recon_multi,original_img))
     print("Multi psnr:", psnr(recon_multi,original_img))
     
-    model_single = FBP(geometry2)
+    model_single = FBP(geometry)
     model_single.load_state_dict(torch.load(model_path_single), strict=False)
     with torch.no_grad():
-        recon_singles = model_single.forward(sinos2)
+        recon_singles = model_single.forward(sinos)
         recon_single = recon_singles[index].to("cpu")
     print("Single ssim:", ssim(recon_single,original_img))
     print("Single psnr:", psnr(recon_single,original_img))
 
     
-    #model_analytic = RamLak(geometry2)
-    #recon_analytic = model_analytic.forward(sinos2)[index].cpu()
+    model_analytic = RamLak(geometry)
+    recon_analytic = model_analytic.forward(sinos)[index].cpu()
     
-    fbp = odl.tomo.fbp_op(geometry.ray, padding=False)
-    proj_data = geometry.ray(original_img)
-    recon_analytic = torch.Tensor(fbp(proj_data).asarray())
+    #fbp = odl.tomo.fbp_op(geometry.ray, padding=False)
+    #proj_data = geometry.ray(original_img)
+    #recon_analytic = torch.Tensor(fbp(proj_data).asarray())
 
     print("Analytic ssim:", ssim(recon_analytic,original_img))
     print("Analytic psnr:", psnr(recon_analytic,original_img))
-    
+
 
     plt.subplot(251)
     plt.imshow(original_img, cmap='gray')
@@ -108,21 +106,20 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
     plt.show()
 
 def display_result_sino(img, model_path_fno):
-    full_geom = Geometry(1.0, 600, 150)
-    geom = Geometry(0.5, 300, 150)
+    ext_geom = Geometry(1.0, 450, 300)
+    geom = geometry
     ray_layer = odl_torch.OperatorModule(geom.ray)
     sinos: torch.Tensor = ray_layer(img)
-    ray_layer_full = odl_torch.OperatorModule(full_geom.ray)
+    ray_layer_full = odl_torch.OperatorModule(ext_geom.ray)
     sinos_full: torch.Tensor = ray_layer_full(img)
-
 
     true_sino = sinos_full[index].detach().cpu()
 
-    modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0]
-    fno = FNO1d(modes, 300, 600, hidden_layer_widths=[40], verbose=True, dtype=torch.float32)
-    ext_geom = Geometry(1.0, phi_size=600, t_size=150)
-    model_fno = GeneralizedFNO_BP(geometry, fno, ext_geom)
-    model_fno.load_state_dict(torch.load(model_path_fno))
+    # modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0]
+    # fno = FNO1d(modes, 300, 600, hidden_layer_widths=[40], verbose=True, dtype=torch.float32)
+    # model_fno = GeneralizedFNO_BP(geometry, fno, ext_geom)
+    # model_fno.load_state_dict(torch.load(model_path_fno))
+    model_fno = GeneralizedFNO_BP.model_from_state_dict(torch.load(model_path_fno))
     fno_sinos = model_fno.return_sino(sinos)
     fno_sino = fno_sinos[index].detach().cpu()
 
@@ -143,7 +140,10 @@ def display_result_sino(img, model_path_fno):
 
 
 def test():
-    #display_result_sino(test_img, "results\gfno_bp0.5-state-dict.pt")
-    display_result_img(img=test_img, model_path_multi="results\prev_res only emmanuel.pt", model_path_single="results\prev_res ar0.5 1fbp 450_300 ver1.pt", model_path_fno="results\gfno_bp0.5-state-dict.pt")
+    #display_result_sino(test_img, "results\gfno_bp-ar0.25-state-dict-450x300.pt")
+    #display_result_img(test_img, model_path_multi="results\Final-ar0.25-multi-ver-2.pt", model_path_single="results\Final-ar0.25-single-ver-2.pt", model_path_fno="results\gfno_bp-ar0.25-state-dict-450x300.pt")
+
+    display_result_sino(test_img, "results\gfno_bp-ar1.0-state-dict-450x300.pt")
+    display_result_img(test_img, model_path_multi="results\Final-ar1-multi-ver-2.pt", model_path_single="results\Final-ar1-single-ver-2.pt", model_path_fno="results\gfno_bp-ar1.0-state-dict-450x300.pt")
 
 test()
