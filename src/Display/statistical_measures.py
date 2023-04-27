@@ -11,6 +11,7 @@ import random as rnd
 import math
 from src.utils.fno_1d import FNO1d
 from skimage.metrics import structural_similarity as ssim_import
+from src.models.fbps import FBP
 
 
 
@@ -36,6 +37,7 @@ def statistical_results(test_data, model):
 
     psnr_array=[]
     ssim_array=[]
+    
 
     for i in range(len(test_data)):
         psnr_array.append(psnr(recon_img[i],test_data[i]))
@@ -46,10 +48,10 @@ def statistical_results(test_data, model):
     mean_square_psnr=np.mean(np.square(psnr_array))
     mean_square_ssim=np.mean(np.square(ssim_array))
 
-    var_psnr=np.sqrt(mean_square_psnr-np.square(mean_psnr))
-    var_ssim=np.sqrt(mean_square_ssim-np.square(mean_ssim))
+    std_psnr=np.sqrt(mean_square_psnr-np.square(mean_psnr))
+    std_ssim=np.sqrt(mean_square_ssim-np.square(mean_ssim))
 
-    return np.array([mean_psnr,var_psnr,mean_ssim,var_ssim])
+    return np.array([mean_psnr,2*(std_psnr),mean_ssim,2*(std_ssim)])
 
 
 def test():
@@ -58,15 +60,13 @@ def test():
     test_data = data[500:600]
     test_data /= torch.max(torch.max(test_data, dim=-1).values, dim=-1).values[:, None, None]
 
-    geometry = Geometry(0.5, 300, 150)
-    model_path_fno = "results\gfno_bp0.5-state-dict.pt"
+    geometry = Geometry(1, 450, 300)
+    model_analytic = RamLak(geometry)
 
-    modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0]
-    fno = FNO1d(modes, 300, 600, hidden_layer_widths=[40], verbose=True, dtype=torch.float32)
-    ext_geom = Geometry(1.0, phi_size=600, t_size=150)
-    model_fno = GeneralizedFNO_BP(geometry, fno, ext_geom)
-    model_fno.load_state_dict(torch.load(model_path_fno))
+    model_path = "results\gfno_bp-ar1.0-state-dict-450x300.pt"
 
+    model_fno = GeneralizedFNO_BP.model_from_state_dict(torch.load(model_path))
     
-    
-    print(statistical_results(test_data,model_fno))
+    print(statistical_results(test_data,model_analytic))
+
+test()

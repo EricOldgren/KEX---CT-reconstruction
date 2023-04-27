@@ -13,12 +13,12 @@ from src.utils.fno_1d import FNO1d
 from statistical_measures import ssim, psnr
 from src.models.fbps import FBP
 
-geometry = Geometry(1.0, 450, 300)
+geometry = Geometry(0.25, 450, 300)
 
 data: torch.Tensor = torch.load("data\kits_phantoms_256.pt").moveaxis(0,1).to("cuda")
 data = torch.concat([data[1], data[0], data[2]])
 test_img = data[500:600]
-index = rnd.randrange(0,100)
+index = 50#rnd.randrange(0,100)
 test_img /= torch.max(torch.max(test_img, dim=-1).values, dim=-1).values[:, None, None]
 
 def display_result_img(img, model_path_multi=None, model_path_single=None, model_path_fno=None):
@@ -62,11 +62,12 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
     #proj_data = geometry.ray(original_img)
     #recon_analytic = torch.Tensor(fbp(proj_data).asarray())
 
-    print("Analytic ssim:", ssim(recon_analytic,original_img))
+    print("Analytic ssim:", ssim(recon_analytic,original_img),)
     print("Analytic psnr:", psnr(recon_analytic,original_img))
 
 
     plt.subplot(251)
+    plt.title("Original image")
     plt.imshow(original_img, cmap='gray')
     plt.axis('off')
 
@@ -89,7 +90,7 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
     plt.subplot(254)
     plt.imshow(recon_multi, cmap='gray')
     plt.axis('off')
-    plt.title("Result combining FBPs")
+    plt.title("Result combining 4 FBPs")
     plt.subplot(259)
     plt.imshow(abs(recon_multi-original_img), cmap='gray')
     plt.axis('off')
@@ -97,7 +98,7 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
     plt.subplot(255)
     plt.imshow(recon_fno, cmap='gray')
     plt.axis('off')
-    plt.title("Results using FNO to reconstruct to expand sinogram")
+    plt.title("Results using FNO")
     plt.subplot(2,5,10)
     plt.imshow(abs(recon_fno-original_img),cmap='gray')
     plt.axis('off')
@@ -106,7 +107,7 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
     plt.show()
 
 def display_result_sino(img, model_path_fno):
-    ext_geom = Geometry(1.0, 450, 300)
+    ext_geom = Geometry(1.0, 1800, 300)
     geom = geometry
     ray_layer = odl_torch.OperatorModule(geom.ray)
     sinos: torch.Tensor = ray_layer(img)
@@ -131,7 +132,7 @@ def display_result_sino(img, model_path_fno):
     plt.title("Full angle sinogram")
     plt.subplot(132)
     plt.imshow(fno_sino, cmap='gray')
-    plt.title("FNO reconstructed sinogram")
+    plt.title("FNO reconstructed filtered sinogram")
     plt.subplot(133)
     plt.imshow(abs(true_sino-fno_sino),cmap='gray')
     plt.title("Absolute difference")
@@ -143,7 +144,7 @@ def test():
     #display_result_sino(test_img, "results\gfno_bp-ar0.25-state-dict-450x300.pt")
     #display_result_img(test_img, model_path_multi="results\Final-ar0.25-multi-ver-2.pt", model_path_single="results\Final-ar0.25-single-ver-2.pt", model_path_fno="results\gfno_bp-ar0.25-state-dict-450x300.pt")
 
-    display_result_sino(test_img, "results\gfno_bp-ar1.0-state-dict-450x300.pt")
-    display_result_img(test_img, model_path_multi="results\Final-ar1-multi-ver-2.pt", model_path_single="results\Final-ar1-single-ver-2.pt", model_path_fno="results\gfno_bp-ar1.0-state-dict-450x300.pt")
+    display_result_sino(test_img, "results\gfno_bp-ar0.25-state-dict-450x300.pt")
+    display_result_img(test_img, model_path_multi="results\Final-ar0.25-multi-ver-2.pt", model_path_single="results\Final-ar0.25-single-ver-2.pt", model_path_fno="results\gfno_bp-ar0.25-state-dict-450x300.pt")
 
 test()
