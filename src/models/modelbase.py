@@ -17,6 +17,8 @@ class ModelBase(nn.Module):
     kernelfig: Figure = None
     plotkernels = False
 
+    use_padding = False
+
     def __init__(self, geometry: Geometry, **kwargs):
         super().__init__(**kwargs)
         self.geometry = geometry
@@ -133,6 +135,7 @@ class ModelBase(nn.Module):
             axs, = self.kernelfig.get_axes()
         if not isinstance(axs, np.ndarray): axs = np.array([axs]) #axs should be list of axes, plt.subplots returns only an axes object if called with 1 x 1 layout.
         self.kernelfig.suptitle("Kernels")
+        omgs = self.geometry.fourier_domain if not self.use_padding else self.geometry.fourier_domain_padded
 
         for ax in axs:
             ax: Axes
@@ -144,7 +147,7 @@ class ModelBase(nn.Module):
                 else:
                     kernel = (-1j*kernel).real
                     ax.set_title("Imaginary Part")
-                ax.plot(self.geometry.fourier_domain.cpu(), kernel.detach().cpu(), label=f"filter {i}")
+                ax.plot(omgs.cpu(), kernel.detach().cpu(), label=f"filter {i}")
             m, M = ax.get_ylim(); horizontal = np.linspace(m, M, 30)
             ax.plot([self.geometry.omega]*horizontal.shape[0], horizontal, dashes=[2,2], c='#000', label="omega")
 

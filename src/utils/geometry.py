@@ -42,6 +42,9 @@ class Geometry:
                 :reco_shape - pixel shape of images to be reconstructed
         """
         self.ar = angle_ratio; self.phi_size = phi_size; self.t_size = t_size
+        self.pad_size = t_size
+        "number of zeros to pad with on each side"
+        self.padded_t_size = self.t_size + 2*self.pad_size
 
         if reco_space is None:
             self.reco_space = odl.uniform_discr(min_pt=[-1.0, -1.0], max_pt=[1.0, 1.0], shape=reco_shape, dtype='float32')
@@ -64,31 +67,39 @@ class Geometry:
         self.omega: float = np.pi * min(self.ar / (self.dphi*self.rho), 1 / self.dt) #ar added to phi term - precision is never higher than if sampling would be over full angle
         "Maximum bandwith that can be reconstructed exactly using the given partition"
         self.fourier_domain: torch.Tensor = 2*np.pi * torch.fft.rfftfreq(t_size, d=self.dt).to(DEVICE)
-        "1rank tensor consisting of the frequencies where the fourier transform of functions defined on the detector partition are sampled using the discrete fourier transform"
+        "1rank tensor consisting of the angular velocities where the fourier transform of functions defined on the detector partition are sampled using the discrete fourier transform"
+        self.fourier_domain_padded: torch.Tensor = 2*np.pi * torch.fft.rfftfreq(self.padded_t_size, d=self.dt)
 
         self.ray = odl.tomo.RayTransform(self.reco_space, self.geometry)
 
         self.BP = BackProjection(self.ray)
     
-    def fourier_transform(self, sino):
+    def fourier_transform(self, sinos: torch.Tensor, padding = False):
         """
             Returns samples of the fourier transform of a function defined on the detector partition.
             Applies the torch fft on gpu and scales the result accordingly.
         """
-        a = -self.rho #first sampled point in real space
-        assert sino.shape[-1] == self.t_size, "Not an appropriate function"
-        return self.dt*(torch.cos(a*self.fourier_domain)-1j*torch.sin(a*self.fourier_domain))*torch.fft.rfft(sino, axis=-1)
-        #return self.dt*torch.exp(-1j*a*self.fourier_domain)*torch.fft.rfft(sino, axis=-1)
+        assert sinos.shape[-1] == self.t_size, "Not an appropriate function"
+        a = -self.rho  #first sampled point in real space
+        omgs = self.fourier_domain
+        if padding: #Do padding
+            sinos = nn.functional.pad(sinos, (self.pad_size, self.pad_size), "constant", 0)
+            a = a - self.dt * self.pad_size
+            omgs = self.fourier_domain_padded
+        return self.dt*(torch.cos(a*omgs)-1j*torch.sin(a*omgs))*torch.fft.rfft(sinos, axis=-1) #self.dt*torch.exp(-1j*a*self.fourier_domain)*torch.fft.rfft(sino, axis=-1)
     
-    def inverse_fourier_transform(self, sino_hat):
+    def inverse_fourier_transform(self, sino_hats, padding = False):
         "Inverse of Geometry.fourier_transform"
         a = -self.rho
-        #back_scaled = torch.exp(1j*a*self.fourier_domain) / self.dt * sino_hat
-        back_scaled = (torch.cos(a*self.fourier_domain)+1j*torch.sin(a*self.fourier_domain)) / self.dt * sino_hat
-        return torch.fft.irfft(back_scaled, axis=-1)
-    
-
-
+        omgs = self.fourier_domain
+        if padding: #Undo padding stuff
+            a = a - self.dt * self.pad_size
+            omgs = self.fourier_domain_padded
+        back_scaled = (torch.cos(a*omgs)+1j*torch.sin(a*omgs)) / self.dt * sino_hats # torch.exp(1j*a*self.fourier_domain) / self.dt * sino_hat
+        sinos = torch.fft.irfft(back_scaled, axis=-1)
+        if padding:
+            sinos = sinos[:, :, self.pad_size:-self.pad_size]
+        return sinos
 
 
 class BasicModel(nn.Module):
