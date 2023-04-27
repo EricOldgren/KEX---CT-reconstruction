@@ -68,7 +68,7 @@ class Geometry:
         "Maximum bandwith that can be reconstructed exactly using the given partition"
         self.fourier_domain: torch.Tensor = 2*np.pi * torch.fft.rfftfreq(t_size, d=self.dt).to(DEVICE)
         "1rank tensor consisting of the angular velocities where the fourier transform of functions defined on the detector partition are sampled using the discrete fourier transform"
-        self.fourier_domain_padded: torch.Tensor = 2*np.pi * torch.fft.rfftfreq(self.padded_t_size, d=self.dt)
+        self.fourier_domain_padded: torch.Tensor = 2*np.pi * torch.fft.rfftfreq(self.padded_t_size, d=self.dt).to(DEVICE)
 
         self.ray = odl.tomo.RayTransform(self.reco_space, self.geometry)
 
