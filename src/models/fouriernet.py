@@ -50,7 +50,7 @@ class FNO_BP(ModelBase):
         else:
             cdtype = torch.cfloat if dtype == torch.float else torch.cdouble #complex dtype
             if basefilter == None:
-                self.basefilter = nn.Parameter(ramlak_filter(geometry, cdtype), requires_grad=trainable_basefilter) #default to ramlak
+                self.basefilter = nn.Parameter(ramlak_filter(geometry, dtype=cdtype), requires_grad=trainable_basefilter) #default to ramlak
             else:
                 assert basefilter.shape == geometry.fourier_domain.shape, "wrong formatted basefilter"
                 self.basefilter = nn.Parameter(basefilter.to(DEVICE, dtype=cdtype), requires_grad=trainable_basefilter)
@@ -105,7 +105,7 @@ class GeneralizedFNO_BP(ModelBase):
             self.basefilter = nn.Parameter(torch.zeros(geometry.fourier_domain.shape, device=DEVICE, dtype=dtype), requires_grad=False)
         else:
             if basefilter == None:
-                self.basefilter = nn.Parameter(ramlak_filter(geometry, cdtype), requires_grad=trainable_basefilter) #default to ramlak
+                self.basefilter = nn.Parameter(ramlak_filter(geometry, dtype=cdtype), requires_grad=trainable_basefilter) #default to ramlak
             else:
                 assert basefilter.shape == geometry.fourier_domain.shape, "wrong formatted basefilter"
                 self.basefilter = nn.Parameter(basefilter.to(DEVICE, dtype=cdtype), requires_grad=trainable_basefilter)

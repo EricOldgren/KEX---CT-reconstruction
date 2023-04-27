@@ -56,7 +56,7 @@ class GeneralizedFBP(ModelBase):
             assert initial_kernel.shape == (geometry.phi_size, geometry.fourier_domain.shape[0]), f"Unexpected shape {initial_kernel.shape}"
             self.kernel = nn.Parameter(initial_kernel.to(DEVICE, dtype=dtype), requires_grad=trainable_kernel)
         else:
-            ramlak = ramlak_filter(geometry, dtype) / geometry.ar
+            ramlak = ramlak_filter(geometry, dtype=dtype) / geometry.ar
             self.kernel = nn.Parameter(ramlak[None].repeat(geometry.phi_size, 1), requires_grad=trainable_kernel)
     
     def forward(self, X: torch.Tensor):
