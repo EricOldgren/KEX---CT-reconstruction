@@ -53,10 +53,10 @@ class ModelBase(nn.Module):
         self.BP_layer = odl_torch.OperatorModule(geometry.BP)
     
     @classmethod
-    def model_from_state_dict(clc, state_dict):
+    def model_from_state_dict(clc, state_dict, use_padding=True):
         ar, phi_size, t_size = state_dict['ar'], state_dict['phi_size'], state_dict['t_size']
         g = Geometry(ar, phi_size, t_size)
-        m = clc(g)
+        m = clc(g, use_padding=use_padding)
         m.load_state_dict(state_dict)
         return m
 

@@ -18,7 +18,7 @@ import random
 
 class FNO_BP(ModelBase):
 
-    def __init__(self, geometry: Geometry, angle_batch_size: int, layer_widths = [10,10], dtype=torch.float64, use_basefliter = True, basefilter: 'torch.Tensor|None' = None, trainable_basefilter = False, **kwargs) -> None:
+    def __init__(self, geometry: Geometry, angle_batch_size: int, layer_widths = [10,10], dtype=torch.float64, use_basefliter = True, basefilter: 'torch.Tensor|None' = None, use_padding = True, trainable_basefilter = False, **kwargs) -> None:
         """
             Back projection model filtering with a combination of an FNO module and a kernel.
 
@@ -35,24 +35,26 @@ class FNO_BP(ModelBase):
         """
         super().__init__(geometry, **kwargs)
         self.plotkernels = True
+        self.use_padding = use_padding
 
         self.angle_batch_size = angle_batch_size
         
         assert geometry.phi_size % self.angle_batch_size == 0, "phi_size and angle batch size must match"
-        modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0]
+        omgs = geometry.fourier_domain_padded if use_padding else geometry.fourier_domain
+        modes = torch.where(omgs <= geometry.omega)[0].shape[0]
         
         self.fno = FNO1d(modes, in_channels=angle_batch_size, out_channels=angle_batch_size, layer_widths=layer_widths, dtype=dtype, verbose=True).to(DEVICE)
         self.add_module("fno", self.fno)
 
         #Init basefilter
         if not use_basefliter:
-            self.basefilter = nn.Parameter(torch.zeros(geometry.fourier_domain.shape, device=DEVICE, dtype=dtype), requires_grad=False)
+            self.basefilter = nn.Parameter(torch.zeros(omgs.shape, device=DEVICE, dtype=dtype), requires_grad=False)
         else:
             cdtype = torch.cfloat if dtype == torch.float else torch.cdouble #complex dtype
             if basefilter == None:
-                self.basefilter = nn.Parameter(ramlak_filter(geometry, dtype=cdtype), requires_grad=trainable_basefilter) #default to ramlak
+                self.basefilter = nn.Parameter(ramlak_filter(geometry, padding=use_padding, dtype=cdtype), requires_grad=trainable_basefilter) #default to ramlak
             else:
-                assert basefilter.shape == geometry.fourier_domain.shape, "wrong formatted basefilter"
+                assert basefilter.shape == omgs.shape, "wrong formatted basefilter"
                 self.basefilter = nn.Parameter(basefilter.to(DEVICE, dtype=cdtype), requires_grad=trainable_basefilter)
     
     def kernels(self) -> 'list[torch.Tensor]':
@@ -64,13 +66,13 @@ class FNO_BP(ModelBase):
  
         out = self.fno(X.reshape(-1, self.angle_batch_size, t_size)).reshape(N, phi_size, t_size)
 
-        out = out + self.geometry.inverse_fourier_transform(self.geometry.fourier_transform(X) * self.basefilter)
+        out = out + self.geometry.inverse_fourier_transform(self.geometry.fourier_transform(X, padding=self.use_padding) * self.basefilter, padding=self.use_padding)
 
         return F.relu(self.BP_layer(out))
     
 class GeneralizedFNO_BP(ModelBase):
     
-    def __init__(self, geometry: Geometry, fno: nn.Module, extended_geometry: Geometry = None, dtype=torch.float32, use_basefliter = True, basefilter: 'torch.Tensor|None' = None, trainable_basefilter = False, **kwargs) -> None:
+    def __init__(self, geometry: Geometry, fno: nn.Module, extended_geometry: Geometry = None, dtype=torch.float32, use_basefliter = True, basefilter: 'torch.Tensor|None' = None, use_padding = True, trainable_basefilter = False, **kwargs) -> None:
         """
             Back projection model filtering with a combination of an FNO module and a kernel.
 
@@ -87,6 +89,7 @@ class GeneralizedFNO_BP(ModelBase):
         """
         super().__init__(geometry, **kwargs)
         self.plotkernels = True
+        self.use_padding = use_padding
         
         cdtype = torch.cfloat if dtype == torch.float else torch.cdouble #complex dtype
         
@@ -101,13 +104,14 @@ class GeneralizedFNO_BP(ModelBase):
         self.extended_BP_layer = odl_torch.OperatorModule(self.extended_geometry.BP)
 
         #Init basefilter
+        omgs = geometry.fourier_domain_padded if use_padding else geometry.fourier_domain
         if not use_basefliter:
-            self.basefilter = nn.Parameter(torch.zeros(geometry.fourier_domain.shape, device=DEVICE, dtype=dtype), requires_grad=False)
+            self.basefilter = nn.Parameter(torch.zeros(omgs.shape, device=DEVICE, dtype=dtype), requires_grad=False)
         else:
             if basefilter == None:
-                self.basefilter = nn.Parameter(ramlak_filter(geometry, dtype=cdtype), requires_grad=trainable_basefilter) #default to ramlak
+                self.basefilter = nn.Parameter(ramlak_filter(geometry, padding=use_padding, dtype=cdtype), requires_grad=trainable_basefilter) #default to ramlak
             else:
-                assert basefilter.shape == geometry.fourier_domain.shape, "wrong formatted basefilter"
+                assert basefilter.shape == omgs.shape, "wrong formatted basefilter"
                 self.basefilter = nn.Parameter(basefilter.to(DEVICE, dtype=cdtype), requires_grad=trainable_basefilter)
     
     def convert(self, geometry: Geometry):
@@ -125,7 +129,7 @@ class GeneralizedFNO_BP(ModelBase):
         #print(N, self.extended_geometry.phi_size, self.extended_geometry.t_size)
         assert out.shape == (N, self.extended_geometry.phi_size, self.extended_geometry.t_size), "fno incompatible with geometries"
 
-        out_base = self.geometry.inverse_fourier_transform(self.geometry.fourier_transform(X) * self.basefilter)
+        out_base = self.geometry.inverse_fourier_transform(self.geometry.fourier_transform(X, padding=self.use_padding) * self.basefilter, padding=self.use_padding)
         unknown = torch.zeros(N, self.extended_geometry.phi_size - phi_size, t_size, device=DEVICE)
 
         out = out + torch.concatenate([out_base, unknown], dim=1)
@@ -140,7 +144,7 @@ class GeneralizedFNO_BP(ModelBase):
         #print(N, self.extended_geometry.phi_size, self.extended_geometry.t_size)
         assert out.shape == (N, self.extended_geometry.phi_size, self.extended_geometry.t_size), "fno incompatible with geometries"
 
-        out_base = self.geometry.inverse_fourier_transform(self.geometry.fourier_transform(X) * self.basefilter)
+        out_base = self.geometry.inverse_fourier_transform(self.geometry.fourier_transform(X, padding=self.use_padding) * self.basefilter, padding=self.use_padding)
         unknown = torch.zeros(N, self.extended_geometry.phi_size - phi_size, t_size, device=DEVICE)
 
         out = out + torch.concatenate([out_base, unknown], dim=1)
@@ -148,7 +152,7 @@ class GeneralizedFNO_BP(ModelBase):
         return out
     
     @classmethod
-    def model_from_state_dict(clc, state_dict):
+    def model_from_state_dict(clc, state_dict, use_padding = True):
         ar, phi_size, t_size = state_dict['ar'], state_dict['phi_size'], state_dict['t_size']
         g = Geometry(ar, phi_size, t_size)
         
@@ -157,7 +161,7 @@ class GeneralizedFNO_BP(ModelBase):
         fno_sd = {k[4:]: v for k, v in state_dict.items() if k.startswith("fno.")}
         fno = fno_from_sd(fno_sd, dtype=dtype)
 
-        m = clc(g, fno, dtype=dtype)
+        m = clc(g, fno, dtype=dtype, use_padding=use_padding)
         m.load_state_dict(state_dict)
 
         return m
