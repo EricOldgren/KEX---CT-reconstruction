@@ -41,7 +41,7 @@ class FNO_BP(ModelBase):
         
         assert geometry.phi_size % self.angle_batch_size == 0, "phi_size and angle batch size must match"
         omgs = geometry.fourier_domain_padded if use_padding else geometry.fourier_domain
-        modes = torch.where(omgs <= geometry.omega)[0].shape[0]
+        modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0] #No padding used for fno (atm)
         
         self.fno = FNO1d(modes, in_channels=angle_batch_size, out_channels=angle_batch_size, layer_widths=layer_widths, dtype=dtype, verbose=True).to(DEVICE)
         self.add_module("fno", self.fno)

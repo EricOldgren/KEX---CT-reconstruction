@@ -42,8 +42,7 @@ class ExtrapolatingBP(ModelBase):
 
         assert ext_phi_size > phi_size
 
-        omgs = geometry.fourier_domain_padded if use_padding else geometry.fourier_domain
-        modes = torch.where(omgs <= geometry.omega)[0].shape[0]
+        modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0] #No padding used for fno (atm)
         self.sin2fill = FNO1d(modes, phi_size, ext_phi_size-phi_size, layer_widths=exp_fno_layers, verbose=True, dtype=torch.float).to(DEVICE)
         
         if fbp == None:       
