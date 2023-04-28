@@ -28,6 +28,12 @@ class BackProjection(odl.Operator):
     def adjoint(self):
         return self.ray
 
+def nearest_power_of_two(n: int):
+    P = 1
+    while P < n:
+        P *= 2
+    return P
+
 class Geometry:
     
     def __init__(self, angle_ratio: float, phi_size: int, t_size: int, reco_shape = (256, 256), reco_space: DiscretizedSpace = None):
@@ -42,9 +48,9 @@ class Geometry:
                 :reco_shape - pixel shape of images to be reconstructed
         """
         self.ar = angle_ratio; self.phi_size = phi_size; self.t_size = t_size
-        self.pad_size = t_size
+        self.pad_size_left, self.pad_size_right = 0, nearest_power_of_two(t_size)*2 - t_size #total size is the nearset power of two two levels up - at most 4 * t_size
         "number of zeros to pad with on each side"
-        self.padded_t_size = self.t_size + 2*self.pad_size
+        self.padded_t_size = self.t_size + + self.pad_size_left + self.pad_size_right
 
         if reco_space is None:
             self.reco_space = odl.uniform_discr(min_pt=[-1.0, -1.0], max_pt=[1.0, 1.0], shape=reco_shape, dtype='float32')
@@ -83,8 +89,8 @@ class Geometry:
         a = -self.rho  #first sampled point in real space
         omgs = self.fourier_domain
         if padding: #Do padding
-            sinos = nn.functional.pad(sinos, (self.pad_size, self.pad_size), "constant", 0)
-            a = a - self.dt * self.pad_size
+            sinos = nn.functional.pad(sinos, (self.pad_size_left, self.pad_size_right), "constant", 0)
+            a = a - self.dt * self.pad_size_left
             omgs = self.fourier_domain_padded
         return self.dt*(torch.cos(a*omgs)-1j*torch.sin(a*omgs))*torch.fft.rfft(sinos, axis=-1) #self.dt*torch.exp(-1j*a*self.fourier_domain)*torch.fft.rfft(sino, axis=-1)
     
@@ -93,12 +99,12 @@ class Geometry:
         a = -self.rho
         omgs = self.fourier_domain
         if padding: #Undo padding stuff
-            a = a - self.dt * self.pad_size
+            a = a - self.dt * self.pad_size_left
             omgs = self.fourier_domain_padded
         back_scaled = (torch.cos(a*omgs)+1j*torch.sin(a*omgs)) / self.dt * sino_hats # torch.exp(1j*a*self.fourier_domain) / self.dt * sino_hat
         sinos = torch.fft.irfft(back_scaled, axis=-1)
         if padding:
-            sinos = sinos[:, :, self.pad_size:-self.pad_size]
+            sinos = sinos[:, :, self.pad_size_left:-self.pad_size_right]
         return sinos
 
 
