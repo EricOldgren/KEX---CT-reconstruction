@@ -16,13 +16,13 @@ from typing import Mapping, Any
 
 class FBPNet(ModelBase):
 
-    def __init__(self, geometry: Geometry, n_fbps = 8, modelblock = FBP, use_bias=True, default_kernel=None, **kwargs):
+    def __init__(self, geometry: Geometry, n_fbps = 8, modelblock = FBP, use_padding = True, use_bias=True, default_kernel=None, **kwargs):
         "2 layer network consisting of sums of FBPs"
 
         super(FBPNet, self).__init__(geometry, **kwargs)
         self.plotkernels = True
 
-        self.fbps = [modelblock(geometry, initial_kernel=default_kernel) for _ in range(n_fbps)]
+        self.fbps = [modelblock(geometry, initial_kernel=default_kernel, use_padding=use_padding) for _ in range(n_fbps)]
 
         self.weights = nn.Parameter(torch.randn(n_fbps).to(DEVICE))
         if use_bias == True: self.bias = nn.Parameter(torch.zeros(n_fbps).to(DEVICE))
@@ -55,11 +55,11 @@ class FBPNet(ModelBase):
         return super().load_state_dict(state_dict, strict)
 
     @classmethod
-    def model_from_state_dict(clc, state_dict, modelblock = FBP):
+    def model_from_state_dict(clc, state_dict, modelblock = FBP, use_padding=True):
         n_fbps = state_dict["n_fbps"]
         g = Geometry(state_dict["ar"], state_dict["phi_size"], state_dict["t_size"])
 
-        m2 = FBPNet(g, n_fbps, modelblock=modelblock)
+        m2 = FBPNet(g, n_fbps, modelblock=modelblock, use_padding=use_padding)
         m2.load_state_dict(state_dict)
         return m2
 

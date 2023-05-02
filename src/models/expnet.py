@@ -16,7 +16,7 @@ from typing import Literal
 from utils.geometry import Geometry, extend_geometry, setup, DEVICE
 from models.modelbase import ModelBase
 from models.fbps import FBP, GeneralizedFBP as GFBP
-from models.analyticmodels import ramlak_filter
+from models.analyticmodels import ramlak_filter, RamLak
 from models.fouriernet import FNO_BP
 from utils.fno_1d import FNO1d
 
@@ -25,8 +25,15 @@ class ExtrapolatingBP(ModelBase):
 
     sinofig: Figure = None
 
-    def __init__(self, geometry: Geometry, exp_fno_layers = [30, 30], fbp: ModelBase = None,  **kwargs):
+    def __init__(self, geometry: Geometry, exp_fno_layers = [30, 30], use_padding = True, fbp: ModelBase = None,  **kwargs):
+        """
+            Model that extrapolates sinogram and then applies an fbp operator. Extrapolaion is performed with an FNO.
+            fbp defaults to an analytic RamLak operator.
+
+            Returns fbp(Relu(FNO(X)))
+        """
         super().__init__(geometry, **kwargs)
+        self.use_padding = use_padding
 
         self.extended_geometry = extend_geometry(geometry)
 
@@ -35,20 +42,14 @@ class ExtrapolatingBP(ModelBase):
 
         assert ext_phi_size > phi_size
 
-        modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0]
+        modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0] #No padding used for fno (atm)
         self.sin2fill = FNO1d(modes, phi_size, ext_phi_size-phi_size, layer_widths=exp_fno_layers, verbose=True, dtype=torch.float).to(DEVICE)
-        # self.sin2fill = nn.Sequential(nn.Conv1d(phi_size, 10, kernel_size=1, padding="same", bias=False), nn.ReLU(), nn.Conv1d(10, ext_phi_size-phi_size, kernel_size=1, padding="same", bias=False), nn.ReLU())
-
-        # self.sin2mom = nn.Conv2d(1, t_size, kernel_size=(1, t_size), padding="valid", bias=False)
-        # self.mom2fillmom = nn.Conv1d(phi_size, ext_phi_size-phi_size, kernel_size=1, bias=False)
-        # self.fillmom2fill = nn.Conv2d(1, t_size, kernel_size=(1, t_size), padding="valid", bias=False)
+        
         if fbp == None:       
-            # self.fbp = FNO_BP(self.extended_geometry, 10, layer_widths=[10,10], dtype=torch.float)
-            self.fbp = FBP(self.extended_geometry, initial_kernel=ramlak_filter(self.extended_geometry), trainable_kernel=False)
+            self.fbp = RamLak(self.extended_geometry)
         else:
             self.fbp = fbp
-
-        # self.odl_fbp = odl_torch.OperatorModule(odl.tomo.fbp_op(self.extended_geometry.ray))
+        self.add_module("fbp", self.fbp)
 
     def forward(self, X: torch.Tensor):
         fullX = self.extrapolate(X)

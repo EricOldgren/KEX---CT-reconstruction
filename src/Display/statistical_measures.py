@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from src.models.fouriernet import GeneralizedFNO_BP
 from src.models.fbpnet import FBPNet
-from src.utils.geometry import Geometry
+from src.utils.geometry import Geometry, DEVICE
 from src.models.analyticmodels import RamLak
 import random as rnd
 import math
@@ -55,17 +55,17 @@ def statistical_results(test_data, model):
 
 
 def test():
-    data: torch.Tensor = torch.load("data\kits_phantoms_256.pt").moveaxis(0,1).to("cuda")
+    data: torch.Tensor = torch.load("data\kits_phantoms_256.pt").moveaxis(0,1).to(DEVICE)
     data = torch.concat([data[1], data[0], data[2]])
     test_data = data[500:600]
     test_data /= torch.max(torch.max(test_data, dim=-1).values, dim=-1).values[:, None, None]
 
-    geometry = Geometry(0.25, 450, 300)
+    geometry = Geometry(1.0, 450, 300)
     model_analytic = RamLak(geometry)
 
     model_path = "results\gfno_bp-ar1.0-state-dict-450x300.pt"
 
-    model_fno = GeneralizedFNO_BP.model_from_state_dict(torch.load(model_path))
+    model_fno = GeneralizedFNO_BP.model_from_state_dict(torch.load(model_path, map_location=DEVICE))
     
     print(statistical_results(test_data,model_analytic))
 
