@@ -60,7 +60,7 @@ def test():
     test_data = data[500:600]
     test_data /= torch.max(torch.max(test_data, dim=-1).values, dim=-1).values[:, None, None]
 
-    geometry = Geometry(1, 450, 300)
+    geometry = Geometry(0.25, 450, 300)
     model_analytic = RamLak(geometry)
 
     model_path = "results\gfno_bp-ar1.0-state-dict-450x300.pt"

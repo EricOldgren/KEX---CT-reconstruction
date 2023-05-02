@@ -26,11 +26,6 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
     sinos: torch.Tensor = ray_layer(img)
     original_img = test_img[index].cpu()
 
-    #modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0]
-    #fno = FNO1d(modes, 300, 600, hidden_layer_widths=[30 30], verbose=True, dtype=torch.float32)
-    #ext_geom = Geometry(1.0, phi_size=1200, t_size=150)
-    #model_fno = GeneralizedFNO_BP(geometry, fno, ext_geom)
-    #model_fno.load_state_dict(torch.load(model_path_fno),strict=False)
     model_fno = GeneralizedFNO_BP.model_from_state_dict(torch.load(model_path_fno))
     with torch.no_grad():
         recon_fnos = model_fno.forward(sinos)
