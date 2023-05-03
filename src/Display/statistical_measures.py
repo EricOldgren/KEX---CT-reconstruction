@@ -69,4 +69,4 @@ def test():
     
     print(statistical_results(test_data,model_analytic))
 
-test()
+#test()

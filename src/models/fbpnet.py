@@ -22,6 +22,8 @@ class FBPNet(ModelBase):
         super(FBPNet, self).__init__(geometry, **kwargs)
         self.plotkernels = True
 
+        self.use_padding=use_padding
+
         self.fbps = [modelblock(geometry, initial_kernel=default_kernel, use_padding=use_padding) for _ in range(n_fbps)]
 
         self.weights = nn.Parameter(torch.randn(n_fbps).to(DEVICE))

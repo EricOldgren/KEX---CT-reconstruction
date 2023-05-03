@@ -7,6 +7,7 @@ from typing import List
 from models.analyticmodels import ramlak_filter
 import torch.nn.functional as F
 from utils.smoothing import linear_bandlimited_basis
+import math
 
 class FBP(ModelBase):
 
@@ -35,13 +36,23 @@ class FBP(ModelBase):
     
     def regularization_term(self):
         "Returns a sum which penalizies large kernel values at large frequencies, in accordance with Nattarer's sampling Theorem"
-        penalty_coeffs = torch.zeros(self.geometry.fourier_domain.shape).to(DEVICE) #Create penalty coefficients -- 0 for small frequencies one above Omega
-        penalty_coeffs[self.geometry.fourier_domain > self.geometry.omega] = 1.0
+        if self.use_padding==True:
+            penalty_coeffs = torch.zeros(self.geometry.fourier_domain_padded.shape).to(DEVICE) #Create penalty coefficients -- 0 for small frequencies one above Omega
+            penalty_coeffs[self.geometry.fourier_domain_padded > self.geometry.omega] = 1.0
         
-        (mid_sec, ) = torch.where( (self.geometry.omega*0.9 < self.geometry.fourier_domain) & (self.geometry.fourier_domain <= self.geometry.omega)) # straight line joining free and panalized regions
-        penalty_coeffs[mid_sec] = torch.linspace(0, 1.0, mid_sec.shape[0]).to(DEVICE)
+            (mid_sec, ) = torch.where( (self.geometry.omega*0.9 < self.geometry.fourier_domain_padded) & (self.geometry.fourier_domain_padded <= self.geometry.omega)) # straight line joining free and panalized regions
+            penalty_coeffs[mid_sec] = torch.linspace(0, 1.0, mid_sec.shape[0]).to(DEVICE)
+        
+        else:
+            penalty_coeffs = torch.zeros(self.geometry.fourier_domain.shape).to(DEVICE) #Create penalty coefficients -- 0 for small frequencies one above Omega
+            penalty_coeffs[self.geometry.fourier_domain > self.geometry.omega] = 1.0
+        
+            (mid_sec, ) = torch.where( (self.geometry.omega*0.9 < self.geometry.fourier_domain) & (self.geometry.fourier_domain <= self.geometry.omega)) # straight line joining free and panalized regions
+            penalty_coeffs[mid_sec] = torch.linspace(0, 1.0, mid_sec.shape[0]).to(DEVICE)
 
-        return torch.mean(torch.abs(self.kernel*self.kernel*penalty_coeffs))
+        a=self.kernel*self.kernel*penalty_coeffs
+        return torch.mean(torch.abs(a.cpu()))
+
     
 class GeneralizedFBP(ModelBase):
 
