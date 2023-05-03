@@ -13,7 +13,7 @@ from src.utils.fno_1d import FNO1d
 from statistical_measures import ssim, psnr
 from src.models.fbps import FBP
 
-geometry = Geometry(0.25, 450, 300)
+geometry = Geometry(0.75, 450, 300)
 
 data: torch.Tensor = torch.load("data\kits_phantoms_256.pt").moveaxis(0,1).to("cuda")
 data = torch.concat([data[1], data[0], data[2]])
@@ -101,6 +101,31 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
 
     plt.show()
 
+def display_single(img, model_path):
+    ray_layer = odl_torch.OperatorModule(geometry.ray)
+    sinos: torch.Tensor = ray_layer(img)
+    original_img = test_img[index].cpu()
+
+    model = FBPNet.model_from_state_dict(torch.load(model_path))
+    with torch.no_grad():
+        recon_imgs = model.forward(sinos)
+        recon_img = recon_imgs[index].to("cpu")
+    print("FNO ssim:", ssim(recon_img,original_img))
+    print("FNO psnr:", psnr(recon_img,original_img))
+
+    plt.imshow(recon_img)
+    plt.title("Result using")
+    plt.axis('off')
+
+    plt.show()
+
+    plt.imshow(recon_img-original_img)
+    plt.title("Difference")
+    plt.axis('off')
+
+    plt.show()
+
+
 def display_result_sino(img, model_path_fno):
     ext_geom = Geometry(1.0, 1800, 300)
     geom = geometry
@@ -138,8 +163,7 @@ def display_result_sino(img, model_path_fno):
 def test():
     #display_result_sino(test_img, "results\gfno_bp-ar0.25-state-dict-450x300.pt")
     #display_result_img(test_img, model_path_multi="results\Final-ar0.25-multi-ver-2.pt", model_path_single="results\Final-ar0.25-single-ver-2.pt", model_path_fno="results\gfno_bp-ar0.25-state-dict-450x300.pt")
-
-    display_result_sino(test_img, "results\gfno_bp-ar0.25-state-dict-450x300.pt")
-    display_result_img(test_img, model_path_multi="results\Final-ar0.25-multi-ver-2.pt", model_path_single="results\Final-ar0.25-single-ver-2.pt", model_path_fno="results\gfno_bp-ar0.25-state-dict-450x300.pt")
+    
+    display_single(test_img,"results\Final-ar0.75-multi-ver-3.pt")
 
 test()
