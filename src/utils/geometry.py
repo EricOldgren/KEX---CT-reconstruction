@@ -106,6 +106,12 @@ class Geometry:
         if padding:
             sinos = sinos[:, :, self.pad_size_left:-self.pad_size_right]
         return sinos
+    
+    def __repr__(self) -> str:
+        return f"""Geometry(
+            angle ratio: {self.ar} phi_size: {self.phi_size} t_size: {self.t_size}
+            reco_space: {self.reco_space}
+        )"""
 
 
 class BasicModel(nn.Module):

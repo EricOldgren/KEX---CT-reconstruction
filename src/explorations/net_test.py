@@ -9,7 +9,7 @@ from utils.fno_1d import FNO1d
 from models.fouriernet import FNO_BP, GeneralizedFNO_BP as GFNO_BP
 from models.fbps import FBP, GeneralizedFBP as GFBP
 from models.analyticmodels import RamLak, ramlak_filter
-from models.expnet import ExtrapolatingBP
+from models.expnet import FNOExtrapolatingBP
 from utils.moments import SinoMoments
 
 ANGLE_RATIOS = [0.5]#, 0.85, 0.9, 0.95, 1.0]
@@ -36,7 +36,7 @@ if __name__ == '__main__':
         # model = FNO_BP(geometry, 200, layer_widths=[], dtype=torch.float32)
         # fno = FNO1d(modes, 160, 320, layer_widths=[40,40], verbose=True, dtype=torch.float32)
         # model = GFNO_BP(geometry, fno, ext_geom, dtype=torch.float32)
-        model = ExtrapolatingBP(geometry)
+        model = FNOExtrapolatingBP(geometry)
         # model = ChainedModels(FBP(geometry, initial_kernel=ramlak_filter(geometry, dtype=torch.complex64)), GFBP(geom2, dtype=torch.complex64))
 
         #dataset = list(zip(train_sinos.to(DEVICE, non_blocking=True), train_y.to(DEVICE, non_blocking=True)))

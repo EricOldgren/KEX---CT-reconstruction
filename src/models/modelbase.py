@@ -72,7 +72,7 @@ class ModelBase(nn.Module):
 
         return m2
 
-    def visualize_output(self, test_sinos: torch.Tensor, test_y: torch.Tensor, loss_fn = lambda diff : torch.mean(diff*diff), output_location: Literal["files", "show"] = "files", dirname = "data", prettify_output = True):
+    def visualize_output(self, test_sinos: torch.Tensor, test_y: torch.Tensor, loss_fn = lambda diff : torch.mean(diff*diff), output_location: Literal["files", "show"] = "files", dirname = "data", prettify_output = True, ind: int = None):
         """
             Evaluates loss with respect to input and displays a random sample.
 
@@ -83,8 +83,9 @@ class ModelBase(nn.Module):
                 - output_location: whether to show plots or store to files
                 - dirname: only used when output_location = files, path to folder where plots are stored - names are output-while-running and kernels-while-running
                 - prettify_output (bool): if True pixel values larger than the maximum of the ground truth are truncated to maintain the same color scaling in the gt and recon images
+                - ind (int): index of sample to display. If unspecified a random sample is chosen.
         """
-        ind = random.randint(0, test_sinos.shape[0]-1)
+        if ind is None: ind = random.randint(0, test_sinos.shape[0]-1)
         with torch.no_grad():
             test_out = self.forward(test_sinos)  
         loss = loss_fn(test_y-test_out)
