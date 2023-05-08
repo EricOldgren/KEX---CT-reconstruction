@@ -226,7 +226,7 @@ class MomentFiller(nn.Module):
         loptimizer = torch.optim.Adam([pepper], lr=0.03)
         iters = 0
 
-        while torch.abs(loss_a - loss_b) > self.mom_mse_tol:
+        while np.abs(loss_a - loss_b) > self.mom_mse_tol:
             loptimizer.zero_grad()
             
             exp_sinos = torch.concat([X, pepper], dim=1)
