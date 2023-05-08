@@ -58,7 +58,7 @@ class SpectralConv2d(nn.Module):
         self.modes_x = max_mode_x
 
         self.scale = (1 / (in_channels*out_channels))
-        self.weights = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes_x, self.modes_y, dtype=self.cdtype))
+        self.weights = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes_y, self.modes_x, dtype=self.cdtype))
 
     # Complex multiplication
     def compl_mul1d(self, inp, weights):

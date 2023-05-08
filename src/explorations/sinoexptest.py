@@ -12,13 +12,13 @@ from utils.geometry import Geometry, setup, DEVICE, extend_geometry
 from utils.moments import SinoMoments
 from utils.more_fno import FNO2d
 
-geom = Geometry(0.5, 300, 150)
+geom = Geometry(0.5, 300,150)
 ext_geom = extend_geometry(geom)
 n_moments = 12
 smp = SinoMoments(ext_geom, n_moments=n_moments)
 
 mse_fn = lambda diff : torch.mean(diff**2)
-n_phantoms = 300
+n_phantoms = 30
 read_data: torch.Tensor = torch.load("data/kits_phantoms_256.pt").moveaxis(0,1).to(DEVICE)
 read_data = torch.concat([read_data[1], read_data[0], read_data[2]])
 read_data = read_data[:n_phantoms] # -- uncomment to read this data
@@ -35,10 +35,12 @@ FULL_SINOS = ext_ray_l(PHANTOMS)
 dataset = TensorDataset(SINOS, PHANTOMS, FULL_SINOS)
 dataloader = DataLoader(dataset, batch_size=20, shuffle=True)
 
-expfno = FNO2d(70, 70, 1, 1, layer_widths=[1,2,4,2,1], verbose=True, dtype=torch.float)
+modes_ph = torch.fft.rfftfreq(geom.phi_size, geom.dphi).shape[0]
+modes_t = torch.where(geom.fourier_domain < geom.omega)[0].shape[0]
+expfno = FNO2d(modes_ph, modes_t, 1, 1, layer_widths=[30,30], verbose=True, dtype=torch.float)
 
-optimizer = torch.optim.Adam(expfno.parameters(), lr=0.001)
-N_epochs = 200
+optimizer = torch.optim.Adam(expfno.parameters(), lr=0.01)
+N_epochs = 100
 
 print("starting training-...")
 for epoch in range(N_epochs):

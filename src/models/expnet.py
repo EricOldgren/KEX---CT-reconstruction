@@ -80,11 +80,11 @@ class ExtrapolatingBP(ModelBase):
         if ind is None: ind = random.randint(0, test_sinos.shape[0]-1)
         mse_fn = lambda diff: torch.mean(diff**2)
 
-        with torch.no_grad():
-            exp_sinos = self.extrapolate(test_sinos)
-            recons = self.fbp(exp_sinos)
-            mse_sinos = mse_fn(full_test_sinos-exp_sinos)
-            mse_recons = mse_fn(test_y-recons)
+
+        exp_sinos = self.extrapolate(test_sinos)
+        recons = self.fbp(exp_sinos)
+        mse_sinos = mse_fn(full_test_sinos-exp_sinos)
+        mse_recons = mse_fn(test_y-recons)
 
         print("Validation loss for sinogram extrapolation is", mse_sinos.item(), "displaying sample nr", ind)
         print("Validation loss for reconstruction is", mse_recons.item(), "displaying sample nr", ind)
