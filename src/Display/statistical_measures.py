@@ -4,6 +4,7 @@ import odl.contrib.torch as odl_torch
 import numpy as np
 import matplotlib.pyplot as plt
 from src.models.fouriernet import GeneralizedFNO_BP
+from src.models.expnet import FNOExtrapolatingBP
 from src.models.fbpnet import FBPNet
 from src.utils.geometry import Geometry, DEVICE
 from src.models.analyticmodels import RamLak
@@ -65,8 +66,9 @@ def test():
 
     model_path = "results\gfno_bp-ar1.0-state-dict-450x300.pt"
 
-    model_fno = GeneralizedFNO_BP.model_from_state_dict(torch.load(model_path, map_location=DEVICE))
+    # model_fno = GeneralizedFNO_BP.model_from_state_dict(torch.load(model_path, map_location=DEVICE))
+    model_mifno = FNOExtrapolatingBP.model_from_state_dict(torch.load("results/BP-fno-fnov1-full-data-ar0.5-450x300.pt", map_location=DEVICE))
     
-    print(statistical_results(test_data,model_analytic))
+    print(statistical_results(test_data,model_mifno))
 
-#test()
+test()

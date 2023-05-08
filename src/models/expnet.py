@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision.transforms import Resize
 
 from math import ceil
 import numpy as np
@@ -20,8 +21,9 @@ from utils.geometry import Geometry, extend_geometry, setup, DEVICE
 from models.modelbase import ModelBase
 from models.fbps import FBP, GeneralizedFBP as GFBP
 from models.analyticmodels import ramlak_filter, RamLak
-from models.fouriernet import FNO_BP, GeneralizedFNO_BP as GFNO_BP
+from models.fouriernet import FNO_BP, GeneralizedFNO_BP as GFNO_BP, fno_from_sd
 from utils.fno_1d import FNO1d
+from utils.moments import SinoMoments
 
 class ExtrapolatingBP(ModelBase):
     """
@@ -33,31 +35,40 @@ class ExtrapolatingBP(ModelBase):
 
     sinofig: Figure = None
 
-    def __init__(self, geometry: Geometry, sin2fill: nn.Module, extended_geometry: Geometry = None, fbp: 'ModelBase|str' = None, **kwargs):
+    def __init__(self, geometry: Geometry, sin2filler: nn.Module = None, sin2full: nn.Module = None, extended_geometry: Geometry = None, fbp: 'ModelBase|str' = None, use_padding = True, **kwargs):
         "Specify sin2fill layer"
        
         super().__init__(geometry, **kwargs)
-        self.sin2fill = sin2fill
+        if isinstance(sin2filler, nn.Module):
+            self.sin2filler = sin2filler
+            self.sin2full = None
+        else:
+            assert isinstance(sin2full, nn.Module)
+            self.sin2full = sin2full
+            self.sin2filler = None
         if extended_geometry is None: extended_geometry = extended_geometry(geometry)
         self.extended_geometry = extended_geometry
 
         if fbp is None or (isinstance(fbp, str) and fbp.lower() in ("ramlak", "ram-lak", "analytic")):
-            self.fbp = RamLak(self.extended_geometry)
+            self.fbp = RamLak(self.extended_geometry, use_padding=use_padding)
         elif isinstance(fbp, str)  and fbp.lower() == "fno":
             ext_modes = torch.where(self.extended_geometry.fourier_domain <= geometry.omega)[0].shape[0]
             ext_fno = FNO1d(ext_modes, self.extended_geometry.phi_size, self.extended_geometry.phi_size, layer_widths=[30, 30], verbose=True, dtype=torch.float)
-            self.fbp = GFNO_BP(self.extended_geometry, ext_fno)
+            self.fbp = GFNO_BP(self.extended_geometry, ext_fno, use_padding=use_padding)
         else:
             self.fbp = fbp
     
     def extrapolate(self, X):
         N, phi_size, t_size = X.shape
-        assert phi_size == self.geometry.phi_size
-        filler = F.relu(self.sin2fill(X))
-        assert filler.shape == (N, self.extended_geometry.phi_size-phi_size, t_size)
+        if self.sin2full == None:
+            assert phi_size == self.geometry.phi_size
+            filler = F.relu(self.sin2filler(X))
+            assert filler.shape == (N, self.extended_geometry.phi_size-phi_size, t_size)
 
-        return torch.concatenate([X, filler], dim=1) #full sinogram
-    
+            return torch.concatenate([X, filler], dim=1) #full sinogram
+        
+        return F.relu(self.sin2full(X))
+
     def forward(self, X: torch.Tensor):
         fullX = self.extrapolate(X)
         return self.fbp(fullX)
@@ -129,9 +140,41 @@ class FNOExtrapolatingBP(ExtrapolatingBP):
         ext_phi_size = extended_geometry.phi_size
 
         modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0] #No padding used for fno (atm)
-        sin2fill = FNO1d(modes, phi_size, ext_phi_size-phi_size, layer_widths=exp_fno_layers, verbose=True, dtype=torch.float).to(DEVICE)
+        sin2filler = FNO1d(modes, phi_size, ext_phi_size-phi_size, layer_widths=exp_fno_layers, verbose=True, dtype=torch.float).to(DEVICE)
 
-        super().__init__(geometry, sin2fill, extended_geometry, fbp, **kwargs)
+        super().__init__(geometry, sin2filler, extended_geometry=extended_geometry, fbp=fbp, **kwargs)
+    
+    def extrapolate(self, X):
+        N, phi_size, t_size = X.shape
+        assert phi_size == self.geometry.phi_size
+        filler = F.relu(self.sin2filler(X))
+        assert filler.shape == (N, self.extended_geometry.phi_size-phi_size, t_size)
+
+        return torch.concatenate([X, filler], dim=1) #full sinogram
+    
+    @classmethod
+    def model_from_state_dict(clc, state_dict, final_fbp_class = RamLak, fbp_use_padding = True):
+        ar, phi_size, t_size = state_dict['ar'], state_dict['phi_size'], state_dict['t_size']
+        g = Geometry(ar, phi_size, t_size)
+        #FIX change of attribute name sin2fill to sin2filler :()
+        fixed_state_dict = {}
+        for k, v in state_dict.items():
+            if k.startswith("sin2fill."):
+                fixed_state_dict["sin2filler."+k[9:]] = v
+            else:
+                fixed_state_dict[k] = v
+        state_dict = fixed_state_dict
+
+        fbp_sub_state_dict = {k[4:]: v for k, v in state_dict.items() if k.startswith("fbp.")}
+        fbp = final_fbp_class.model_from_state_dict(fbp_sub_state_dict, use_padding=fbp_use_padding)
+
+        fno_sub_state_dict = {k: v for k, v in state_dict.items() if k.startswith("")}
+        exp_fno = fno_from_sd
+
+        m = clc(g)
+        m.load_state_dict(state_dict)
+        return m
+
 
 class CNNFiller(nn.Module):
     """
@@ -153,8 +196,8 @@ class CNNFiller(nn.Module):
                 nn.Conv2d(64, 64, (3,3), padding="same", dilation=3),
                 nn.GELU(),
                 nn.Conv2d(64, 1, (3,3), padding="same", dilation=1)
-            ).to(DEVICE) for _ in range(self.n_blocks)
-        )
+            ) for _ in range(self.n_blocks)
+        ).to(DEVICE)
     
     def forward(self, X):
         return torch.concat([conv(X[:, None])[:, 0] for conv in self.convs], dim=1)[:, :self.to_height]
@@ -163,7 +206,56 @@ class CNNExtrapolatingBP(ExtrapolatingBP):
     def __init__(self, geometry: Geometry, fbp: ModelBase = None, **kwargs):
 
         extended_geometry = extend_geometry(geometry)
-        super().__init__(geometry, CNNFiller(geometry.phi_size, extended_geometry.phi_size-geometry.phi_size), extended_geometry, fbp)
+        super().__init__(geometry, CNNFiller(geometry.phi_size, extended_geometry.phi_size-geometry.phi_size), extended_geometry=extended_geometry, fbp=fbp)
+
+
+class MomentFiller(nn.Module):
+
+    def __init__(self, smp: SinoMoments, lr = 0.03, verbose = False) -> None:
+        super().__init__()
+        self.smp = smp
+        self.lr = lr
+        self.verbose = verbose
+    
+    def forward(self, X):
+        N, Np, Nt = X.shape
+        gap = self.smp.geometry.phi_size - Np
+        pepper = torch.zeros(N, gap, Nt, dtype=X.dtype, device=DEVICE)
+        loss_a, loss_b = 100.0, 99.0
+        loptimizer = torch.optim.Adam([pepper], lr=0.03)
+
+        while loss_b - loss_a > 1e-4:
+            loptimizer.zero_grad()
+            
+            exp_sinos = torch.concat([X, pepper], dim=1)
+            moms = [self.smp.get_moment(exp_sinos, ni) for ni in range(self.smp.n_moments)]
+            proj_moms = [self.smp.project_moment(mom, ni) for ni, mom in enumerate(moms)]
+            loss = sum(torch.mean((mom-p_mom)**2) for mom, p_mom in zip(moms, proj_moms)) / self.smp.n_moments
+
+            loss.backward()
+            loptimizer.step()
+
+            loss_a, loss_b = loss_b, loss.item()
+
+        self.print_msg(f"sinos analytically extrapolated with moment diff {loss_b}")
+        return pepper
+    
+    def print_msg(self, txt):
+        if self.verbose:
+            print(txt)
+
+
+
+class MIFNO_BP(ExtrapolatingBP):
+
+    def __init__(self, geometry: Geometry, n_moments = 12, extended_geometry: Geometry = None,  use_padding=True, **kwargs):
+
+        if extended_geometry == None: extended_geometry = extend_geometry(geometry)
+        smp = SinoMoments(extended_geometry, n_moments=n_moments)
+        sin2filler = MomentFiller(smp)
+
+        super().__init__(geometry, sin2filler, fbp="fno")
+
 
 if __name__ == '__main__':
     geometry = Geometry(0.5, 160, 100, reco_shape=(256, 256))
