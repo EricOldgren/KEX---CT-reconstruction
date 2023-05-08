@@ -211,11 +211,12 @@ class CNNExtrapolatingBP(ExtrapolatingBP):
 
 class MomentFiller(nn.Module):
 
-    def __init__(self, smp: SinoMoments, lr = 0.03, verbose = False) -> None:
+    def __init__(self, smp: SinoMoments, lr = 0.03, verbose = False, mom_mse_tol = 1e-3) -> None:
         super().__init__()
         self.smp = smp
         self.lr = lr
         self.verbose = verbose
+        self.mom_mse_tol
     
     def forward(self, X):
         N, Np, Nt = X.shape
@@ -225,7 +226,7 @@ class MomentFiller(nn.Module):
         loptimizer = torch.optim.Adam([pepper], lr=0.03)
         iters = 0
 
-        while loss_a - loss_b > 1e-4:
+        while torch.abs(loss_a - loss_b) > self.mom_mse_tol:
             loptimizer.zero_grad()
             
             exp_sinos = torch.concat([X, pepper], dim=1)
@@ -239,7 +240,7 @@ class MomentFiller(nn.Module):
             loss_a, loss_b = loss_b, loss.item()
             iters += 1
 
-        self.print_msg(f"sinos analytically extrapolated with moment diff {loss_b}")
+        self.print_msg(f"sinos analytically extrapolated with moment diff {loss_b} after iters {iters}")
         return pepper.detach()
     
     def print_msg(self, txt):
