@@ -223,6 +223,7 @@ class MomentFiller(nn.Module):
         pepper = torch.zeros(N, gap, Nt, dtype=X.dtype, device=DEVICE, requires_grad=True)
         loss_a, loss_b = 100.0, 99.0
         loptimizer = torch.optim.Adam([pepper], lr=0.03)
+        iters = 0
 
         while loss_a - loss_b > 1e-4:
             loptimizer.zero_grad()
@@ -236,9 +237,10 @@ class MomentFiller(nn.Module):
             loptimizer.step()
 
             loss_a, loss_b = loss_b, loss.item()
+            iters += 1
 
         self.print_msg(f"sinos analytically extrapolated with moment diff {loss_b}")
-        return pepper
+        return pepper.detach()
     
     def print_msg(self, txt):
         if self.verbose:
@@ -252,7 +254,7 @@ class MIFNO_BP(ExtrapolatingBP):
 
         if extended_geometry == None: extended_geometry = extend_geometry(geometry)
         smp = SinoMoments(extended_geometry, n_moments=n_moments)
-        sin2filler = MomentFiller(smp)
+        sin2filler = MomentFiller(smp, verbose=True)
 
         super().__init__(geometry, sin2filler, extended_geometry=extended_geometry, fbp="fno")
 
