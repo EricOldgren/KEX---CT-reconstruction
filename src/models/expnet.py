@@ -216,7 +216,7 @@ class MomentFiller(nn.Module):
         self.smp = smp
         self.lr = lr
         self.verbose = verbose
-        self.mom_mse_tol
+        self.mom_mse_tol = mom_mse_tol
     
     def forward(self, X):
         N, Np, Nt = X.shape
