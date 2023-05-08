@@ -224,7 +224,7 @@ class MomentFiller(nn.Module):
         loss_a, loss_b = 100.0, 99.0
         loptimizer = torch.optim.Adam([pepper], lr=0.03)
 
-        while loss_b - loss_a > 1e-4:
+        while loss_a - loss_b > 1e-4:
             loptimizer.zero_grad()
             
             exp_sinos = torch.concat([X, pepper], dim=1)
@@ -232,7 +232,7 @@ class MomentFiller(nn.Module):
             proj_moms = [self.smp.project_moment(mom, ni) for ni, mom in enumerate(moms)]
             loss = sum(torch.mean((mom-p_mom)**2) for mom, p_mom in zip(moms, proj_moms)) / self.smp.n_moments
 
-            loss.backward()
+            loss.backward(retain_graph=True)
             loptimizer.step()
 
             loss_a, loss_b = loss_b, loss.item()
