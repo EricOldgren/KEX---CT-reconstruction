@@ -234,13 +234,12 @@ class MomentFiller(nn.Module):
             proj_moms = [self.smp.project_moment(mom, ni) for ni, mom in enumerate(moms)]
             loss = sum(torch.mean((mom-p_mom)**2) for mom, p_mom in zip(moms, proj_moms)) / self.smp.n_moments
 
-            loss.backward(retain_graph=True)
+            loss.backward()
             loptimizer.step()
 
-            loss_a, loss_b = loss_b, loss.item()
             iters += 1
 
-        self.print_msg(f"sinos analytically extrapolated with moment diff {loss_b} after iters {iters}")
+        self.print_msg(f"sinos analytically extrapolated with moment diff {loss.item()} after iters {iters}")
         return pepper.detach()
     
     def print_msg(self, txt):
