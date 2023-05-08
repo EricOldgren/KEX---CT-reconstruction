@@ -220,7 +220,7 @@ class MomentFiller(nn.Module):
     def forward(self, X):
         N, Np, Nt = X.shape
         gap = self.smp.geometry.phi_size - Np
-        pepper = torch.zeros(N, gap, Nt, dtype=X.dtype, device=DEVICE)
+        pepper = torch.zeros(N, gap, Nt, dtype=X.dtype, device=DEVICE, requires_grad=True)
         loss_a, loss_b = 100.0, 99.0
         loptimizer = torch.optim.Adam([pepper], lr=0.03)
 
