@@ -211,22 +211,22 @@ class CNNExtrapolatingBP(ExtrapolatingBP):
 
 class MomentFiller(nn.Module):
 
-    def __init__(self, smp: SinoMoments, lr = 0.03, verbose = False, mom_mse_tol = 1e-3) -> None:
+    def __init__(self, smp: SinoMoments, lr = 0.03, verbose = False, sino_mse_tol = 1e-4) -> None:
         super().__init__()
         self.smp = smp
         self.lr = lr
         self.verbose = verbose
-        self.mom_mse_tol = mom_mse_tol
+        self.sino_mse_tol = sino_mse_tol
     
     def forward(self, X):
         N, Np, Nt = X.shape
         gap = self.smp.geometry.phi_size - Np
         pepper = torch.zeros(N, gap, Nt, dtype=X.dtype, device=DEVICE, requires_grad=True)
-        loss_a, loss_b = 100.0, 99.0
+        old_pepper = torch.ones(N, gap, Nt, dtype=X.dtype, device=DEVICE)
         loptimizer = torch.optim.Adam([pepper], lr=0.03)
         iters = 0
 
-        while np.abs(loss_a - loss_b) > self.mom_mse_tol:
+        while torch.mean((pepper-old_pepper)**2) > self.sino_mse_tol:
             loptimizer.zero_grad()
             
             exp_sinos = torch.concat([X, pepper], dim=1)
@@ -251,11 +251,11 @@ class MomentFiller(nn.Module):
 
 class MIFNO_BP(ExtrapolatingBP):
 
-    def __init__(self, geometry: Geometry, n_moments = 12, extended_geometry: Geometry = None,  use_padding=True, **kwargs):
+    def __init__(self, geometry: Geometry, n_moments = 12, sino_mse_tol = 1e-4, extended_geometry: Geometry = None,  use_padding=True, **kwargs):
 
         if extended_geometry == None: extended_geometry = extend_geometry(geometry)
         smp = SinoMoments(extended_geometry, n_moments=n_moments)
-        sin2filler = MomentFiller(smp, verbose=True)
+        sin2filler = MomentFiller(smp, verbose=True, sino_mse_tol=sino_mse_tol)
 
         super().__init__(geometry, sin2filler, extended_geometry=extended_geometry, fbp="fno")
 
