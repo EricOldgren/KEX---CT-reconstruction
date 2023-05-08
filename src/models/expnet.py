@@ -100,13 +100,13 @@ class ExtrapolatingBP(ModelBase):
 
         sino_ax_gt.imshow(full_test_sinos[ind].cpu())
         sino_ax_gt.set_title("full sino GT")
-        sino_ax_exp.imshow(exp_sinos[ind].cpu())
+        sino_ax_exp.imshow(exp_sinos[ind].detach().cpu())
         sino_ax_exp.set_title("Extrapolated sino")
         self.sinofig.suptitle(f"Averagred sino MSE {mse_sinos.item()}")
 
         img_ax_gt.imshow(test_y[ind].cpu())
         img_ax_gt.set_title("GT")
-        img_ax_recon.imshow(recons[ind].cpu())
+        img_ax_recon.imshow(recons[ind].detach().cpu())
         img_ax_recon.set_title("Reconstruction")
         self.reconstructionfig.suptitle(f"Averaged recon MSE {mse_recons.item()}")
 
