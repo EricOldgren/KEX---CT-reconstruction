@@ -46,7 +46,7 @@ class ExtrapolatingBP(ModelBase):
             assert isinstance(sin2full, nn.Module)
             self.sin2full = sin2full
             self.sin2filler = None
-        if extended_geometry is None: extended_geometry = extended_geometry(geometry)
+        if extended_geometry is None: extended_geometry = extend_geometry(geometry)
         self.extended_geometry = extended_geometry
 
         if fbp is None or (isinstance(fbp, str) and fbp.lower() in ("ramlak", "ram-lak", "analytic")):
@@ -254,7 +254,7 @@ class MIFNO_BP(ExtrapolatingBP):
         smp = SinoMoments(extended_geometry, n_moments=n_moments)
         sin2filler = MomentFiller(smp)
 
-        super().__init__(geometry, sin2filler, fbp="fno")
+        super().__init__(geometry, sin2filler, extended_geometry=extended_geometry, fbp="fno")
 
 
 if __name__ == '__main__':
