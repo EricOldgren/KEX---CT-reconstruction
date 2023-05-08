@@ -81,7 +81,7 @@ class ExtrapolatingBP(ModelBase):
         mse_fn = lambda diff: torch.mean(diff**2)
 
 
-        exp_sinos = self.extrapolate(test_sinos)
+        exp_sinos = self.extrapolate(test_sinos).detach()
         recons = self.fbp(exp_sinos)
         mse_sinos = mse_fn(full_test_sinos-exp_sinos)
         mse_recons = mse_fn(test_y-recons)
