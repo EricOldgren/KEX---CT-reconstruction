@@ -29,6 +29,12 @@ class SinoMoments:
             self.on_basis.append(get_ON(bi))
             # print(f"this passed {ni}, dim:{bi.shape[0]}")
     
+    def __repr__(self) -> str:
+        return f"""SinoMoments(
+                n_moments={self.n_moments}
+                geometry={self.geometry}
+        )"""
+
     def get_moment(self, X: torch.Tensor, ni: int):
         """
             Batch_size x sinoshape -> Batch_size x phi_size (moments) 

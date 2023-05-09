@@ -73,7 +73,7 @@ plt.subplot(121)
 plt.imshow(full_sinos[ind])
 
 plt.subplot(122)
-plt.imshow(exp_sinos[ind])
+plt.imshow(exp_sinos[ind].detach())
 
 plt.show()
 

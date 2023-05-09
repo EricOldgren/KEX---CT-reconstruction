@@ -240,14 +240,32 @@ class MomentFiller(nn.Module):
 
             iters += 1
 
-        self.print_msg(f"sinos analytically extrapolated with moment diff {loss.item()} after iters {iters}")
+        self.print_msg(f"sinos analytically extrapolated with moment diff {loss.item()} after {iters} iterations.")
         return pepper.detach()
     
     def print_msg(self, txt):
         if self.verbose:
             print(txt)
 
+class ExtrapolatingFilter(nn.Module):
+    "CNN to filter the extrapolated part of the sinogram."
 
+    def __init__(self, n_fixed) -> None:
+        super().__init__()
+        self.n_fixed = n_fixed
+        self.compensator = nn.Sequential(
+            nn.Conv2d(1, 32, (5,5), padding="same"),
+            nn.GELU(),
+            nn.Conv2d(32, 8, (5,5), padding="same"),
+            nn.GELU(),
+            nn.Conv2d(8, 1, (5,5), padding="same")
+        )
+    
+    def forward(self, X):
+        filler = X[:, self.n_fixed:]
+        comp_filler = self.compensator(X[:, None])[:, 0, self.n_fixed:]
+
+        return F.relu(torch.concat([X[:, :self.n_fixed], comp_filler + filler], dim=1))
 
 class MIFNO_BP(ExtrapolatingBP):
 
@@ -258,6 +276,18 @@ class MIFNO_BP(ExtrapolatingBP):
         sin2filler = MomentFiller(smp, verbose=True, sino_mse_tol=sino_mse_tol, max_iters=exp_max_iters)
 
         super().__init__(geometry, sin2filler, extended_geometry=extended_geometry, fbp="fno")
+
+        self.sino_smoother = ExtrapolatingFilter(n_fixed=geometry.phi_size)
+
+    def extrapolate(self, X):
+        fullX = super().extrapolate(X)
+        return self.sino_smoother(fullX)
+    
+    def from_analytical_exp(self, fullX: torch.Tensor):
+        "Forward pass where the moment filling is precomputed"
+        fullX = self.sino_smoother(fullX)
+
+        return self.fbp(fullX)
 
 
 if __name__ == '__main__':
