@@ -239,6 +239,8 @@ class MomentFiller(nn.Module):
             loptimizer.step()
 
             iters += 1
+            if iters%500 == 0:
+                self.print_msg(f"moment diff is {loss.item()} after {iters} iterations.")
 
         self.print_msg(f"sinos analytically extrapolated with moment diff {loss.item()} after {iters} iterations.")
         return pepper.detach()
