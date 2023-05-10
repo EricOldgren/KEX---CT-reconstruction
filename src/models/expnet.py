@@ -261,7 +261,7 @@ class ExtrapolatingFilter(nn.Module):
             nn.Conv2d(32, 8, (5,5), padding="same"),
             nn.GELU(),
             nn.Conv2d(8, 1, (5,5), padding="same")
-        )
+        ).to(DEVICE, dtype=torch.float)
     
     def forward(self, X):
         filler = X[:, self.n_fixed:]
