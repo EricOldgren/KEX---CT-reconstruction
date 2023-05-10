@@ -252,14 +252,17 @@ class MomentFiller(nn.Module):
 class SmoothingFilter(nn.Module):
     "CNN to filter the extrapolated part of the sinogram."
 
-    def __init__(self, n_fixed) -> None:
+    def __init__(self, n_fixed, compensator: nn.Module = None ) -> None:
         super().__init__()
         self.n_fixed = n_fixed
-        self.compensator = nn.Sequential(
-            nn.Conv2d(1, 4, (3,3), padding="same"),
-            nn.GELU(),
-            nn.Conv2d(4, 1, (3,3), padding="same")
-        ).to(DEVICE, dtype=torch.float)
+        if compensator == None:
+            self.compensator = nn.Sequential(
+                nn.Conv2d(1, 4, (3,3), padding="same"),
+                nn.GELU(),
+                nn.Conv2d(4, 1, (3,3), padding="same")
+            ).to(DEVICE, dtype=torch.float)
+        else:
+            self.compensator = compensator
     
     def forward(self, X):
         filler = X[:, self.n_fixed:]
@@ -278,7 +281,9 @@ class MIFNO_BP(ExtrapolatingBP):
         super().__init__(geometry, sin2filler, extended_geometry=extended_geometry, fbp="fno")
 
         self.sino_smoother = SmoothingFilter(n_fixed=geometry.phi_size) if use_sino_smoother else None
-        self.recon_smoother = SmoothingFilter(n_fixed=0) if use_recon_smoother else None
+        self.recon_smoother = SmoothingFilter(n_fixed=0, 
+                                              compensator=nn.Sequential(nn.Conv2d(1,3, (3,3)), nn.ReLU())
+                                              ) if use_recon_smoother else None
 
     def extrapolate(self, X):
         fullX = super().extrapolate(X)
