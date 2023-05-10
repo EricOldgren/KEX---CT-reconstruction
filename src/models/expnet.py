@@ -249,18 +249,18 @@ class MomentFiller(nn.Module):
         if self.verbose:
             print(txt)
 
-class ExtrapolatingFilter(nn.Module):
+class SmoothingFilter(nn.Module):
     "CNN to filter the extrapolated part of the sinogram."
 
     def __init__(self, n_fixed) -> None:
         super().__init__()
         self.n_fixed = n_fixed
         self.compensator = nn.Sequential(
-            nn.Conv2d(1, 32, (5,5), padding="same"),
+            nn.Conv2d(1, 16, (5,5), padding="same"),
             nn.GELU(),
-            nn.Conv2d(32, 8, (5,5), padding="same"),
+            nn.Conv2d(16, 4, (5,5), padding="same"),
             nn.GELU(),
-            nn.Conv2d(8, 1, (5,5), padding="same")
+            nn.Conv2d(4, 1, (5,5), padding="same")
         ).to(DEVICE, dtype=torch.float)
     
     def forward(self, X):
@@ -271,7 +271,7 @@ class ExtrapolatingFilter(nn.Module):
 
 class MIFNO_BP(ExtrapolatingBP):
 
-    def __init__(self, geometry: Geometry, n_moments = 12, sino_mse_tol = 1e-4, exp_max_iters = 2000, extended_geometry: Geometry = None,  use_padding=True, **kwargs):
+    def __init__(self, geometry: Geometry, n_moments = 12, use_sino_smoother = True, use_recon_smoother = True, sino_mse_tol = 1e-4, exp_max_iters = 2000, extended_geometry: Geometry = None,  use_padding=True, **kwargs):
 
         if extended_geometry == None: extended_geometry = extend_geometry(geometry)
         smp = SinoMoments(extended_geometry, n_moments=n_moments)
@@ -279,17 +279,28 @@ class MIFNO_BP(ExtrapolatingBP):
 
         super().__init__(geometry, sin2filler, extended_geometry=extended_geometry, fbp="fno")
 
-        self.sino_smoother = ExtrapolatingFilter(n_fixed=geometry.phi_size)
+        self.sino_smoother = SmoothingFilter(n_fixed=geometry.phi_size) if use_sino_smoother else None
+        self.recon_smoother = SmoothingFilter(n_fixed=0) if use_recon_smoother else None
 
     def extrapolate(self, X):
         fullX = super().extrapolate(X)
+        if self.sino_smoother is None:
+            return fullX
         return self.sino_smoother(fullX)
+    
+    def forward(self, X: torch.Tensor):
+        recon = self.fbp(X)
+        if self.recon_smoother is None:
+            return recon
+        return self.recon_smoother(recon)
     
     def from_analytical_exp(self, fullX: torch.Tensor):
         "Forward pass where the moment filling is precomputed"
-        fullX = self.sino_smoother(fullX)
-
-        return self.fbp(fullX)
+        fullX = self.sino_smoother(fullX) if self.sino_smoother != None else fullX
+        recon = self.fbp(fullX)
+        if self.recon_smoother is None:
+            return recon
+        return self.recon_smoother(recon)
 
 
 if __name__ == '__main__':
