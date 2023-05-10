@@ -256,9 +256,7 @@ class SmoothingFilter(nn.Module):
         super().__init__()
         self.n_fixed = n_fixed
         self.compensator = nn.Sequential(
-            nn.Conv2d(1, 16, (5,5), padding="same"),
-            nn.GELU(),
-            nn.Conv2d(16, 4, (5,5), padding="same"),
+            nn.Conv2d(1, 4, (5,5), padding="same"),
             nn.GELU(),
             nn.Conv2d(4, 1, (5,5), padding="same")
         ).to(DEVICE, dtype=torch.float)
