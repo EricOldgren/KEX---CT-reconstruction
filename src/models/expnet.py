@@ -270,6 +270,7 @@ class SmoothingFilter(nn.Module):
 
         return F.relu(torch.concat([X[:, :self.n_fixed], comp_filler + filler], dim=1))
 
+
 class MIFNO_BP(ExtrapolatingBP):
 
     def __init__(self, geometry: Geometry, n_moments = 12, use_sino_smoother = True, use_recon_smoother = True, sino_mse_tol = 1e-4, exp_max_iters = 2000, extended_geometry: Geometry = None,  use_padding=True, **kwargs):

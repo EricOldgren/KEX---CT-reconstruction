@@ -107,6 +107,15 @@ class Geometry:
             sinos = sinos[:, :, self.pad_size_left:-self.pad_size_right]
         return sinos
     
+    @property
+    def angles(self)->np.ndarray:
+        "numpy array of angles meassured at, i.e phi-axis"
+        return self.angle_partition.meshgrid[0]
+    @property
+    def translations(self):
+        "numpy array of positions along detector, i.e t-axis (s-axis in Natterer)"
+        return self.detector_partition.meshgrid[0]
+
     def __repr__(self) -> str:
         return f"""Geometry(
             angle ratio: {self.ar} phi_size: {self.phi_size} t_size: {self.t_size}
