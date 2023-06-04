@@ -112,6 +112,11 @@ class Geometry:
         "numpy array of angles meassured at, i.e phi-axis"
         return self.angle_partition.meshgrid[0]
     @property
+    def tangles(self)->torch.Tensor:
+        "tensor of angles meassured at, i.e phi-axis"
+        return torch.from_numpy(self.angles).to(DEVICE, dtype=torch.float)
+
+    @property
     def translations(self):
         "numpy array of positions along detector, i.e t-axis (s-axis in Natterer)"
         return self.detector_partition.meshgrid[0]
@@ -254,3 +259,8 @@ def extend_geometry(geometry: Geometry):
     full_phi_size = ceil(1.0 / ar * phi_size)
     return Geometry(1.0, full_phi_size, t_size, reco_space=geometry.reco_space)
 
+def missing_range(geometry: Geometry, extended_geometry: Geometry = None):
+    "Calculate the angles where projecctions are missing."
+
+    if extended_geometry == None: extended_geometry = extend_geometry(geometry)
+    return extended_geometry.angles[extended_geometry.angles > geometry.angles[-1]]
