@@ -53,7 +53,7 @@ class FNO_BP_chebyshev(ModelBase):
             torch.flip(filtered_X[:, -self.wrap:], dims=(-1,)),
             filtered_X,
             torch.flip(filtered_X[:, :self.wrap], dims=(-1,))
-        ])
+        ], dim=1)
         upper_edge, lower_edge = self.n_upper, self.n_upper + self.geometry.phi_size
         while lower_edge < self.extended_geometry.phi_size or upper_edge > 0:
             if lower_edge < self.extended_geometry.phi_size:
