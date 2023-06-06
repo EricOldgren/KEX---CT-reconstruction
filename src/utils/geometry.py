@@ -265,4 +265,4 @@ def missing_range(geometry: Geometry, extended_geometry: Geometry = None):
     "Calculate the angles where projecctions are missing."
 
     if extended_geometry == None: extended_geometry = extend_geometry(geometry)
-    return np.concatenate(extended_geometry.angles[extended_geometry.angles<geometry.angles[0]], extended_geometry.angles[extended_geometry.angles > geometry.angles[-1]])
+    return np.concatenate([extended_geometry.angles[extended_geometry.angles<geometry.angles[0]], extended_geometry.angles[extended_geometry.angles > geometry.angles[-1]]])
