@@ -7,8 +7,8 @@ import odl.contrib.torch as odl_torch
 
 from utils.geometry import Geometry, DEVICE, extend_geometry, missing_range
 from utils.inverse_moment_transform import extrapolate_sinos
-from modelbase import ModelBase
-from analyticmodels import ramlak_filter
+from models.modelbase import ModelBase
+from models.analyticmodels import ramlak_filter
 from utils.fno_1d import FNO1d
 
 class FNO_BP_chebyshev(ModelBase):
