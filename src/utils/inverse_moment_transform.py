@@ -47,7 +47,6 @@ def extrapolate_sinos(geometry: Geometry, sinos: torch.Tensor, unknown_phis: tor
     exp = torch.zeros(sinos.shape[0], unknown_phis.shape[0], Nt).to(DEVICE, dtype=sinos.dtype)
 
     for n in range(N_moments):
-
         #Data
         Xn = get_Xn(known_phis, n)
         Un = torch.sin((n+1)*torch.acos(ss)) / W
