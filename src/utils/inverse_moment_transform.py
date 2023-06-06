@@ -27,7 +27,7 @@ def get_Un(ss, n):
     "Chebyshev polynomial of second kinf, degree n, ss is axis, which must be the interval [-1, 1]"
     return torch.sin((n+1)*torch.acos(ss)) / torch.sqrt(1-ss**2)
 
-def extrapolate_sinos(geometry: Geometry, sinos: torch.Tensor, unknown_phis: torch.Tensor, N_moments = 50):
+def extrapolate_sinos(geometry: Geometry, sinos: torch.Tensor, unknown_phis: torch.Tensor, N_moments = 300):
     """
         Estimates sinogram values in an unknown region based on HLCC using projection onto orthogonal Chebyshev polynomials of the second kind.
 
@@ -65,7 +65,7 @@ def extrapolate_sinos(geometry: Geometry, sinos: torch.Tensor, unknown_phis: tor
 
 
 if __name__ == '__main__':
-    n_phantoms = 2
+    n_phantoms = 10
     read_data: torch.Tensor = torch.load("data/kits_phantoms_256.pt").moveaxis(0,1).to(DEVICE)
     read_data = torch.concat([read_data[1], read_data[0], read_data[2]])
     read_data = read_data[:n_phantoms]
@@ -79,7 +79,8 @@ if __name__ == '__main__':
     sinos = ray_l(phantoms)
     full_sinos = full_ray_l(phantoms)
 
-    fully_projected = extrapolate_sinos(g, sinos, ext_g.tangles, N_moments=50)
+    fully_projected = extrapolate_sinos(g, sinos, ext_g.tangles, N_moments=300)
+    # exp_sinos = torch.concat([sinos, fully_projected[:, g.phi_size:]], dim=1)
 
     smp = SinoMoments(ext_g)
     moms = [smp.get_moment(fully_projected, ni) for ni in range(12)]
@@ -100,11 +101,12 @@ if __name__ == '__main__':
     plt.imshow(full_sinos[0])
     plt.subplot(122)
     plt.imshow(fully_projected[0])
+    # plt.imshow(exp_sinos[0])
     plt.show()
 
     ramlak = RamLak(ext_g)
-    recon_full = ramlak(full_sinos[0:1])
-    recon_exp = ramlak(fully_projected[0:1])
+    recon_full = ramlak(full_sinos[0:10])
+    recon_exp = ramlak(fully_projected[0:10])
 
     print("MSE recon full: ", torch.mean((recon_full[0]-phantoms[0])**2))
     print("MSE recon exp: ", torch.mean((recon_exp[0]-phantoms[0])**2))

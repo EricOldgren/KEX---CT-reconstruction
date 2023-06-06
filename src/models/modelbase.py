@@ -193,3 +193,26 @@ class ChainedModels(ModelBase):
         models = [self.models[0].convert(geometry)] + [m.convert(m.geometry) for m in self.models[1:]]
         return ChainedModels(models)
     
+def plot_pair(gt: torch.Tensor, out: torch.Tensor, title_base: str, fig: Figure = None, output_location: Literal["files", "show"] = "files", dirname = "data"):
+    ind = random.randint(0, gt.shape[0]-1)
+
+    print(title_base, "validation MSE:", torch.mean((gt-out)**2))
+    if fig == None:
+        fig, axs = plt.subplots(1,2)
+    else:
+        axs, = fig.get_axes()
+    ax_gt, ax_out = axs[0], axs[1]
+    ax_gt.imshow(gt[ind].detach().cpu())
+    ax_gt.sup_title(f"{title_base} GT")
+
+    ax_out.imshow(out[ind].detach().cpu())
+    ax_out.sup_title(f"{title_base} out")
+
+    if output_location == "show":
+        fig.show()
+        plt.show()
+        del fig
+    else:
+        fig.savefig(os.path.join(dirname, f"{title_base}-output-while-running"))
+        del fig
+    
