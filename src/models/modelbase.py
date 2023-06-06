@@ -201,12 +201,13 @@ def plot_pair(gt: torch.Tensor, out: torch.Tensor, title_base: str, fig: Figure 
         fig, axs = plt.subplots(1,2)
     else:
         axs, = fig.get_axes()
+    fig.suptitle(title_base)
     ax_gt, ax_out = axs[0], axs[1]
     ax_gt.imshow(gt[ind].detach().cpu())
-    ax_gt.sup_title(f"{title_base} GT")
+    ax_gt.set_title(f"GT")
 
     ax_out.imshow(out[ind].detach().cpu())
-    ax_out.sup_title(f"{title_base} out")
+    ax_out.set_title(f"out")
 
     if output_location == "show":
         fig.show()
