@@ -33,3 +33,13 @@ zoom. Gemensamt med KEX på optsyst.
 * Maj 26: Återkoppling från handledare
 * Juni 7: Inlämning av slutrapporter samt självvärderingsprotokoll till
 kansliet (hård gräns)
+
+
+## Sommarprojekt
+
+* [Datamängd](https://zenodo.org/record/6937616)
+* [Constrained Empirical Risk Minimisation](https://arxiv.org/abs/2302.04729)
+* [ Knut hittade Extrapolering via Range Conditions (insert link)]()
+  * Range conditions som projektion på polynom
+  * Utvidga momentprojektionerna trigonometriskt
+  * Momentkurvorna ger sinogrammet 
