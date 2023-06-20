@@ -151,8 +151,21 @@ class GeneralizedFNO_BP(ModelBase):
 
         return out
     
+    def return_fno_sino(self,X: torch.Tensor):
+        N, phi_size, t_size = X.shape
+
+        out = self.fno(X)
+        #print(out.shape)
+        #print(N, self.extended_geometry.phi_size, self.extended_geometry.t_size)
+        assert out.shape == (N, self.extended_geometry.phi_size, self.extended_geometry.t_size), "fno incompatible with geometries"
+
+        out_base = self.geometry.inverse_fourier_transform(self.geometry.fourier_transform(X, padding=self.use_padding) * self.basefilter, padding=self.use_padding)
+        unknown = torch.zeros(N, self.extended_geometry.phi_size - phi_size, t_size, device=DEVICE)
+
+        return out
+    
     @classmethod
-    def model_from_state_dict(clc, state_dict, use_padding = True):
+    def model_from_state_dict(clc, state_dict, use_padding = False):
         ar, phi_size, t_size = state_dict['ar'], state_dict['phi_size'], state_dict['t_size']
         g = Geometry(ar, phi_size, t_size)
         

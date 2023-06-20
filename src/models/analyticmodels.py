@@ -43,3 +43,10 @@ class RamLak(ModelBase):
         filtered_sinos = self.geometry.inverse_fourier_transform(filtered_sinos, padding=self.use_padding)
 
         return self.BP_layer(filtered_sinos)
+
+    def return_filtered_sino(self,sinos):
+        sino_freq = self.geometry.fourier_transform(sinos, padding=self.use_padding)
+        filtered_sinos = self.kernel*sino_freq
+        filtered_sinos = self.geometry.inverse_fourier_transform(filtered_sinos, padding=self.use_padding)
+
+        return filtered_sinos
