@@ -12,7 +12,7 @@ from utils.fno_1d import FNO1d
 from models.fouriernet import FNO_BP, GeneralizedFNO_BP as GFNO_BP
 from models.fbps import FBP, GeneralizedFBP as GFBP
 from models.analyticmodels import RamLak, ramlak_filter
-from models.expnet import ExtrapolatingBP
+from models.expnet import FNOExtrapolatingBP
 from utils.moments import SinoMoments
 
 ANGLE_RATIOS = [0.5]#, 0.85, 0.9, 0.95, 1.0]
@@ -29,7 +29,7 @@ if __name__ == '__main__':
         
         train_sinos, train_y, val_sinos, val_y = setup(geometry, num_to_generate=0, train_ratio=0.9, use_realistic=True, data_path="data/kits_phantoms_256.pt")
         full_train_sinos, full_val_sinos = ext_ray_layer(train_y), ext_ray_layer(val_y)
-        model = ExtrapolatingBP(geometry, exp_fno_layers=[20,20])
+        model = FNOExtrapolatingBP(geometry, exp_fno_layers=[20,20])
         
         dataset = TensorDataset(train_sinos, train_y, full_train_sinos)
 

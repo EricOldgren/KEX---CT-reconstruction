@@ -6,7 +6,7 @@ import numpy as np
 from utils.geometry import DEVICE
 from utils.moments import SinoMoments
 from models.modelbase import ModelBase
-from models.expnet import ExtrapolatingBP as ExpBP
+from models.expnet import FNOExtrapolatingBP as ExpBP
 
 # mp.set_sharing_strategy("file_system")
 

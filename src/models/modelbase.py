@@ -72,7 +72,7 @@ class ModelBase(nn.Module):
 
         return m2
 
-    def visualize_output(self, test_sinos: torch.Tensor, test_y: torch.Tensor, loss_fn = lambda diff : torch.mean(diff*diff), output_location: Literal["files", "show"] = "files", dirname = "data", prettify_output = True):
+    def visualize_output(self, test_sinos: torch.Tensor, test_y: torch.Tensor, loss_fn = lambda diff : torch.mean(diff*diff), output_location: Literal["files", "show"] = "files", dirname = "data", prettify_output = True, ind: int = None):
         """
             Evaluates loss with respect to input and displays a random sample.
 
@@ -83,8 +83,9 @@ class ModelBase(nn.Module):
                 - output_location: whether to show plots or store to files
                 - dirname: only used when output_location = files, path to folder where plots are stored - names are output-while-running and kernels-while-running
                 - prettify_output (bool): if True pixel values larger than the maximum of the ground truth are truncated to maintain the same color scaling in the gt and recon images
+                - ind (int): index of sample to display. If unspecified a random sample is chosen.
         """
-        ind = random.randint(0, test_sinos.shape[0]-1)
+        if ind is None: ind = random.randint(0, test_sinos.shape[0]-1)
         with torch.no_grad():
             test_out = self.forward(test_sinos)  
         loss = loss_fn(test_y-test_out)
@@ -191,4 +192,28 @@ class ChainedModels(ModelBase):
         "Converts model chain to reconstruct from another geometry. This will only convert the first model in the chain."
         models = [self.models[0].convert(geometry)] + [m.convert(m.geometry) for m in self.models[1:]]
         return ChainedModels(models)
+    
+def plot_pair(gt: torch.Tensor, out: torch.Tensor, title_base: str, fig: Figure = None, output_location: Literal["files", "show"] = "files", dirname = "data"):
+    ind = random.randint(0, gt.shape[0]-1)
+
+    print(title_base, "validation MSE:", torch.mean((gt-out)**2))
+    if fig == None:
+        fig, axs = plt.subplots(1,2)
+    else:
+        axs, = fig.get_axes()
+    fig.suptitle(title_base)
+    ax_gt, ax_out = axs[0], axs[1]
+    ax_gt.imshow(gt[ind].detach().cpu())
+    ax_gt.set_title(f"GT")
+
+    ax_out.imshow(out[ind].detach().cpu())
+    ax_out.set_title(f"out")
+
+    if output_location == "show":
+        fig.show()
+        plt.show()
+        del fig
+    else:
+        fig.savefig(os.path.join(dirname, f"{title_base}-output-while-running"))
+        del fig
     

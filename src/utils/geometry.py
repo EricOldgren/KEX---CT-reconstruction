@@ -36,7 +36,7 @@ def nearest_power_of_two(n: int):
 
 class Geometry:
     
-    def __init__(self, angle_ratio: float, phi_size: int, t_size: int, reco_shape = (256, 256), reco_space: DiscretizedSpace = None):
+    def __init__(self, angle_ratio: float, phi_size: int, t_size: int, reco_shape = (256, 256), reco_space: DiscretizedSpace = None, in_middle = False):
         """
             Create a parallel beam geometry with corresponding forward and backward projections.
             For maximazing omega at full angle - phi_size ~ pi * t_size / 2
@@ -58,8 +58,10 @@ class Geometry:
             self.reco_space = reco_space
         self.rho = np.linalg.norm(self.reco_space.max_pt - self.reco_space.min_pt) / 2
         "Radius of the detector space"
-        # Angles: uniformly spaced, n = phi_size, min = 0, max = angle_ratio*pi
-        self.angle_partition = odl.uniform_partition(0, np.pi*angle_ratio, phi_size)
+        
+        start_angle = 0.0 if not in_middle else (1.0-angle_ratio)/2 * np.pi
+        self.in_middle = in_middle
+        self.angle_partition = odl.uniform_partition(start_angle, start_angle + np.pi*angle_ratio, phi_size)
         # Detector: uniformly sampled, n = t_size, min = -rho, max = rho
         self.detector_partition = odl.uniform_partition(-self.rho, self.rho, t_size)
     
@@ -106,6 +108,26 @@ class Geometry:
         if padding:
             sinos = sinos[:, :, self.pad_size_left:-self.pad_size_right]
         return sinos
+    
+    @property
+    def angles(self)->np.ndarray:
+        "numpy array of angles meassured at, i.e phi-axis"
+        return self.angle_partition.meshgrid[0]
+    @property
+    def tangles(self)->torch.Tensor:
+        "tensor of angles meassured at, i.e phi-axis"
+        return torch.from_numpy(self.angles).to(DEVICE, dtype=torch.float)
+
+    @property
+    def translations(self):
+        "numpy array of positions along detector, i.e t-axis (s-axis in Natterer)"
+        return self.detector_partition.meshgrid[0]
+
+    def __repr__(self) -> str:
+        return f"""Geometry(
+            angle ratio: {self.ar} phi_size: {self.phi_size} t_size: {self.t_size}
+            reco_space: {self.reco_space}
+        )"""
 
 
 class BasicModel(nn.Module):
@@ -239,3 +261,8 @@ def extend_geometry(geometry: Geometry):
     full_phi_size = ceil(1.0 / ar * phi_size)
     return Geometry(1.0, full_phi_size, t_size, reco_space=geometry.reco_space)
 
+def missing_range(geometry: Geometry, extended_geometry: Geometry = None):
+    "Calculate the angles where projecctions are missing."
+
+    if extended_geometry == None: extended_geometry = extend_geometry(geometry)
+    return np.concatenate([extended_geometry.angles[extended_geometry.angles<geometry.angles[0]], extended_geometry.angles[extended_geometry.angles > geometry.angles[-1]]])
