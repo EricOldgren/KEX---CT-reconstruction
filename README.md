@@ -37,7 +37,7 @@ kansliet (hård gräns)
 
 ## Sommarprojekt
 
-* [Datamängd 1: Limited angle tävling](https://zenodo.org/record/6937616), [Datamängd 2: Generell CT data](https://arxiv.org/pdf/2306.05907.pdf)
+* [Datamängd 1: Limited angle tävling](https://zenodo.org/record/6937616) och [Datamängd 2: Generell CT data](https://arxiv.org/pdf/2306.05907.pdf)
     * Data 2 innehåller mer realistiska exempel, medan Data 1 är binär (1 eller 0).
     * Gissningsvis kommer det bli svårt att matcha en Radontransform till mätningarna, så det lär vara bättre att bara använda fantomerna och generera mätdata själva.
 * [Constrained Empirical Risk Minimisation](https://arxiv.org/abs/2302.04729)
