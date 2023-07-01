@@ -55,3 +55,13 @@ def convertHTCPhantoms():
     torch.save(HTCTrainingPhantoms, 'data\HTC2022\HTCTrainingPhantoms.pt')
     torch.save(HTCTestPhantomsFull, 'data\HTC2022\HTCTestPhantomsFull.pt')
     torch.save(HTCTestPhantomsLimited, 'data\HTC2022\HTCTestPhantomsLimited.pt')
+    #Images are 512x512
+
+def convert2DeteCT(mapPathInitial='data\\2DeteCT_slices1-1000_RecSeg', mapPathTarget='data\\2DeteCT_slices1-1000Mode2Rec'):
+    for i in range(1,1001):
+        index = str(i).zfill(5)
+        location = mapPathInitial  + '\\slice' + index + '\\mode2\\reconstruction.tif'
+        currentSlice = torch.load(location)
+        torch.save(currentSlice,mapPathTarget + '\slice' + index)
+
+convert2DeteCT()
