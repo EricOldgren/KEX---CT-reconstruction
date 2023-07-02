@@ -61,10 +61,10 @@ def test():
     test_data = data[500:600]
     test_data /= torch.max(torch.max(test_data, dim=-1).values, dim=-1).values[:, None, None]
 
-    geometry = Geometry(1.0, 450, 300)
-    model_analytic = RamLak(geometry)
+    geometry = Geometry(0.25, 450, 300)
+    #model_analytic = RamLak(geometry,use_padding=True)
 
-    model_path = "results\gfno_bp-ar1.0-state-dict-450x300.pt"
+    model_path = "results\Final-ar1.0-single-ver-3.pt"
 
     # model_fno = GeneralizedFNO_BP.model_from_state_dict(torch.load(model_path, map_location=DEVICE))
     model_mifno = FNOExtrapolatingBP.model_from_state_dict(torch.load("results/BP-fno-fnov1-full-data-ar0.5-450x300.pt", map_location=DEVICE))

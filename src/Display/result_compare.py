@@ -12,8 +12,9 @@ import math
 from src.utils.fno_1d import FNO1d
 from statistical_measures import ssim, psnr
 from src.models.fbps import FBP
+import cv2
 
-geometry = Geometry(0.75, 450, 300)
+geometry = Geometry(0.5, 450, 300)
 
 data: torch.Tensor = torch.load("data\kits_phantoms_256.pt").moveaxis(0,1).to("cuda")
 data = torch.concat([data[1], data[0], data[2]])
@@ -30,24 +31,22 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
     with torch.no_grad():
         recon_fnos = model_fno.forward(sinos)
         recon_fno = recon_fnos[index].to("cpu")
-    print("FNO ssim:", ssim(recon_fno,original_img))
-    print("FNO psnr:", psnr(recon_fno,original_img))
 
-    model_multi = FBPNet(geometry, 4)
-    model_multi.load_state_dict(torch.load(model_path_multi), strict=False)
+
+    #model_multi = FBPNet(geometry, 4,use_padding=True)
+    #model_multi.load_state_dict(torch.load(model_path_multi), strict=False)
+    model_multi = FBPNet.model_from_state_dict(torch.load(model_path_multi))
     with torch.no_grad():
         recon_multis = model_multi.forward(sinos)
         recon_multi = recon_multis[index].to("cpu")
-    print("Multi ssim:", ssim(recon_multi,original_img))
-    print("Multi psnr:", psnr(recon_multi,original_img))
-    
-    model_single = FBP(geometry)
-    model_single.load_state_dict(torch.load(model_path_single), strict=False)
+
+    #model_single = FBP(geometry,use_padding=True)
+    #model_single.load_state_dict(torch.load(model_path_single), strict=False)
+    model_single=FBP.model_from_state_dict(torch.load(model_path_single))
     with torch.no_grad():
         recon_singles = model_single.forward(sinos)
         recon_single = recon_singles[index].to("cpu")
-    print("Single ssim:", ssim(recon_single,original_img))
-    print("Single psnr:", psnr(recon_single,original_img))
+
 
     
     model_analytic = RamLak(geometry)
@@ -57,8 +56,6 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
     #proj_data = geometry.ray(original_img)
     #recon_analytic = torch.Tensor(fbp(proj_data).asarray())
 
-    print("Analytic ssim:", ssim(recon_analytic,original_img),)
-    print("Analytic psnr:", psnr(recon_analytic,original_img))
 
 
     plt.subplot(251)
@@ -69,34 +66,42 @@ def display_result_img(img, model_path_multi=None, model_path_single=None, model
     plt.subplot(252)
     plt.imshow(recon_analytic, cmap='gray')
     plt.axis('off')
+    plt.imsave("res_img\Analytic0.5.png",recon_analytic,cmap="gray",vmin=0,vmax=1)
     plt.title("Result using FBP with analytic kernel")
     plt.subplot(257)
     plt.imshow(abs(recon_analytic-original_img.numpy()), cmap='gray')
     plt.axis('off')
+    plt.imsave("res_img\Analytic0.5diff.png",abs(recon_analytic-original_img.numpy()), cmap='gray',vmin=0,vmax=1)
 
     plt.subplot(253)
     plt.imshow(recon_single, cmap='gray')
     plt.axis('off')
+    plt.imsave("res_img\Single0.5.png",recon_single,cmap="gray",vmin=0,vmax=1)
     plt.title("Result using FBP with a single trained filter")
     plt.subplot(258)
     plt.imshow(abs(recon_single-original_img), cmap='gray')
     plt.axis('off')
+    plt.imsave("res_img\Single0.5diff.png",abs(recon_single-original_img.numpy()), cmap='gray',vmin=0,vmax=1)
 
     plt.subplot(254)
     plt.imshow(recon_multi, cmap='gray')
     plt.axis('off')
+    plt.imsave("res_img\Multi0.5.png",recon_multi,cmap="gray",vmin=0,vmax=1)
     plt.title("Result combining 4 FBPs")
     plt.subplot(259)
     plt.imshow(abs(recon_multi-original_img), cmap='gray')
     plt.axis('off')
+    plt.imsave("res_img\Multi0.5diff.png",abs(recon_multi-original_img.numpy()), cmap='gray',vmin=0,vmax=1)
 
     plt.subplot(255)
     plt.imshow(recon_fno, cmap='gray')
     plt.axis('off')
+    plt.imsave("res_img\Fno0.5.png",recon_fno,cmap="gray",vmin=0,vmax=1)
     plt.title("Results using FNO")
     plt.subplot(2,5,10)
     plt.imshow(abs(recon_fno-original_img),cmap='gray')
     plt.axis('off')
+    plt.imsave("res_img\Fno0.5diff.png",abs(recon_fno-original_img.numpy()), cmap='gray',vmin=0,vmax=1)
 
 
     plt.show()
@@ -113,13 +118,13 @@ def display_single(img, model_path):
     print("FNO ssim:", ssim(recon_img,original_img))
     print("FNO psnr:", psnr(recon_img,original_img))
 
-    plt.imshow(recon_img)
+    plt.imshow(recon_img,cmap="gray")
     plt.title("Result using")
     plt.axis('off')
 
     plt.show()
 
-    plt.imshow(recon_img-original_img)
+    plt.imshow(abs(recon_img-original_img),cmap="gray")
     plt.title("Difference")
     plt.axis('off')
 
@@ -136,10 +141,6 @@ def display_result_sino(img, model_path_fno):
 
     true_sino = sinos_full[index].detach().cpu()
 
-    # modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0]
-    # fno = FNO1d(modes, 300, 600, hidden_layer_widths=[40], verbose=True, dtype=torch.float32)
-    # model_fno = GeneralizedFNO_BP(geometry, fno, ext_geom)
-    # model_fno.load_state_dict(torch.load(model_path_fno))
     model_fno = GeneralizedFNO_BP.model_from_state_dict(torch.load(model_path_fno))
     fno_sinos = model_fno.return_sino(sinos)
     fno_sino = fno_sinos[index].detach().cpu()
@@ -149,21 +150,52 @@ def display_result_sino(img, model_path_fno):
 
     plt.subplot(131)
     plt.imshow(true_sino, cmap='gray')
+    plt.imsave("res_img\Filtered_sino_org0.25.png",true_sino,cmap="gray")
     plt.title("Full angle sinogram")
     plt.subplot(132)
     plt.imshow(fno_sino, cmap='gray')
+    plt.imsave("res_img\Fno_sino0.25.png",fno_sino,cmap="gray",vmin=-7,vmax=7)
     plt.title("FNO reconstructed filtered sinogram")
     plt.subplot(133)
     plt.imshow(abs(true_sino-fno_sino),cmap='gray')
+    plt.imsave("res_img\sino_diff0.25.png",abs(true_sino-fno_sino),cmap="gray",vmin=-7,vmax=7)
     plt.title("Absolute difference")
 
     plt.show()
 
 
-def test():
+def sino_images():
     #display_result_sino(test_img, "results\gfno_bp-ar0.25-state-dict-450x300.pt")
-    #display_result_img(test_img, model_path_multi="results\Final-ar0.25-multi-ver-2.pt", model_path_single="results\Final-ar0.25-single-ver-2.pt", model_path_fno="results\gfno_bp-ar0.25-state-dict-450x300.pt")
+    #display_result_img(test_img, model_path_multi="results\Final-ar0.5-multi-ver-3.pt", model_path_single="results\Final-ar0.5-single-ver-3.pt", model_path_fno="results\gfno_bp-ar0.5-state-dict-450x300.pt")
     
-    display_single(test_img,"results\Final-ar0.75-multi-ver-3.pt")
+    #display_single(test_img,"results\Final-ar0.25-multi-ver-3.pt")
 
-test()
+    geom = Geometry(1.0,450,300)
+    ray_layer = odl_torch.OperatorModule(geom.ray)
+    sinos: torch.Tensor = ray_layer(test_img)
+    model_fno = GeneralizedFNO_BP.model_from_state_dict(torch.load("results\gfno_bp-ar1.0-state-dict-450x300.pt"))
+    with torch.no_grad():
+        #fno_sino = model_fno.fno(sinos)[index].cpu().numpy()
+        fno_sino = model_fno.return_sino(sinos)[index].cpu().numpy()
+
+    analytic = RamLak(geom)
+    sinos = analytic.return_filtered_sino(sinos)
+    sino = sinos[index].cpu().numpy()
+
+    #sino = np.pad(sino,[(0,150),(0,0)],"constant")
+    sino = cv2.resize(sino,dsize=(300,450))
+    fno_sino = cv2.resize(fno_sino,dsize=(300,450))
+
+
+    plt.imshow(sino,cmap="gray")
+    plt.axis("off")
+    plt.imsave("SinogramsFinalReport\Sino1.0.png",sino,cmap="gray")
+    plt.show()
+    plt.imshow(fno_sino,cmap="gray",vmin=-5,vmax=5)
+    plt.axis("off")
+    plt.imsave("SinogramsFinalReport\Fno_sino1.0.png",fno_sino,cmap="gray",vmin=-5,vmax=5)
+    plt.show()
+    plt.imshow(abs(sino-fno_sino),cmap="gray",vmin=-5,vmax=5)
+    plt.axis("off")
+    plt.imsave("SinogramsFinalReport\Sino_diff1.0.png",abs(sino-fno_sino),cmap="gray",vmin=-5,vmax=5)
+    plt.show()
