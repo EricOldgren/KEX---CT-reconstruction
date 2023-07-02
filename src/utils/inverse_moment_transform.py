@@ -34,7 +34,7 @@ def extrapolate_sinos(geometry: Geometry, sinos: torch.Tensor, unknown_phis: tor
         parameters:
             - geometry (Geometry)
             - sinos (Tensor): of shape batch_size x phi_size x t_size
-            - unknown_phis (Tensor): angles where the sinograms should be estimated of shape (missing_phi_size,)
+            - unknown_phis (Tensor): angles where the sinograms should be estimated. Of shape (missing_phi_size,)
     """
     Np, Nt = geometry.phi_size, geometry.t_size
     ts = torch.from_numpy(geometry.translations).to(device=DEVICE, dtype=sinos.dtype)

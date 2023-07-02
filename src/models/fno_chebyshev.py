@@ -61,7 +61,7 @@ class FNO_BP_chebyshev(ModelBase):
                 lower_edge += self.stride
             if upper_edge >= 0:
                 filtered_X[:, upper_edge-self.stride:upper_edge] += self.window_up(filtered_X[:, upper_edge-self.wrap:upper_edge+self.geometry.phi_size])
-                upper_edge += self.stride
+                upper_edge -= self.stride
         
         return filtered_X[:, self.n_upper:-self.n_lower]
     
