@@ -27,7 +27,7 @@ def get_Un(ss, n):
     "Chebyshev polynomial of second kinf, degree n, ss is axis, which must be the interval [-1, 1]"
     return torch.sin((n+1)*torch.acos(ss)) / torch.sqrt(1-ss**2)
 
-def extrapolate_sinos(geometry: Geometry, sinos: torch.Tensor, unknown_phis: torch.Tensor, N_moments = 300):
+def extrapolate_sinos(sinos: torch.Tensor, known_phis: torch.Tensor, unknown_phis: torch.Tensor, N_moments = 300, ridge_lambda = 0.1):
     """
         Estimates sinogram values in an unknown region based on HLCC using projection onto orthogonal Chebyshev polynomials of the second kind.
 
@@ -36,28 +36,30 @@ def extrapolate_sinos(geometry: Geometry, sinos: torch.Tensor, unknown_phis: tor
             - sinos (Tensor): of shape batch_size x phi_size x t_size
             - unknown_phis (Tensor): angles where the sinograms should be estimated. Of shape (missing_phi_size,)
     """
-    Np, Nt = geometry.phi_size, geometry.t_size
-    ts = torch.from_numpy(geometry.translations).to(device=DEVICE, dtype=sinos.dtype)
-    known_phis = torch.from_numpy(geometry.angles).to(device=DEVICE, dtype=sinos.dtype)
+    N, Np, Nt = sinos.shape
+    known_phis = known_phis.to(device=DEVICE, dtype=sinos.dtype)
+    unknown_phis = unknown_phis.to(device=DEVICE, dtype=sinos.dtype)
     
-    R = geometry.rho #scalle of Chebyshev lengths
-    ss = ts / R #normalized translations in range [-1, 1]
+    # ts = torch.from_numpy(geometry.translations).to(device=DEVICE, dtype=sinos.dtype)
+    # R = geometry.rho #scalle of Chebyshev lengths
+    # ss = ts / R #normalized translations in range [-1, 1]
+    ss = (1 / (2*Nt) + torch.arange(0,Nt, dtype=sinos.dtype, device=DEVICE)/Nt)
+    ds = 2.0 / (Nt-1)
     W = torch.sqrt(1 - ss**2) #Weight function for Chebyshev inner product
 
-    exp = torch.zeros(sinos.shape[0], unknown_phis.shape[0], Nt).to(DEVICE, dtype=sinos.dtype)
+    exp = torch.zeros(N, unknown_phis.shape[0], Nt).to(DEVICE, dtype=sinos.dtype)
 
     for n in range(N_moments):
         #Data
         Xn = get_Xn(known_phis, n)
         Un = torch.sin((n+1)*torch.acos(ss)) / W
-        an = torch.sum(sinos*Un, dim=-1) * geometry.dt #moment n for every sinogram -- shape: batch_size x phis
+        an = torch.sum(sinos*Un, dim=-1) * ds #moment n for every sinogram -- shape: batch_size x phis
 
-        ridge_lambda = 0.1
         beta = torch.linalg.solve(Xn.T@Xn+ridge_lambda*torch.eye(n+1, device=DEVICE, dtype=sinos.dtype), Xn.T@an.T)
         Xn_exp = get_Xn(unknown_phis, n)
         pred_an = (Xn_exp@beta).T # batch_size x phis
 
-        exp = exp + 2/(torch.pi * R) * pred_an[:, :, None]*Un*W
+        exp = exp + 2/(torch.pi) * pred_an[:, :, None]*Un*W
 
     return exp
         
@@ -78,7 +80,7 @@ if __name__ == '__main__':
     sinos = ray_l(phantoms)
     full_sinos = full_ray_l(phantoms)
 
-    fully_projected = extrapolate_sinos(g, sinos, ext_g.tangles, N_moments=300)
+    fully_projected = extrapolate_sinos(sinos, g.tangles, ext_g.tangles, N_moments=300)
     # exp_sinos = torch.concat([sinos, fully_projected[:, g.phi_size:]], dim=1)
 
     smp = SinoMoments(ext_g)
