@@ -64,4 +64,5 @@ def convert2DeteCT(mapPathInitial='data\\2DeteCT_slices1-1000_RecSeg', mapPathTa
         currentSlice = torch.load(location)
         torch.save(currentSlice,mapPathTarget + '\slice' + index)
 
-convert2DeteCT()
+convertHTCPhantoms()
+convertHTCSinograms()
