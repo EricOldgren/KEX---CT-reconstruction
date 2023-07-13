@@ -5,7 +5,7 @@ import numpy as np
 import os
 import glob
 import matplotlib.pyplot as plt
-from src.utils.geometry import Geometry, setup
+from src.utils.geometry import ParallelGeometry, setup
 from src.models.fbpnet import FBPNet, load_fbpnet_from_dict
 from models.fbps import FBP
 
@@ -18,7 +18,7 @@ test_img /= torch.max(torch.max(test_img, dim=-1).values, dim=-1).values[:, None
 data2: torch.Tensor = torch.load("data\constructed_data.pt").to("cuda")
 data2 /= torch.max(torch.max(data2, dim=-1).values, dim=-1).values[:, None, None]
 
-geometry = Geometry(1.0,450,300)
+geometry = ParallelGeometry(1.0,450,300)
 
 ray_layer = odl_torch.OperatorModule(geometry.ray)
 

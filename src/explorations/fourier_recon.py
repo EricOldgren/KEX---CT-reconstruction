@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import odl
 import odl.contrib.torch as odl_torch
 
-from utils.geometry import Geometry, DEVICE, setup, extend_geometry
+from utils.geometry import ParallelGeometry, DEVICE, setup, extend_geometry
 from utils.moments import SinoMoments
 from models.expnet import ExtrapolatingBP
 from models.analyticmodels import RamLak
@@ -15,7 +15,7 @@ from models.analyticmodels import RamLak
 
 NUM_THRESH = 0.001
 
-geom = Geometry(0.5, 500, 300)
+geom = ParallelGeometry(0.5, 500, 300)
 ext_geom = extend_geometry(geom)
 
 

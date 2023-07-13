@@ -17,7 +17,7 @@ import random
 import os
 from typing import Literal
 
-from utils.geometry import Geometry, extend_geometry, setup, DEVICE
+from utils.geometry import ParallelGeometry, extend_geometry, setup, DEVICE
 from models.modelbase import ModelBase
 from models.fbps import FBP, GeneralizedFBP as GFBP
 from models.analyticmodels import ramlak_filter, RamLak
@@ -35,7 +35,7 @@ class ExtrapolatingBP(ModelBase):
 
     sinofig: Figure = None
 
-    def __init__(self, geometry: Geometry, sin2filler: nn.Module = None, sin2full: nn.Module = None, extended_geometry: Geometry = None, fbp: 'ModelBase|str' = None, use_padding = True, **kwargs):
+    def __init__(self, geometry: ParallelGeometry, sin2filler: nn.Module = None, sin2full: nn.Module = None, extended_geometry: ParallelGeometry = None, fbp: 'ModelBase|str' = None, use_padding = True, **kwargs):
         "Specify sin2fill layer"
        
         super().__init__(geometry, **kwargs)
@@ -73,7 +73,7 @@ class ExtrapolatingBP(ModelBase):
         fullX = self.extrapolate(X)
         return self.fbp(fullX)
 
-    def convert(self, geometry: Geometry):
+    def convert(self, geometry: ParallelGeometry):
         raise NotImplementedError("this model is not convertible! (yet)")
     
     def visualize_output(self, test_sinos: torch.Tensor, test_y: torch.Tensor, full_test_sinos: torch.Tensor, output_location: Literal["files", "show"] = "files", dirname="data", prettify_output=True, ind = None):
@@ -133,7 +133,7 @@ class FNOExtrapolatingBP(ExtrapolatingBP):
         Model that extrapolates sinograms using an FNO.
     """
 
-    def __init__(self, geometry: Geometry, exp_fno_layers = [30,30], fbp: ModelBase | str = None, **kwargs):
+    def __init__(self, geometry: ParallelGeometry, exp_fno_layers = [30,30], fbp: ModelBase | str = None, **kwargs):
 
         extended_geometry = extend_geometry(geometry)
         phi_size= geometry.phi_size
@@ -155,7 +155,7 @@ class FNOExtrapolatingBP(ExtrapolatingBP):
     @classmethod
     def model_from_state_dict(clc, state_dict, final_fbp_class = RamLak, fbp_use_padding = True):
         ar, phi_size, t_size = state_dict['ar'], state_dict['phi_size'], state_dict['t_size']
-        g = Geometry(ar, phi_size, t_size)
+        g = ParallelGeometry(ar, phi_size, t_size)
         #FIX change of attribute name sin2fill to sin2filler :()
         fixed_state_dict = {}
         for k, v in state_dict.items():
@@ -203,7 +203,7 @@ class CNNFiller(nn.Module):
         return torch.concat([conv(X[:, None])[:, 0] for conv in self.convs], dim=1)[:, :self.to_height]
 
 class CNNExtrapolatingBP(ExtrapolatingBP):
-    def __init__(self, geometry: Geometry, fbp: ModelBase = None, **kwargs):
+    def __init__(self, geometry: ParallelGeometry, fbp: ModelBase = None, **kwargs):
 
         extended_geometry = extend_geometry(geometry)
         super().__init__(geometry, CNNFiller(geometry.phi_size, extended_geometry.phi_size-geometry.phi_size), extended_geometry=extended_geometry, fbp=fbp)
@@ -273,7 +273,7 @@ class SmoothingFilter(nn.Module):
 
 class MIFNO_BP(ExtrapolatingBP):
 
-    def __init__(self, geometry: Geometry, n_moments = 12, use_sino_smoother = True, use_recon_smoother = True, sino_mse_tol = 1e-4, exp_max_iters = 2000, extended_geometry: Geometry = None,  use_padding=True, **kwargs):
+    def __init__(self, geometry: ParallelGeometry, n_moments = 12, use_sino_smoother = True, use_recon_smoother = True, sino_mse_tol = 1e-4, exp_max_iters = 2000, extended_geometry: ParallelGeometry = None,  use_padding=True, **kwargs):
 
         if extended_geometry == None: extended_geometry = extend_geometry(geometry)
         smp = SinoMoments(extended_geometry, n_moments=n_moments)
@@ -308,7 +308,7 @@ class MIFNO_BP(ExtrapolatingBP):
 
 
 if __name__ == '__main__':
-    geometry = Geometry(0.5, 160, 100, reco_shape=(256, 256))
+    geometry = ParallelGeometry(0.5, 160, 100, reco_shape=(256, 256))
 
     model = FNOExtrapolatingBP(geometry)
 

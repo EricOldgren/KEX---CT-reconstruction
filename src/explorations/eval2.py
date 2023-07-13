@@ -1,5 +1,5 @@
 import pickle
-from utils.geometry import Geometry, setup
+from utils.geometry import ParallelGeometry, setup
 
 with open("test_pickle.pt", "rb") as file:
     model = pickle.load(file)

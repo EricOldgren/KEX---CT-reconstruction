@@ -4,10 +4,10 @@ import numpy as np
 import odl
 import odl.contrib.torch as odl_torch
 
-from utils.geometry import Geometry, DEVICE
+from utils.geometry import ParallelGeometry, DEVICE
 from models.analyticmodels import RamLak
 
-geometry = Geometry(1.0, 900, 300)
+geometry = ParallelGeometry(1.0, 900, 300)
 
 MSE = lambda diff : torch.mean(diff**2)
 

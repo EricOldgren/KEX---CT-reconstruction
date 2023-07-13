@@ -34,7 +34,10 @@ def nearest_power_of_two(n: int):
         P *= 2
     return P
 
-class Geometry:
+class ParallelGeometry:
+    """
+        Wrapper for odl Parallel2dGeometry. Adds functionality for appropriate fourier transform and bandwidth.
+    """
     
     def __init__(self, angle_ratio: float, phi_size: int, t_size: int, reco_shape = (256, 256), reco_space: DiscretizedSpace = None, in_middle = False):
         """
@@ -132,7 +135,7 @@ class Geometry:
 
 class BasicModel(nn.Module):
 
-    def __init__(self, geometry: Geometry, kernel: torch.Tensor = None, trainable_kernel=True, dtype=torch.complex64, **kwargs):
+    def __init__(self, geometry: ParallelGeometry, kernel: torch.Tensor = None, trainable_kernel=True, dtype=torch.complex64, **kwargs):
         "Linear layer consisting of a 1D sinogram kernel in frequency domain"
         super(BasicModel, self).__init__(**kwargs)
         
@@ -165,7 +168,7 @@ class BasicModel(nn.Module):
 
         return torch.mean(self.kernel*self.kernel*penalty_coeffs)
 
-    def convert(self, geometry: Geometry):
+    def convert(self, geometry: ParallelGeometry):
         "Create a new model with the same kernels but for reconstruction in a different geometry"
         if (geometry.fourier_domain != self.geometry.fourier_domain).any(): # this depends on t_size and rho
             raise NotImplementedError("Can only convert to geometries with the same fourier domain at the moment. Models have the same fourier domain if t_size and rho are the same!") #maybe add way to convert between later
@@ -196,7 +199,7 @@ class BasicModel(nn.Module):
 
         plt.pause(0.05)
 
-def setup(geometry: Geometry, num_to_generate = 1000, train_ratio=0.8, pre_computed_phantoms: torch.Tensor = None,use_realistic=False, data_path=None):
+def setup(geometry: ParallelGeometry, num_to_generate = 1000, train_ratio=0.8, pre_computed_phantoms: torch.Tensor = None,use_realistic=False, data_path=None):
     """
         Creates Geometry with appropriate forward and backward projections in the given angle ratio and generates random data as specified
         parameters
@@ -254,14 +257,14 @@ def setup(geometry: Geometry, num_to_generate = 1000, train_ratio=0.8, pre_compu
 
     return (train_sinos, train_y, test_sinos, test_y)
 
-def extend_geometry(geometry: Geometry):
+def extend_geometry(geometry: ParallelGeometry):
     "Extends a geometry from limited angle to a full angle geometry in which a subregion of sinograms corresponds to sinograms in the limited geometry."
     ar, phi_size, t_size = geometry.ar, geometry.phi_size, geometry.t_size
 
     full_phi_size = ceil(1.0 / ar * phi_size)
-    return Geometry(1.0, full_phi_size, t_size, reco_space=geometry.reco_space)
+    return ParallelGeometry(1.0, full_phi_size, t_size, reco_space=geometry.reco_space)
 
-def missing_range(geometry: Geometry, extended_geometry: Geometry = None):
+def missing_range(geometry: ParallelGeometry, extended_geometry: ParallelGeometry = None):
     "Calculate the angles where projecctions are missing."
 
     if extended_geometry == None: extended_geometry = extend_geometry(geometry)

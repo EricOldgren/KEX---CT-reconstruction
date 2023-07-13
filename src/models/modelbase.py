@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.axes._axes import Axes
 from typing import Literal, Mapping, Any, List
-from utils.geometry import Geometry, DEVICE
+from utils.geometry import ParallelGeometry, DEVICE
 import odl.contrib.torch as odl_torch
 import numpy as np
 import os
@@ -19,7 +19,7 @@ class ModelBase(nn.Module):
 
     use_padding = False
 
-    def __init__(self, geometry: Geometry, **kwargs):
+    def __init__(self, geometry: ParallelGeometry, **kwargs):
         super().__init__(**kwargs)
         self.geometry = geometry
         self.BP_layer = odl_torch.OperatorModule(geometry.BP)
@@ -48,19 +48,19 @@ class ModelBase(nn.Module):
         if strict: assert self.state_dict().keys() == state_dict.keys()
         ar, phi_size, t_size = state_dict['ar'], state_dict['phi_size'], state_dict['t_size']
         super().load_state_dict(state_dict, strict=False) #loads weights, biases and kernels -- not geometry
-        geometry = Geometry(ar, phi_size, t_size)
+        geometry = ParallelGeometry(ar, phi_size, t_size)
         self.geometry = geometry
         self.BP_layer = odl_torch.OperatorModule(geometry.BP)
     
     @classmethod
     def model_from_state_dict(clc, state_dict, use_padding=True):
         ar, phi_size, t_size = state_dict['ar'], state_dict['phi_size'], state_dict['t_size']
-        g = Geometry(ar, phi_size, t_size)
+        g = ParallelGeometry(ar, phi_size, t_size)
         m = clc(g, use_padding=use_padding)
         m.load_state_dict(state_dict)
         return m
 
-    def convert(self, geometry: Geometry):
+    def convert(self, geometry: ParallelGeometry):
         "Return a new model with the same kernels that reconstructs sinograms from the given geometry. This converts all submodels of type ModelBase."
         assert (geometry.fourier_domain == self.geometry.fourier_domain).all(), f"Converting requires geometries to have the same fourier domain. That is guaranteed if they have the same t_size and rho."
         sd = self.state_dict()
@@ -188,7 +188,7 @@ class ChainedModels(ModelBase):
                 self.rays.append(odl_torch.OperatorModule(model.geometry.ray))
         self.rays.append(None)
     
-    def convert(self, geometry: Geometry):
+    def convert(self, geometry: ParallelGeometry):
         "Converts model chain to reconstruct from another geometry. This will only convert the first model in the chain."
         models = [self.models[0].convert(geometry)] + [m.convert(m.geometry) for m in self.models[1:]]
         return ChainedModels(models)

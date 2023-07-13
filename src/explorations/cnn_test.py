@@ -4,7 +4,7 @@ from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
 import odl.contrib.torch as odl_torch
 
-from utils.geometry import Geometry, DEVICE, setup
+from utils.geometry import ParallelGeometry, DEVICE, setup
 from utils.moments import SinoMoments
 from models.expnet import CNNExtrapolatingBP
 
@@ -13,7 +13,7 @@ from models.expnet import CNNExtrapolatingBP
 AR = 0.25
 N_epochs = 50
 
-geom = Geometry(AR, phi_size=50, t_size=30)
+geom = ParallelGeometry(AR, phi_size=50, t_size=30)
 model = CNNExtrapolatingBP(geom)
 N_moments = 5
 smp = SinoMoments(model.extended_geometry, n_moments=5)

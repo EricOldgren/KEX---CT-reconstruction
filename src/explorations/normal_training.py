@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
-from utils.geometry import Geometry, setup, BasicModel
+from utils.geometry import ParallelGeometry, setup, BasicModel
 from models.fbpnet import FBPNet
 import random
 import time
@@ -32,7 +32,7 @@ def train(model, dataloader):
 
 if __name__ == '__main__':
     A = time.time()
-    geometry = Geometry(0.5, 300, 150)
+    geometry = ParallelGeometry(0.5, 300, 150)
     train_sinos, train_y, test_sinos, test_y = setup(geometry, num_to_generate=400,use_realistic=True,data_path="data/kits_phantoms_256.pt")
     model = FBPNet(geometry, n_fbps=5)
     model.share_memory()

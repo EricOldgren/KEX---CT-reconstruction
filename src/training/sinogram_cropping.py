@@ -1,11 +1,11 @@
 import torch
 import numpy as np
 import random
-from utils.geometry import Geometry
+from utils.geometry import ParallelGeometry
 
 FLOAT_EPS = np.finfo(float).eps
 
-def crop_sinos(X: torch.Tensor, ar: float, full_geometry: Geometry)->"tuple[torch.Tensor, tuple[float, float]]":
+def crop_sinos(X: torch.Tensor, ar: float, full_geometry: ParallelGeometry)->"tuple[torch.Tensor, tuple[float, float]]":
     """Given tensors representing sinograms sampled at angles [0, pi] crops these at a randomly chosen start angle and returns the cropped sinograms together with the angles they are known at.
 
     Args:
@@ -31,7 +31,7 @@ def crop_sinos(X: torch.Tensor, ar: float, full_geometry: Geometry)->"tuple[torc
     
     return X[:, start_ind:start_ind+Np_limited], (start_angle, full_geometry.angles[start_ind+Np_limited])
 
-def zeropad_limited_angle_sinos(X: torch.Tensor, full_geometry: Geometry):
+def zeropad_limited_angle_sinos(X: torch.Tensor, full_geometry: ParallelGeometry):
     assert full_geometry.ar == 1.0
     N, lim_Np, Nt = X.shape
     Np = full_geometry.phi_size
@@ -71,11 +71,11 @@ def rotate_sinos(X: torch.Tensor, angle_interval: "tuple[float, float]", desired
 if __name__ == "__main__":
     
     from models.analyticmodels import RamLak
-    from utils.geometry import Geometry, DEVICE
+    from utils.geometry import ParallelGeometry, DEVICE
     import odl.contrib.torch as odl_torch
     import matplotlib.pyplot as plt
     from utils.inverse_moment_transform import extrapolate_sinos
-    g = Geometry(1.0, 400, 400)
+    g = ParallelGeometry(1.0, 400, 400)
     ray_l = odl_torch.OperatorModule(g.ray)
     
     ramlak = RamLak(g)

@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
-from utils.geometry import BasicModel, Geometry
+from utils.geometry import BasicModel, ParallelGeometry
 import odl.contrib.torch as odl_torch
 
-def linear_bandlimited_basis(geometry: Geometry):
+def linear_bandlimited_basis(geometry: ParallelGeometry):
     "Returns two dimensional basis consisting of 1) constant function and 2) linear function"
     beyond_limit = torch.where(geometry.fourier_domain > geometry.omega)
     

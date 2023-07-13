@@ -7,11 +7,11 @@ import matplotlib.pyplot as plt
 import odl
 import odl.contrib.torch as odl_torch
 
-from utils.geometry import Geometry, DEVICE, setup, extend_geometry
+from utils.geometry import ParallelGeometry, DEVICE, setup, extend_geometry
 from utils.moments import SinoMoments
 from models.expnet import ExtrapolatingBP
 
-geom = Geometry(0.5, 450, 300)
+geom = ParallelGeometry(0.5, 450, 300)
 ext_geom = extend_geometry(geom)
 n_moments = 12
 smp = SinoMoments(ext_geom, n_moments=n_moments)

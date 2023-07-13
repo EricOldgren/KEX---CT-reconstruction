@@ -5,7 +5,7 @@ import numpy as np
 import odl
 import odl.contrib.torch as odl_torch
 
-from utils.geometry import Geometry, DEVICE, extend_geometry, missing_range
+from utils.geometry import ParallelGeometry, DEVICE, extend_geometry, missing_range
 from utils.inverse_moment_transform import extrapolate_sinos
 from models.modelbase import ModelBase
 from models.analyticmodels import ramlak_filter
@@ -18,7 +18,7 @@ class FNO_BP_chebyshev(ModelBase):
             returns relu(BP(FNO(Xe) + basefilter*Xe)) where: Xe is analytical extrapolation of input, basefilter is given in fourier space, this FNO uses a sliding window to update every row in the extrapolated region 
     """
 
-    def __init__(self, geometry: Geometry, N_moments = 300, hidden_layers = [40, 20, 10, 1], wrap = 10, stride = 1, basefilter = None, trainable_basefilter = False, **kwargs):
+    def __init__(self, geometry: ParallelGeometry, N_moments = 300, hidden_layers = [40, 20, 10, 1], wrap = 10, stride = 1, basefilter = None, trainable_basefilter = False, **kwargs):
         
         assert geometry.in_middle, "geometry expected to be centered in the middle"
         super().__init__(geometry, **kwargs)

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import odl.contrib.torch as odl_torch
 
-from utils.geometry import Geometry, DEVICE, extend_geometry
+from utils.geometry import ParallelGeometry, DEVICE, extend_geometry
 from utils.more_fno import FNO2d as moded_FNO1d
 from utils.fno_1d import FNO1d, SpectralConv1d
 from models.analyticmodels import RamLak, ramlak_filter
@@ -18,7 +18,7 @@ import random
 
 class FNO_BP(ModelBase):
 
-    def __init__(self, geometry: Geometry, angle_batch_size: int, layer_widths = [10,10], dtype=torch.float64, use_basefliter = True, basefilter: 'torch.Tensor|None' = None, use_padding = True, trainable_basefilter = False, **kwargs) -> None:
+    def __init__(self, geometry: ParallelGeometry, angle_batch_size: int, layer_widths = [10,10], dtype=torch.float64, use_basefliter = True, basefilter: 'torch.Tensor|None' = None, use_padding = True, trainable_basefilter = False, **kwargs) -> None:
         """
             Back projection model filtering with a combination of an FNO module and a kernel.
 
@@ -72,7 +72,7 @@ class FNO_BP(ModelBase):
     
 class GeneralizedFNO_BP(ModelBase):
     
-    def __init__(self, geometry: Geometry, fno: nn.Module, extended_geometry: Geometry = None, dtype=torch.float32, use_basefliter = True, basefilter: 'torch.Tensor|None' = None, use_padding = True, trainable_basefilter = False, **kwargs) -> None:
+    def __init__(self, geometry: ParallelGeometry, fno: nn.Module, extended_geometry: ParallelGeometry = None, dtype=torch.float32, use_basefliter = True, basefilter: 'torch.Tensor|None' = None, use_padding = True, trainable_basefilter = False, **kwargs) -> None:
         """
             Back projection model filtering with a combination of an FNO module and a kernel.
 
@@ -114,7 +114,7 @@ class GeneralizedFNO_BP(ModelBase):
                 assert basefilter.shape == omgs.shape, "wrong formatted basefilter"
                 self.basefilter = nn.Parameter(basefilter.to(DEVICE, dtype=cdtype), requires_grad=trainable_basefilter)
     
-    def convert(self, geometry: Geometry):
+    def convert(self, geometry: ParallelGeometry):
         "Not convertible."
         raise NotImplementedError("Converting this model has not been impleemneted.")
 
@@ -167,7 +167,7 @@ class GeneralizedFNO_BP(ModelBase):
     @classmethod
     def model_from_state_dict(clc, state_dict, use_padding = False):
         ar, phi_size, t_size = state_dict['ar'], state_dict['phi_size'], state_dict['t_size']
-        g = Geometry(ar, phi_size, t_size)
+        g = ParallelGeometry(ar, phi_size, t_size)
         
         dtype = torch.float if state_dict["basefilter"].dtype == torch.cfloat else torch.double
     

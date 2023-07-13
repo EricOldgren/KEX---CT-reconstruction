@@ -2,12 +2,12 @@ import torch
 import numpy as np
 from sklearn.linear_model import Ridge
 
-from utils.geometry import Geometry, extend_geometry, DEVICE
+from utils.geometry import ParallelGeometry, extend_geometry, DEVICE
 from utils.inverse_moment_transform import get_Xn, get_Un
 from utils.moments import SinoMoments
 
 
-g = Geometry(0.5, 450, 300)
+g = ParallelGeometry(0.5, 450, 300)
 ext_g = extend_geometry(g)
 smp = SinoMoments(ext_g, 12)
 

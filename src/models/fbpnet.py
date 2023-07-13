@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import random
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
-from utils.geometry import Geometry, BasicModel, DEVICE
+from utils.geometry import ParallelGeometry, BasicModel, DEVICE
 from models.modelbase import ModelBase
 from models.fbps import FBP, SmoothFBP
 from models.analyticmodels import ramlak_filter
@@ -16,7 +16,7 @@ from typing import Mapping, Any
 
 class FBPNet(ModelBase):
 
-    def __init__(self, geometry: Geometry, n_fbps = 8, modelblock = FBP, use_padding = True, use_bias=True, default_kernel=None, **kwargs):
+    def __init__(self, geometry: ParallelGeometry, n_fbps = 8, modelblock = FBP, use_padding = True, use_bias=True, default_kernel=None, **kwargs):
         "2 layer network consisting of sums of FBPs"
 
         super(FBPNet, self).__init__(geometry, **kwargs)
@@ -59,7 +59,7 @@ class FBPNet(ModelBase):
     @classmethod
     def model_from_state_dict(clc, state_dict, modelblock = FBP, use_padding=True):
         n_fbps = state_dict["n_fbps"]
-        g = Geometry(state_dict["ar"], state_dict["phi_size"], state_dict["t_size"])
+        g = ParallelGeometry(state_dict["ar"], state_dict["phi_size"], state_dict["t_size"])
 
         m2 = FBPNet(g, n_fbps, modelblock=modelblock, use_padding=use_padding)
         m2.load_state_dict(state_dict)
@@ -69,7 +69,7 @@ class FBPNet(ModelBase):
 def load_fbpnet_from_dict(path, smooth_filters: bool = False):
     sd = torch.load(path)
     ar, phi_size, t_size = sd["ar"], sd["phi_size"], sd["t_size"]
-    geometry = Geometry(ar, phi_size, t_size)
+    geometry = ParallelGeometry(ar, phi_size, t_size)
     ret = FBPNet(geometry, n_fbps=sd["n_fbps"])#, use_smooth_filters=smooth_filters)
     ret.load_state_dict(sd, strict=False)
     return ret

@@ -1,5 +1,5 @@
 from models.modelbase import ModelBase
-from utils.geometry import Geometry, DEVICE
+from utils.geometry import ParallelGeometry, DEVICE
 import torch.nn as nn
 import torch
 import odl.contrib.torch as odl_torch
@@ -11,7 +11,7 @@ import math
 
 class FBP(ModelBase):
 
-    def __init__(self, geometry: Geometry, initial_kernel: torch.Tensor = None, use_padding = True, trainable_kernel=True, dtype=torch.complex64, **kwargs):
+    def __init__(self, geometry: ParallelGeometry, initial_kernel: torch.Tensor = None, use_padding = True, trainable_kernel=True, dtype=torch.complex64, **kwargs):
         "Linear layer consisting of a 1D sinogram kernel in frequency domain"
         super().__init__(geometry, **kwargs)
         self.plotkernels = True
@@ -56,7 +56,7 @@ class FBP(ModelBase):
     
 class GeneralizedFBP(ModelBase):
 
-    def __init__(self, geometry: Geometry, initial_kernel: torch.Tensor = None, use_padding = True, trainable_kernel = True, dtype=torch.complex64, **kwargs):
+    def __init__(self, geometry: ParallelGeometry, initial_kernel: torch.Tensor = None, use_padding = True, trainable_kernel = True, dtype=torch.complex64, **kwargs):
         """
             FBP with a kernel that depends on angle, kernel of shape (phi_size x fourier_shape), initialized with a ramlak filter by default
         """
@@ -89,7 +89,7 @@ class GeneralizedFBP(ModelBase):
 
 class SmoothFBP(FBP):
 
-    def __init__(self, geometry: Geometry, basis: torch.Tensor = None, use_padding = True) -> None:
+    def __init__(self, geometry: ParallelGeometry, basis: torch.Tensor = None, use_padding = True) -> None:
         """
             FBP with kernel as a linear combination of a specified set of basis kernels.
 

@@ -8,11 +8,11 @@ import odl.contrib.torch as odl_torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-from utils.geometry import Geometry, setup, DEVICE, extend_geometry
+from utils.geometry import ParallelGeometry, setup, DEVICE, extend_geometry
 from utils.moments import SinoMoments
 from utils.more_fno import FNO2d
 
-geom = Geometry(0.5, 300,150)
+geom = ParallelGeometry(0.5, 300,150)
 ext_geom = extend_geometry(geom)
 n_moments = 12
 smp = SinoMoments(ext_geom, n_moments=n_moments)

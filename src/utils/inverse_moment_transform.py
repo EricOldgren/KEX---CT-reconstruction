@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import Ridge, Lasso, LinearRegression
 from odl.contrib import torch as odl_torch
 
-from utils.geometry import Geometry, DEVICE, missing_range, extend_geometry
+from utils.geometry import ParallelGeometry, DEVICE, missing_range, extend_geometry
 from utils.moments import SinoMoments
 from models.analyticmodels import RamLak
 
@@ -73,7 +73,7 @@ if __name__ == '__main__':
     read_data /= torch.max(torch.max(read_data, dim=-1).values, dim=-1).values[:, None, None]
     phantoms = read_data
 
-    g = Geometry(0.5, 450, 300)
+    g = ParallelGeometry(0.5, 450, 300)
     ext_g = extend_geometry(g)
     ray_l = odl_torch.OperatorModule(g.ray)
     full_ray_l = odl_torch.OperatorModule(ext_g.ray)

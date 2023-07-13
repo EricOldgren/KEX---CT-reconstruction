@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 from math import sqrt
 import numpy as np
 
-from utils.geometry import Geometry, DEVICE
+from utils.geometry import ParallelGeometry, DEVICE
 
 def test_fourier_transforms():
-    geometry = Geometry(1.0, 150, 100)
+    geometry = ParallelGeometry(1.0, 150, 100)
 
     x = torch.randn((1,1,geometry.t_size)).to(device=DEVICE)
 

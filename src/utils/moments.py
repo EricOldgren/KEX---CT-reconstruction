@@ -1,6 +1,6 @@
 import torch
 
-from utils.geometry import Geometry, setup, DEVICE, extend_geometry
+from utils.geometry import ParallelGeometry, setup, DEVICE, extend_geometry
 import scipy
 from math import ceil
 import torch.nn as nn
@@ -9,7 +9,7 @@ ZERO_THRESHOLD = 1e-5
 
 class SinoMoments:
 
-    def __init__(self, full_geometry: Geometry, n_moments = 12) -> None:
+    def __init__(self, full_geometry: ParallelGeometry, n_moments = 12) -> None:
         self.geometry = full_geometry
         assert full_geometry.ar == 1.0, "assumng full geometry"
         self.n_moments = n_moments
@@ -135,7 +135,7 @@ def project(X: torch.Tensor, on: torch.Tensor):
     return torch.einsum("ij,jk", projs_c, onflat).reshape(*X.shape) #linear combination of basis
 
 
-def trigo_sino_basis(geometry: Geometry, n_phi_freqs: int = 20, n_t_freqs: int = 20):
+def trigo_sino_basis(geometry: ParallelGeometry, n_phi_freqs: int = 20, n_t_freqs: int = 20):
     assert geometry.ar == 1.0
     Nt, Np = geometry.t_size, geometry.phi_size
     art_t = torch.linspace(0.0, 2*torch.pi, steps=Nt, device=DEVICE)
@@ -155,7 +155,7 @@ def trigo_sino_basis(geometry: Geometry, n_phi_freqs: int = 20, n_t_freqs: int =
     basis = basis[norms > ZERO_THRESHOLD, :, :] / torch.sqrt(norms[norms > ZERO_THRESHOLD, None, None])
     return basis
 
-def onehot_sino_basis(geometry: Geometry):
+def onehot_sino_basis(geometry: ParallelGeometry):
     Nt, Np = geometry.t_size, geometry.phi_size
     basis = torch.zeros(Np*Nt, Np, Nt)
     for i in range(Np):
@@ -164,7 +164,7 @@ def onehot_sino_basis(geometry: Geometry):
 
     return basis
 
-def hat_basis(geometry: Geometry, n_phi_hats: int = 20, n_t_hats: int = 20):
+def hat_basis(geometry: ParallelGeometry, n_phi_hats: int = 20, n_t_hats: int = 20):
     "get ON basis of flat surfaces"
     assert geometry.ar == 1.0
     Nt, Np = geometry.t_size, geometry.phi_size
@@ -196,7 +196,7 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import torch.nn as F
 
-    g = Geometry(0.5, 100, 100)
+    g = ParallelGeometry(0.5, 100, 100)
     ext_g = extend_geometry(g)
     full_ray_layer = odl_torch.OperatorModule(ext_g.ray)
     N_moments = 5

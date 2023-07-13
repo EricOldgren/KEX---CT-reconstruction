@@ -1,7 +1,7 @@
 import os
 import torch
 from torch.utils.data import DataLoader, TensorDataset
-from utils.geometry import Geometry, setup,  DEVICE
+from utils.geometry import ParallelGeometry, setup,  DEVICE
 from utils.threaded_training import multi_threaded_training
 from models.fbpnet import FBPNet
 from models.modelbase import ChainedModels
@@ -22,11 +22,11 @@ scale_factor = 1.0 #10 #output is zero all the time, a large scale factor will i
 if __name__ == '__main__':
 
     for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
-        geometry = Geometry(ar, 200, 100, reco_shape=(256, 256))
-        ext_geom = Geometry(1.0, 320, 100, reco_shape=(256, 256))
+        geometry = ParallelGeometry(ar, 200, 100, reco_shape=(256, 256))
+        ext_geom = ParallelGeometry(1.0, 320, 100, reco_shape=(256, 256))
         smp = SinoMoments(ext_geom)
         modes = torch.where(geometry.fourier_domain <= geometry.omega)[0].shape[0]
-        geom2 = Geometry(1.0, 200, 100)
+        geom2 = ParallelGeometry(1.0, 200, 100)
         train_sinos, train_y, test_sinos, test_y = setup(geometry, num_to_generate=0, train_ratio=0.9, use_realistic=True, data_path="data/kits_phantoms_256.pt")
         # model = FBPNet(geometry, n_fbps=2, use_bias=False, default_kernel=ramlak_filter(geometry))
         # model = DoubleNet(geometry, use_smooth_filters=True)

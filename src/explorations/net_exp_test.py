@@ -4,7 +4,7 @@ import odl.contrib.torch as odl_torch
 
 import os
 
-from utils.geometry import Geometry, setup,  DEVICE, extend_geometry
+from utils.geometry import ParallelGeometry, setup,  DEVICE, extend_geometry
 from utils.threaded_training import multi_threaded_training
 from models.fbpnet import FBPNet
 from models.modelbase import ChainedModels
@@ -23,7 +23,7 @@ MODEL_STORE_LOCATION = os.path.join("data", "gfno_bp1")
 if __name__ == '__main__':
 
     for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
-        geometry = Geometry(ar, 150, 75, reco_shape=(256, 256))
+        geometry = ParallelGeometry(ar, 150, 75, reco_shape=(256, 256))
         ext_geom = extend_geometry(geometry)
         ext_ray_layer = odl_torch.OperatorModule(ext_geom.ray)
         

@@ -7,7 +7,7 @@ import torch.nn as nn
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-from utils.geometry import Geometry, setup, BasicModel
+from utils.geometry import ParallelGeometry, setup, BasicModel
 import random
 
 

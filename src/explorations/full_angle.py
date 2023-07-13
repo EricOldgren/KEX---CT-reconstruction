@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
-from utils.geometry import Geometry, setup
+from utils.geometry import ParallelGeometry, setup
 from models.fbpnet import FBPNet
 from models.fouriernet import FNO_BP
 from models.fbps import FBP
@@ -12,7 +12,7 @@ TRAINED = {}
 LAMBDA  = 10 #regularization parameter
 
 for ar, n_epochs in zip(ANGLE_RATIOS, EPOPCHS):
-    geometry = Geometry(ar, 450, 300) #50,40
+    geometry = ParallelGeometry(ar, 450, 300) #50,40
 
     (train_sinos, train_y, test_sinos, test_y) = setup(geometry, num_to_generate=1500,use_realistic=True, pre_computed_phantoms=torch.load("data\constructed_data.pt"),data_path="data/kits_phantoms_256.pt") #, pre_computed_phantoms=torch.load("data\constructed_data.pt")
     model = FBPNet(geometry,n_fbps=4,use_padding=True)

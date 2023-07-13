@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from src.models.fouriernet import GeneralizedFNO_BP
 from src.models.expnet import FNOExtrapolatingBP
 from src.models.fbpnet import FBPNet
-from src.utils.geometry import Geometry, DEVICE
+from src.utils.geometry import ParallelGeometry, DEVICE
 from src.models.analyticmodels import RamLak
 import random as rnd
 import math
@@ -61,7 +61,7 @@ def test():
     test_data = data[500:600]
     test_data /= torch.max(torch.max(test_data, dim=-1).values, dim=-1).values[:, None, None]
 
-    geometry = Geometry(0.25, 450, 300)
+    geometry = ParallelGeometry(0.25, 450, 300)
     #model_analytic = RamLak(geometry,use_padding=True)
 
     model_path = "results\Final-ar1.0-single-ver-3.pt"

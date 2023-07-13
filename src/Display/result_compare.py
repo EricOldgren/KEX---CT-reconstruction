@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from src.models.fouriernet import GeneralizedFNO_BP
 from src.models.fbpnet import FBPNet
-from src.utils.geometry import Geometry
+from src.utils.geometry import ParallelGeometry
 from src.models.analyticmodels import RamLak
 import random as rnd
 import math
@@ -14,7 +14,7 @@ from statistical_measures import ssim, psnr
 from src.models.fbps import FBP
 import cv2
 
-geometry = Geometry(0.5, 450, 300)
+geometry = ParallelGeometry(0.5, 450, 300)
 
 data: torch.Tensor = torch.load("data\kits_phantoms_256.pt").moveaxis(0,1).to("cuda")
 data = torch.concat([data[1], data[0], data[2]])
@@ -132,7 +132,7 @@ def display_single(img, model_path):
 
 
 def display_result_sino(img, model_path_fno):
-    ext_geom = Geometry(1.0, 1800, 300)
+    ext_geom = ParallelGeometry(1.0, 1800, 300)
     geom = geometry
     ray_layer = odl_torch.OperatorModule(geom.ray)
     sinos: torch.Tensor = ray_layer(img)
@@ -170,7 +170,7 @@ def sino_images():
     
     #display_single(test_img,"results\Final-ar0.25-multi-ver-3.pt")
 
-    geom = Geometry(1.0,450,300)
+    geom = ParallelGeometry(1.0,450,300)
     ray_layer = odl_torch.OperatorModule(geom.ray)
     sinos: torch.Tensor = ray_layer(test_img)
     model_fno = GeneralizedFNO_BP.model_from_state_dict(torch.load("results\gfno_bp-ar1.0-state-dict-450x300.pt"))

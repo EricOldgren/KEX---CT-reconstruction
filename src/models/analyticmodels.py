@@ -1,4 +1,4 @@
-from utils.geometry import Geometry, DEVICE
+from utils.geometry import ParallelGeometry, DEVICE
 from models.modelbase import ModelBase
 from odl.contrib import torch as odl_torch
 import torch
@@ -6,7 +6,7 @@ import numpy as np
 from math import ceil
 import torch.nn.functional as F
 
-def ramlak_filter(geometry: Geometry, padding=False, cutoff: float = None, dtype=torch.complex64):
+def ramlak_filter(geometry: ParallelGeometry, padding=False, cutoff: float = None, dtype=torch.complex64):
     """
         Constructs a Ram-Lak filter in fourier domain.
 
@@ -26,7 +26,7 @@ def ramlak_filter(geometry: Geometry, padding=False, cutoff: float = None, dtype
 
 class RamLak(ModelBase):
 
-    def __init__(self, geometry: Geometry, dtype=torch.complex64, use_padding = True, cutoff = 1.0, **kwargs):
+    def __init__(self, geometry: ParallelGeometry, dtype=torch.complex64, use_padding = True, cutoff = 1.0, **kwargs):
         "FBP based on Radon's invesrion formula. Uses a |omega| filter with a hard cut."
         super().__init__(geometry, **kwargs)
         self.plotkernels = True
