@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader, DistributedSampler
 import torch.multiprocessing as mp
 import matplotlib.pyplot as plt
-from utils.geometry import ParallelGeometry, setup, BasicModel
+from utils.parallel_geometry import ParallelGeometry, setup, BasicModel
 from models.fbpnet import FBPNet
 import random
 import time

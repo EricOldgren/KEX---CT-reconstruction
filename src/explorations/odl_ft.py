@@ -1,5 +1,5 @@
 import odl
-from src.utils.geometry import ParallelGeometry
+from utils.parallel_geometry import ParallelGeometry
 from src.utils.data_generator import unstructured_random_phantom
 geometry = ParallelGeometry(1.0, 100, 300)
 

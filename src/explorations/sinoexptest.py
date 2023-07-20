@@ -8,7 +8,7 @@ import odl.contrib.torch as odl_torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-from utils.geometry import ParallelGeometry, setup, DEVICE, extend_geometry
+from utils.parallel_geometry import ParallelGeometry, setup, DEVICE, extend_geometry
 from utils.moments import SinoMoments
 from utils.more_fno import FNO2d
 

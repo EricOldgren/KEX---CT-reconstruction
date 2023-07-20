@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import odl
 import odl.contrib.torch as odl_torch
 
-from utils.geometry import ParallelGeometry, DEVICE, setup, extend_geometry
+from utils.parallel_geometry import ParallelGeometry, DEVICE, setup, extend_geometry
 from utils.moments import SinoMoments
 from models.expnet import ExtrapolatingBP
 from models.analyticmodels import RamLak

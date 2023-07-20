@@ -1,5 +1,5 @@
 from models.modelbase import ModelBase
-from utils.geometry import ParallelGeometry, DEVICE
+from utils.parallel_geometry import ParallelGeometry, DEVICE
 import torch.nn as nn
 import torch
 import odl.contrib.torch as odl_torch

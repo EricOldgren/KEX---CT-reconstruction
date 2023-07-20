@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from sklearn.linear_model import Ridge
 
-from utils.geometry import ParallelGeometry, extend_geometry, DEVICE
+from utils.parallel_geometry import ParallelGeometry, extend_geometry, DEVICE
 from utils.inverse_moment_transform import get_Xn, get_Un
 from utils.moments import SinoMoments
 

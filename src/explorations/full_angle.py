@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
-from utils.geometry import ParallelGeometry, setup
+from utils.parallel_geometry import ParallelGeometry, setup
 from models.fbpnet import FBPNet
 from models.fouriernet import FNO_BP
 from models.fbps import FBP

@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
-from utils.geometry import ParallelGeometry, setup, BasicModel
+from utils.parallel_geometry import ParallelGeometry, setup, BasicModel
 import random
 from models.analyticmodels import RamLak, ramlak_filter
 import odl.contrib.torch as odl_torch

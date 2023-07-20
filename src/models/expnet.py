@@ -17,7 +17,7 @@ import random
 import os
 from typing import Literal
 
-from utils.geometry import ParallelGeometry, extend_geometry, setup, DEVICE
+from utils.parallel_geometry import ParallelGeometry, extend_geometry, setup, DEVICE
 from models.modelbase import ModelBase
 from models.fbps import FBP, GeneralizedFBP as GFBP
 from models.analyticmodels import ramlak_filter, RamLak

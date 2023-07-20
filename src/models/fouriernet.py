@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import odl.contrib.torch as odl_torch
 
-from utils.geometry import ParallelGeometry, DEVICE, extend_geometry
+from utils.parallel_geometry import ParallelGeometry, DEVICE, extend_geometry
 from utils.more_fno import FNO2d as moded_FNO1d
 from utils.fno_1d import FNO1d, SpectralConv1d
 from models.analyticmodels import RamLak, ramlak_filter

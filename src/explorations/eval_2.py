@@ -5,7 +5,7 @@ import numpy as np
 import os
 import glob
 import matplotlib.pyplot as plt
-from src.utils.geometry import ParallelGeometry, setup
+from utils.parallel_geometry import ParallelGeometry, setup
 from src.models.fbpnet import FBPNet, load_fbpnet_from_dict
 from models.fbps import FBP
 

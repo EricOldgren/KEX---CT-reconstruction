@@ -1,7 +1,7 @@
 import os
 import torch
 from torch.utils.data import DataLoader, TensorDataset
-from utils.geometry import ParallelGeometry, setup,  DEVICE
+from utils.parallel_geometry import ParallelGeometry, setup,  DEVICE
 from utils.threaded_training import multi_threaded_training
 from models.fbpnet import FBPNet
 from models.modelbase import ChainedModels

@@ -53,7 +53,7 @@ class ParallelGeometry:
         self.ar = angle_ratio; self.phi_size = phi_size; self.t_size = t_size
         self.pad_size_left, self.pad_size_right = 0, nearest_power_of_two(t_size)*2 - t_size #total size is the nearset power of two two levels up - at most 4 * t_size
         "number of zeros to pad with on each side"
-        self.padded_t_size = self.t_size + + self.pad_size_left + self.pad_size_right
+        self.padded_t_size = self.t_size + self.pad_size_left + self.pad_size_right
 
         if reco_space is None:
             self.reco_space = odl.uniform_discr(min_pt=[-1.0, -1.0], max_pt=[1.0, 1.0], shape=reco_shape, dtype='float32')

@@ -3,7 +3,7 @@ import torch.multiprocessing as mp
 from torch.utils.data import DataLoader, DistributedSampler, Dataset
 import numpy as np
 
-from utils.geometry import DEVICE
+from utils.parallel_geometry import DEVICE
 from utils.moments import SinoMoments
 from models.modelbase import ModelBase
 from models.expnet import FNOExtrapolatingBP as ExpBP

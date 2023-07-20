@@ -3,7 +3,7 @@ import odl.contrib.torch as odl_torch
 import os
 import glob
 import matplotlib.pyplot as plt
-from src.utils.geometry import ParallelGeometry, setup, DEVICE
+from utils.parallel_geometry import ParallelGeometry, setup, DEVICE
 from src.models.fbpnet import FBPNet, load_fbpnet_from_dict
 from models.fouriernet import GeneralizedFNO_BP as GFNO_BP
 from models.fbps import FBP

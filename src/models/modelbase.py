@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.axes._axes import Axes
 from typing import Literal, Mapping, Any, List
-from utils.geometry import ParallelGeometry, DEVICE
+from utils.parallel_geometry import ParallelGeometry, DEVICE
 import odl.contrib.torch as odl_torch
 import numpy as np
 import os

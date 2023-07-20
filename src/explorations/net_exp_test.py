@@ -4,7 +4,7 @@ import odl.contrib.torch as odl_torch
 
 import os
 
-from utils.geometry import ParallelGeometry, setup,  DEVICE, extend_geometry
+from utils.parallel_geometry import ParallelGeometry, setup,  DEVICE, extend_geometry
 from utils.threaded_training import multi_threaded_training
 from models.fbpnet import FBPNet
 from models.modelbase import ChainedModels

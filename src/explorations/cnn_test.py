@@ -4,7 +4,7 @@ from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
 import odl.contrib.torch as odl_torch
 
-from utils.geometry import ParallelGeometry, DEVICE, setup
+from utils.parallel_geometry import ParallelGeometry, DEVICE, setup
 from utils.moments import SinoMoments
 from models.expnet import CNNExtrapolatingBP
 

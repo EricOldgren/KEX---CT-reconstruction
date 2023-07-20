@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from math import sqrt
 import numpy as np
 
-from utils.geometry import ParallelGeometry, DEVICE
+from utils.parallel_geometry import ParallelGeometry, DEVICE
 
 def test_fourier_transforms():
     geometry = ParallelGeometry(1.0, 150, 100)
@@ -37,6 +37,7 @@ def plot_them():
     dw = w[1]-w[0]
     fhat = d*torch.exp(-1j*a*w)*dft #scaled DFT to match FT
     assert np.abs(dw - 2*np.pi/(N*d)) < 1e-4
+    assert torch.mean((w - torch.linspace(0, (N//2 + 1)*dw, N //2 + 1))**2) / torch.max(w) < 1e-4
     # print("Angular velocity step, from torch and by hand:")
     # print(dw)
     # print(2*np.pi/(N*d))
