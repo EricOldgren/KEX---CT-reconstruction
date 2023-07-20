@@ -8,5 +8,9 @@
     "terminal.integrated.env.windows": {
         "PYTHONPATH": "${env:PYTHONPATH};${workspaceFolder}/src",
     },
-    "python.envFile": "${workspaceFolder}/src/.env"
+    "python.envFile": "${workspaceFolder}/src/.env",
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.autopep8"
+    },
+    "python.formatting.provider": "none"
 }
