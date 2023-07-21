@@ -8,8 +8,8 @@ import time
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DTYPE = torch.double
-CDTYPE = torch.cdouble
+DTYPE = torch.float
+CDTYPE = torch.cfloat
 eps = torch.finfo(DTYPE).eps
 
 def nearest_power_of_two(n: int):
@@ -89,9 +89,9 @@ class FlatFanBeamGeometry:
         self.dX, self.dY = (xmax - xmin) / self.NX, (ymax - ymin) / self.NY
         "step size in reconstruction space"
         self.Xs = xmin + self.dX / 2 + self.dX * \
-            torch.arange(1, self.NX, device=DEVICE, dtype=DTYPE)[None]
+            torch.arange(0, self.NX, device=DEVICE, dtype=DTYPE)[None]
         self.Ys = ymin + self.dY/2 + self.dY * \
-            torch.arange(1, self.NY, device=DEVICE, dtype=DTYPE)[:, None]
+            torch.arange(0, self.NY, device=DEVICE, dtype=DTYPE)[:, None]
 
     @property
     def padded_u_size(self):
@@ -110,7 +110,7 @@ class FlatFanBeamGeometry:
     def fourier_transform(self, sinos: torch.Tensor)->torch.Tensor:
         """
             Returns samples of the fourier transform of a function defined on the detector partition (u-axis).
-            Applies the torch fft on gpu and scales the result accordingly.
+            Applies torch fft on gpu and scales the result accordingly.
         """
         assert sinos.shape[-1] == self.Nu, "Not an appropriate function"
         ws = self.ws
@@ -176,102 +176,97 @@ def draw_points_and_grid(Xmin, Xmax, Ymin, Ymax, points, *plot_pointss):
     plt.show()
     
 
-
+torch.jit.enable_onednn_fusion(True)
+@torch.jit.script
 def _project_forward(data: torch.Tensor, Xs: torch.Tensor, Ys: torch.Tensor, betas: torch.Tensor, us: torch.Tensor, R: float, DEVICE: torch.device):
-    N_samples, H, W = data.shape
-    Xs, Ys = Xs.reshape(-1), Ys.reshape(-1)
-    Xmin, Xmax, Ymin, Ymax = Xs[0], Xs[-1], Ys[0], Ys[-1]
-    dX, dY = torch.mean(Xs[1:]-Xs[:-1]), torch.mean(Ys[1:] - Ys[:-1])
-
-    N_line_points = 2*(((Xmax - Xmin)**2 + (Ymax-Ymin)**2)**0.5 / dX).to(dtype=torch.int64)
-    ratios = torch.arange(0, 1.0, 1 / N_line_points)[:, None]
-
-    bounding_normals = torch.tensor([[1.0, 0.0], [-1.0, 0.0], [0.0, 1.0], [0.0, -1.0]], device=DEVICE, dtype=torch.float64)
-    bounding_vals = torch.stack([Xmin, -Xmax, Ymin, -Ymax])
-
-    betas, us = betas.reshape(-1, 1), us.reshape(1, -1)
     
-    res = (betas * us * 0).repeat(N_samples, 1, 1)
-
+    data = torch.flip(data, dims=(1,)) #flip y upwards
+    
+    N_samples, _, _ = data.shape
+    Xs, Ys = Xs.reshape(-1), Ys.reshape(-1)
+    betas, us = betas.reshape(-1, 1), us.reshape(1, -1)
     Nb, _ = betas.shape
     _, Nu = us.shape
+    Xmin, Xmax, Ymin, Ymax = Xs[0], Xs[-1], Ys[0], Ys[-1]
+    dX, dY = torch.mean(Xs[1:]-Xs[:-1]), torch.mean(Ys[1:] - Ys[:-1])
+    min_d = torch.minimum(dX, dY)
 
-    for i in range(Nb):
-        for j in range(Nu):
-            # Define line of Ray
-            bi, uj = betas[i, 0], us[0, j]
-            S, P = torch.stack([torch.cos(bi), torch.sin(bi)]) * R,  torch.stack([torch.sin(bi), -torch.cos(bi)])*uj
-            line_dir = P - S
-            line_dir /= torch.linalg.norm(line_dir)
-            line_normal = torch.stack([line_dir[1], -line_dir[0]])
-            tj = torch.sum(P*line_normal)
+    N_line_points = (((Xmax - Xmin)**2 + (Ymax-Ymin)**2)**0.5 / min_d).to(dtype=torch.int32)
+    ratios = (1/(2*N_line_points) + torch.arange(0,N_line_points, device=DEVICE, dtype=torch.float32)/N_line_points)
 
-            # Find line segment in the region
-            A = torch.stack([bounding_normals, line_normal.reshape(1, 2).repeat(4, 1)], dim=1)
-            ts = torch.stack([bounding_vals, tj.reshape(1).repeat(4)], dim=1).reshape(4, 2, 1)
-            intersections: torch.Tensor = torch.linalg.solve(A, ts).reshape(4, 2)
-            # plot_hepler(data, torch.concat([S[None], P[None]]), dX, dY, 10)
-            # draw_points_and_grid(Xmin, Xmax, Ymin, Ymax, torch.concat([S[None], P[None], intersections]), S[None] + line_dir[None]*torch.linspace(0,500, 1000)[:, None], line_normal[None]*torch.linspace(0,100,100)[:, None])
-            on_inside = (torch.einsum("nk,ik->in", bounding_normals, intersections) - bounding_vals > -1e-5).sum(dim=-1) == 4
-            if on_inside.sum() != 2:
-                print(f"no intersections on border found for (i,j)={i},{j}")
-                continue
-            intersections = intersections[on_inside]
-            # draw_points_and_grid(Xmin, Xmax, Ymin, Ymax, torch.concat([S[None], P[None], intersections]), S[None] + line_dir[None]*torch.linspace(0,500, 1000)[:, None], line_normal[None]*torch.linspace(0,100,100)[:, None])
-            start, stop = intersections[0], intersections[1]
-            if torch.sum((intersections[1]-intersections[0])*line_dir) < 0:
-                start, stop = stop, start
-            line_segment = stop - start
-            line_points = start + ratios*line_segment.reshape(1, 2)
-            dl = torch.linalg.norm(line_segment) / N_line_points
+    # Define lines of Rays
+    Sources = torch.stack([torch.cos(betas), torch.sin(betas)],dim=-1).reshape(-1,1,2)*R
+    ProjectorPoints = torch.stack([torch.sin(betas), -torch.cos(betas)], dim=-1).reshape(-1,1,2) * us.reshape(1,-1,1)
+    line_directions = ProjectorPoints - Sources
+    line_directions /= torch.linalg.norm(line_directions)
+    line_normals = torch.stack([line_directions[:, :, 1], -line_directions[:, :, 0]], dim=-1)
+    line_translations = torch.sum(ProjectorPoints*line_normals, dim=-1, keepdim=True)
+    
+    # Find endpoints of lines in region
+    bounding_normals = torch.tensor([[1.0, 0.0], [-1.0, 0.0], [0.0, 1.0], [0.0, -1.0]], device=DEVICE, dtype=torch.float32) #edges
+    bounding_vals = torch.stack([Xmin, -Xmax, Ymin, -Ymax])
+    A = torch.stack([
+        bounding_normals[None, None].repeat(Nb, Nu, 1, 1), line_normals[:,:,None].repeat(1,1,4,1)
+    ], dim=3)
+    ts = torch.stack([
+        bounding_vals[None, None, :, None].repeat(Nb, Nu, 1, 1), line_translations[:,:,None].repeat(1,1,4,1)
+    ], dim=3)
+    intersections: torch.Tensor = torch.linalg.solve(A, ts).reshape(Nb, Nu, 4, 2) #Solve for intersection of rays and edges
+    on_inside = ((torch.einsum("nk,buik->buin", bounding_normals, intersections) - bounding_vals) > -1e-5).sum(dim=-1) == 4
+    invalids = (on_inside.sum(dim=-1) != 2)
+    on_inside[invalids, :] = torch.tensor([1,1,0,0], device=DEVICE, dtype=torch.bool)
+    intersections = intersections[on_inside].view(Nb, Nu, 2, 2)
+    #Define line points to integrate over
+    start_points, stop_points = intersections[:, :, 0]*0, intersections[:,:,0]*0
+    zero2one = torch.sum((intersections[:,:, 1]-intersections[:,:,0])*line_directions, dim=-1) > 0.0 #orientations where line_dir goes from int[0] - int[1]
+    start_points[zero2one, :] += intersections[zero2one][:, 0]; stop_points[zero2one, :] += intersections[zero2one][:, 1]
+    start_points[~zero2one, :] += intersections[~zero2one][:, 1]; stop_points[~zero2one, :] += intersections[~zero2one][:, 0]
+    line_segments = stop_points - start_points
+    dls = torch.linalg.norm(line_segments, dim=-1, keepdim=True)
+    dls /= N_line_points
+    dls[invalids] *= 0
 
-            #DEBUG
-            # print("i,j", i, j)
-            # print("dl", dl)
-            # print("line_dir", line_dir)
-            #DEBUG
+    line_points: torch.Tensor = ratios.reshape(1,1,-1,1)*line_segments[...,None, :]
+    line_points += start_points[...,None, :]
+    line_points[invalids] *= 0
+    #Find inds of line points
+    line_points -= torch.stack([Xmin, Ymin])
+    line_points /= torch.stack([dX, dY])
+    line_points += 0.5
+    inds = line_points.to(torch.int64) #integer inds
 
-            # Calculate linearly interpolated values of points along line
-            inds_X, inds_Y = ((line_points[:, 0] - Xmin) / dX).to(torch.int64), ((line_points[:, 1]- Ymin) / dY).to(torch.int64)
-            wxs, wys = (line_points[:, 0] - Xs[inds_X]) / dX, (line_points[:, 1] - Ys[inds_Y]) / dY
-
-            vals = (data[:,H-1-inds_Y, inds_X]*(1-wxs)*(1-wys) +
-                    data[:,H-1-(inds_Y+1), inds_X] * wxs * (1-wys) +
-                    data[:,H-1-inds_Y, inds_X+1]*(1-wxs)*wys +
-                    data[:,H-1-(inds_Y+1), inds_X+1] * wxs*wys
-                )
-            
-            #DEBUG
-            # if j > 60:
-            #     print(wxs)
-            #     print(wys)
-            #     disp_img = torch.tensor(data[0].cpu()).to(torch.float64)
-            #     disp_img[H-inds_Y, inds_X] = (vals[0] * 10 -5)
-
-            #     plt.imshow(disp_img)
-            #     plt.colorbar()
-            #     plt.show()
-            #     print("hello")
-            # #DEBUG
-            
-            res[:, i, j] = torch.sum(vals, dim=-1)*dl
+    res = torch.zeros((N_samples, Nb, Nu), device=DEVICE, dtype=betas.dtype)
+    for ind in range(N_samples):
+        res[ind] += torch.einsum("ubl,ubl->ub", data[ind, inds[...,1], inds[...,0]], dls) # this uses nearest neighbour interpolation - faster
 
     return res
 
 
+    #Code for linear interpolation
+    # wxs, wys = (line_points[...,0] - Xs[inds_X]) / dX, (line_points[..., 1] - Ys[inds_Y]) / dY
+    # return  torch.sum(
+    #         data[:,H-1-inds_Y, inds_X]*(1-wxs)*(1-wys)*dls +
+    #         data[:,H-1-(inds_Y+1), inds_X] * wxs * (1-wys)*dls +
+    #         data[:,H-1-inds_Y, torch.minimum(inds_X+1, torch.tensor(Xs.shape[0]-1))]*(1-wxs)*wys*dls +
+    #         data[:,H-1-(inds_Y+1), torch.minimum(inds_X+1, torch.tensor(Xs.shape[0]-1))] * wxs*wys*dls, dim=-1
+    #     )
+
+
 if __name__ == "__main__":
-    from time import time
     import matplotlib.pyplot as plt
-    phantoms = torch.stack(torch.load("data/HTC2022/HTCTestPhantomsFull.pt"))
+    # phantoms = torch.stack(torch.load("data/HTC2022/HTCTestPhantomsFull.pt"))
+    phantoms = torch.load("data/kits_phantoms_256.pt")[:500, 0]
     print(phantoms.shape)
 
-    geometry = FlatFanBeamGeometry(720, 560, 410.66, 543.74, 112, [-40,40, -40, 40], [512, 512])
-    plt.imshow(phantoms[0].cpu())
-    plt.show()
-    start = time()
-    sinos = geometry.project_forward(phantoms[0:2])
-    print("projection took:", time() - start)
-    plt.imshow(sinos.cpu().numpy()[0])
+    # geometry = FlatFanBeamGeometry(720, 560, 410.66, 543.74, 112, [-40,40, -40, 40], [512, 512])
+    geometry = FlatFanBeamGeometry(700, 560, 6.0, 10.0, 2.0, [-1.0,1.0, -1.0, 1.0], [256, 256])
+    # plt.imshow(phantoms[0].cpu())
+    # plt.show()
+    start = time.time()
+    sinos = geometry.project_forward(phantoms)
+    print("projection took", time.time()-start, "s")
+    plt.imshow(sinos.cpu().numpy()[2])
+    plt.colorbar()
     plt.show()
 
     print("hello")
