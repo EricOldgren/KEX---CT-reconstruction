@@ -1,9 +1,9 @@
 import torch
-import numba
 
 #DEBUG
 import matplotlib.pyplot as plt
 import time
+from statistics import mean
 #DEBUG
 
 
@@ -133,7 +133,7 @@ class FlatFanBeamGeometry:
 
             Returns: sinos (Tensor) of shape N x Nb x Nu
         """
-        return _project_forward(X, self.Xs, self.Ys, self.betas, self.us, self.R, DEVICE=DEVICE)
+        return _project_forward(X, self.Xs, self.Ys, self.betas, self.us, self.R, DEVICE=DEVICE, interpolation_method=0)
 
     def project_backward(self, X: torch.Tensor):
         "Wegthed BP operator to use for FBP algorithm"
@@ -178,8 +178,8 @@ def draw_points_and_grid(Xmin, Xmax, Ymin, Ymax, points, *plot_pointss):
 
 torch.jit.enable_onednn_fusion(True)
 @torch.jit.script
-def _project_forward(data: torch.Tensor, Xs: torch.Tensor, Ys: torch.Tensor, betas: torch.Tensor, us: torch.Tensor, R: float, DEVICE: torch.device):
-    
+def _project_forward(data: torch.Tensor, Xs: torch.Tensor, Ys: torch.Tensor, betas: torch.Tensor, us: torch.Tensor, R: float, DEVICE: torch.device, interpolation_method: int = 0, tensor_batch_size: int = 1):
+
     data = torch.flip(data, dims=(1,)) #flip y upwards
     
     N_samples, _, _ = data.shape
@@ -191,7 +191,7 @@ def _project_forward(data: torch.Tensor, Xs: torch.Tensor, Ys: torch.Tensor, bet
     dX, dY = torch.mean(Xs[1:]-Xs[:-1]), torch.mean(Ys[1:] - Ys[:-1])
     min_d = torch.minimum(dX, dY)
 
-    N_line_points = (((Xmax - Xmin)**2 + (Ymax-Ymin)**2)**0.5 / min_d).to(dtype=torch.int32)
+    N_line_points = int(((Xmax - Xmin)**2 + (Ymax-Ymin)**2)**0.5 / min_d)
     ratios = (1/(2*N_line_points) + torch.arange(0,N_line_points, device=DEVICE, dtype=torch.float32)/N_line_points)
 
     # Define lines of Rays
@@ -229,42 +229,74 @@ def _project_forward(data: torch.Tensor, Xs: torch.Tensor, Ys: torch.Tensor, bet
     line_points: torch.Tensor = ratios.reshape(1,1,-1,1)*line_segments[...,None, :]
     line_points += start_points[...,None, :]
     line_points[invalids] *= 0
-    #Find inds of line points
-    line_points -= torch.stack([Xmin, Ymin])
-    line_points /= torch.stack([dX, dY])
-    line_points += 0.5
-    inds = line_points.to(torch.int64) #integer inds
+    if interpolation_method == 0: #Nearest Neighbour
+        #Find inds of line points
+        line_points -= torch.stack([Xmin, Ymin])
+        line_points /= torch.stack([dX, dY])
+        line_points += 0.5
+        inds = line_points.to(torch.int64) #integer inds
 
-    res = torch.zeros((N_samples, Nb, Nu), device=DEVICE, dtype=betas.dtype)
-    for ind in range(N_samples):
-        res[ind] += torch.einsum("ubl,ubl->ub", data[ind, inds[...,1], inds[...,0]], dls) # this uses nearest neighbour interpolation - faster
+        res = torch.zeros((N_samples, Nb, Nu), device=DEVICE, dtype=betas.dtype)
+        out_mul = torch.zeros((tensor_batch_size, Nb, Nu, N_line_points), device=DEVICE, dtype=betas.dtype)
+        out_sum = torch.zeros((tensor_batch_size, Nb, Nu), device=DEVICE, dtype=betas.dtype)
 
-    return res
+        for ind in range(0, N_samples, tensor_batch_size):
+            nxt = min(N_samples, ind+tensor_batch_size)
+            if nxt-ind < tensor_batch_size:
+                out_mul.resize_((nxt-ind, Nb, Nu, N_line_points))
+                out_sum.resize_((nxt-ind, Nb, Nu))
 
+            torch.mul(data[ind:nxt, inds[...,1], inds[...,0]], dls, out=out_mul)
+            torch.sum(out_mul, dim=-1, out=out_sum)
+            res[ind:nxt] += out_sum
+            # res[ind] += torch.einsum("ubl,ubl->ub", data[ind, inds[...,1], inds[...,0]], dls) # this uses nearest neighbour interpolation - faster
 
-    #Code for linear interpolation
-    # wxs, wys = (line_points[...,0] - Xs[inds_X]) / dX, (line_points[..., 1] - Ys[inds_Y]) / dY
-    # return  torch.sum(
-    #         data[:,H-1-inds_Y, inds_X]*(1-wxs)*(1-wys)*dls +
-    #         data[:,H-1-(inds_Y+1), inds_X] * wxs * (1-wys)*dls +
-    #         data[:,H-1-inds_Y, torch.minimum(inds_X+1, torch.tensor(Xs.shape[0]-1))]*(1-wxs)*wys*dls +
-    #         data[:,H-1-(inds_Y+1), torch.minimum(inds_X+1, torch.tensor(Xs.shape[0]-1))] * wxs*wys*dls, dim=-1
-    #     )
+        return res
 
+    if interpolation_method == 1: #Bilinear
+        data = torch.nn.functional.pad(data, (0,1,0,1))
+        line_points -= torch.stack([Xmin, Ymin])
+        line_points /= torch.stack([dX, dY])
+        inds = line_points.to(torch.int64)
+        ratios = torch.frac(line_points)
+
+        res = torch.zeros((N_samples, Nb, Nu), device=DEVICE, dtype=betas.dtype)
+
+        for ind in range(N_samples):
+            res[ind] += torch.einsum("ubl,ubl,ubl,ubl->ub", data[ind, 1:, 1:][inds[...,1], inds[...,0]], dls, ratios[...,0], ratios[...,1]) #xy
+            ratios[...,0] *= -1
+            ratios[...,0] += 1
+            res[ind] += torch.einsum("ubl,ubl,ubl,ubl->ub", data[ind, :-1, 1:][inds[...,1], inds[...,0]], dls, ratios[...,0], ratios[...,1]) #(1-x)y
+            ratios[...,1] *= -1
+            ratios[...,1] += 1
+            res[ind] += torch.einsum("ubl,ubl,ubl,ubl->ub", data[ind, :-1, :-1][inds[...,1], inds[...,0]], dls, ratios[...,0], ratios[...,1]) #(1-x)(1-y)
+            ratios[...,0] *= -1
+            ratios[...,0] += 1
+            res[ind] += torch.einsum("ubl,ubl,ubl,ubl->ub", data[ind, 1:, :-1][inds[...,1], inds[...,0]], dls, ratios[...,0], ratios[...,1]) #x(1-y)
+            ratios[...,1] *= -1
+            ratios[...,1] += 1
+            #xy
+ 
+        return res
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    # phantoms = torch.stack(torch.load("data/HTC2022/HTCTestPhantomsFull.pt"))
-    phantoms = torch.load("data/kits_phantoms_256.pt")[:500, 0]
+    phantoms = torch.stack(torch.load("data/HTC2022/HTCTestPhantomsFull.pt", map_location=DEVICE))
+    # phantoms = torch.load("data/kits_phantoms_256.pt", map_location=DEVICE)[:500, 0]
     print(phantoms.shape)
 
-    # geometry = FlatFanBeamGeometry(720, 560, 410.66, 543.74, 112, [-40,40, -40, 40], [512, 512])
-    geometry = FlatFanBeamGeometry(700, 560, 6.0, 10.0, 2.0, [-1.0,1.0, -1.0, 1.0], [256, 256])
+    geometry = FlatFanBeamGeometry(720, 560, 410.66, 543.74, 112, [-40,40, -40, 40], [512, 512])
+    # geometry = FlatFanBeamGeometry(700, 560, 6.0, 10.0, 2.0, [-1.0,1.0, -1.0, 1.0], [256, 256])
     # plt.imshow(phantoms[0].cpu())
     # plt.show()
-    start = time.time()
-    sinos = geometry.project_forward(phantoms)
-    print("projection took", time.time()-start, "s")
+    times = []
+    for _ in range(20):
+        start = time.time()
+        sinos = geometry.project_forward(phantoms)
+        times.append(time.time() - start)
+        print("projection took", times[-1], "s")
+    print("="*40)
+    print("Average projection time", mean(times))
     plt.imshow(sinos.cpu().numpy()[2])
     plt.colorbar()
     plt.show()
