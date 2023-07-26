@@ -17,7 +17,7 @@
 ### Sinogramextrapolering - Fan Beam
 
 #### Momentvillkor formulering för ortogonala polynom
-Momentvillkoren lyder $g(\varphi, s)$ ligger i bildrummet till Radontransformen omm
+Momentvillkoren lyder: funktionen $g(\varphi, s)$ ligger i bildrummet till Radontransformen omm
 
 $$
    a_n(\varphi) = \int_{-\infty}^\infty g(\varphi, s)s^n ds
@@ -41,15 +41,43 @@ $$
    l \end{array}\right\) e^{i(k-2l)\varphi}
 $$
 
-et.c. Så man kan man visa att en ekvivalent bas för rummet av homogena polynom av grad $n$ i $\sin$ och $\cos$ är { $e^{ik\varphi}: |k|\leq n, k + n \text{ jämnt}$ }. En formulering av momentvillkoren är alltså
+et.c. Så man kan visa att en ekvivalent bas för rummet av homogena polynom av grad $n$ i $\sin$ och $\cos$ är { $e^{ik\varphi}: |k|\leq n, k + n \text{ jämnt}$ }. En formulering av momentvillkoren är alltså
 
 $$
-   \sum_{|k|\leq n \land k + n \equiv 0 \pmod{2}} c_k e^{ik\varphi}
+   a_n(\varphi) = \sum_{|k|\leq n \land k + n \equiv 0 \pmod{2}} c_k e^{ik\varphi}
 $$
 
-d.v.s $k = -n, -n+2,..., n-2, n$. Om varje polynom $s^n$ byts ut valfritt polynom av grad $n$ sådant att polynomet är udda om $n$ är udda och jämnt om $n$ är jämnt blir momentvillkoren likadana. Därför kan vi byta ut $s^n$ mot polynom som är ortogonala på $[-1,1]$ som exempelvis Chebyshev polynom.
+där alltså $k = -n, -n+2,..., n-2, n$. Alternativt formulerat: Fourier koefficienterna $c_k$ till $a_n$ uppfyller $c_k = 0$ för $|k|>n$ och $k+n$ udda. I den här formuleringen framgår att om varje polynom $s^n$ byts ut mot valfritt polynom av grad $n$ sådant att polynomet är udda om $n$ är udda och jämnt om $n$ är jämnt blir momentvillkoren desamma. Därför kan vi byta ut $s^n$ mot polynom som är ortogonala på $[-1,1]$, exempelvis Chebyshev polynom.
 
 #### Serieutveckling av bildrummet till $R$
+Vi väljer en familj, $U_n(s)$ av polynom som momentvillkoren är giltiga för sådana att de är ortogonala under någon viktfunktion $W(s)$ på intervalllet $[-1,1]$
 
+$$
+   \int_{-1}^{1} U_n(s)U_m(s)W(s) ds = \delta_{m. n} \cdot ||U_m||
+$$
+
+exempelvis Chebyshev med $W(s) = \sqrt{1 - s^2}$.
+Vi antar att våra objekt har stöd inuti enhetsdisken $||x|| < 1$ så att sinogrammen bara är nollskillda på området $0\leq \varphi < 2\pi$, $|s| < 1$. Eftersom polynom är täta i $L^2 [-1,1]_{W(s)}$ och spannet av $e^{ik\varphi}$ är tätt i $L^2[0,2\pi]$ kan en godtycklig funktion $g \in L^2[0,2\pi]\times[-1,1]$ serie utvecklas enligt (visst stämmer detta??!)
+
+$$
+   g(\varphi, s) / W(s) = \sum_n \sum_k c_{n, k} U_n(s) e^{ik\varphi} \iff \\
+   g(\varphi, s) = \sum_n \sum_k c_{n, k} U_n(s) e^{ik\varphi}W(s)
+$$
+
+Basfunktionerna $U_n(s)e^{ik\varphi}$ är ortogonala enligt
+
+$$
+   \int_0^{2\pi}\int_{-1}^1 U_m(s)e^{ik\varphi}U_n(s)e^{-il\varphi}W(s) dsd\varphi = \left(\int_{-1}^1U_m(s)U_n(s)W(s)ds \right)\left( \int_0^{2\pi} e^{i(k-l)\varphi} d\varphi \right) = \delta_{m,n}\delta_{k,l} 2\pi ||U_m||
+$$
+
+så koefficienterna $c_{n,k}$ ges av projektionerna
+
+$$
+   c_{n, k} = \int_0^{2\pi}\int_{-1}^1 \left( g(\varphi, s) / W(s) \right) U_n(s) e^{-ik\varphi} ds d\varphi = \int_0^{2\pi} e^{-ik\varphi} \left( \int_{-1}^1 g(\varphi, s) U_n(s) ds\right) d\varphi = \int_0^{2\pi} a_n(s) e^{-ik\varphi} d\varphi
+$$
+
+dvs den $k$:te Fourier koefficienten till $a_n$, så $g$ uppfyller momentvillkoren om och endast om $c_{n, k}$ är nollskillda endast då $|k|\leq n$ och $k+n$ är jämnt.
+
+Det betyder att vi kan använda dessa basfunktioner för att generera sinogram, projicera ner på det giltiga delrummet av sinogram et.c.
 
 
