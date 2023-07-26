@@ -4,12 +4,7 @@ import numpy as np
 import odl.contrib.torch as odl_torch
 import matplotlib.pyplot as plt
 import time
-import sys
-import os
-from pathlib import Path
-from utils.fanbeam_geometry import FlatFanBeamGeometry
-
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from utils.fanbeam_geometry import FlatFanBeamGeometry, DEVICE
 
 
 n_phantoms = 3
@@ -62,14 +57,14 @@ print("="*40)
 print("MSEs")
 print("mse odl", mse_fn(recons_odl-phantoms))
 print("mse no det", mse_fn(recons_manual-phantoms))
-print("mse g", mse_fn(recons_g - phantoms))
+print("mse gometry", mse_fn(recons_g - phantoms))
 
 plt.subplot(131)
 plt.imshow(sinos[look_at_ind].cpu())
 plt.title("simulated")
 plt.colorbar()
 plt.subplot(132)
-plt.title("simulated g")
+plt.title("simulated geometry")
 plt.imshow(sinos_g[look_at_ind].cpu())
 plt.colorbar()
 plt.subplot(133)
@@ -88,7 +83,7 @@ plt.imshow(recons_odl[look_at_ind].cpu())
 plt.colorbar()
 plt.title("recon")
 plt.subplot(223)
-plt.title("recon g no det")
+plt.title("recon geometry no determinant")
 plt.imshow(recons_manual[look_at_ind])
 plt.colorbar()
 plt.subplot(224)
@@ -96,7 +91,3 @@ plt.imshow(recons_g[look_at_ind].cpu())
 plt.title("recon g")
 plt.colorbar()
 plt.show()
-
-
-
-
