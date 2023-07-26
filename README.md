@@ -12,4 +12,44 @@
 * [ Snabb Analytisk Extrapolering via Range Conditions](https://iopscience.iop.org/article/10.1088/2057-1976/aa71bf) - Natterer tar också upp en snarlik metod i kapitel 6 i [en av böckerna som Ozan tipsade om](https://epubs.siam.org/doi/book/10.1137/1.9780898719284). Metoden i korthet:
    * Omformulare Range conditions som projektion på system av ortogonala polynom
    * Utvidga momentprojektionerna trigonometriskt baserat på att endast ett ändligt antal fourier koefficienter är nollskilda
-   * Beräkna sinogrammet från de utvidgade momentkurvorna 
+   * Beräkna sinogrammet från de utvidgade momentkurvorna
+ 
+### Sinogramextrapolering - Fan Beam
+
+#### Momentvillkor formulering för ortogonala polynom
+Momentvillkoren lyder $g(\varphi, s)$ ligger i bildrummet till Radontransformen omm
+
+$$
+   a_n(\varphi) = \int_{-\infty}^\infty g(\varphi, s)s^n ds
+$$
+
+är ett homogent polynom i $\sin$ och $\cos$ av grad $n$ för alla naturliga tal $n$. Dvs för varje $n$ är
+
+$$
+   a_n(\varphi) = \sum_{k=0}^n b_k \sin^k(\varphi)\cos^{n-k}(\varphi)
+$$
+
+exempelvis för $n = 2$ betyder detta att $a_2$ är en linjär kombination av funktionerna $\sin^2(\varphi)$, $\sin(\varphi)\cos(\varphi)$ och $\cos^2(\varphi)$. Funktionerna kan skrivas om
+
+$$
+   \cos^k(\varphi) = (\frac{e^{i\varphi} + e^{-i\varphi}}{2})^k =
+   \frac{1}{2^k} \sum_{l=0}^k
+   \left(\begin{array} .k \\
+   l \end{array}\right\) e^{-il\varphi}e^{i(k-l)\varphi} =
+   \frac{1}{2^k} \sum_{l=0}^k
+   \left(\begin{array} .k \\
+   l \end{array}\right\) e^{i(k-2l)\varphi}
+$$
+
+et.c. Så man kan man visa att en ekvivalent bas för rummet av homogena polynom av grad $n$ i $\sin$ och $\cos$ är { $e^{ik\varphi}: |k|\leq n, k + n \text{ jämnt}$ }. En formulering av momentvillkoren är alltså
+
+$$
+   \sum_{|k|\leq n \land k + n \equiv 0 \pmod{2}} c_k e^{ik\varphi}
+$$
+
+d.v.s $k = -n, -n+2,..., n-2, n$. Om varje polynom $s^n$ byts ut valfritt polynom av grad $n$ sådant att polynomet är udda om $n$ är udda och jämnt om $n$ är jämnt blir momentvillkoren likadana. Därför kan vi byta ut $s^n$ mot polynom som är ortogonala på $[-1,1]$ som exempelvis Chebyshev polynom.
+
+#### Serieutveckling av bildrummet till $R$
+
+
+
