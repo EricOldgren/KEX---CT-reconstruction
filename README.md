@@ -47,7 +47,7 @@ $$
    a_n(\varphi) = \sum_{|k|\leq n \land k + n \equiv 0 \pmod{2}} c_k e^{ik\varphi}
 $$
 
-där alltså $k = -n, -n+2,..., n-2, n$. Alternativt formulerat: Fourier koefficienterna $c_k$ till $a_n$ uppfyller $c_k = 0$ för $|k|>n$ och $k+n$ udda. I den här formuleringen framgår att om varje polynom $s^n$ byts ut mot valfritt polynom av grad $n$ sådant att polynomet är udda om $n$ är udda och jämnt om $n$ är jämnt blir momentvillkoren desamma. Därför kan vi byta ut $s^n$ mot polynom som är ortogonala på $[-1,1]$, exempelvis Chebyshev polynom.
+där alltså $k = -n, -n+2,..., n-2, n$. Alternativt formulerat: Fourier koefficienterna $c_k$ till $a_n$ uppfyller $c_k = 0$ för $|k|>n$ och $c_k = 0$ för $k+n$ udda. I den här formuleringen framgår att om varje polynom $s^n$ byts ut mot valfritt polynom av grad $n$ sådant att polynomet är udda om $n$ är udda och jämnt om $n$ är jämnt blir momentvillkoren desamma. Därför kan vi byta ut $s^n$ mot polynom som är ortogonala på $[-1,1]$, exempelvis Chebyshev polynom.
 
 #### Serieutveckling av bildrummet till $R$
 Vi väljer en familj, $U_n(s)$ av polynom som momentvillkoren är giltiga för sådana att de är ortogonala under någon viktfunktion $W(s)$ på intervalllet $[-1,1]$
@@ -73,7 +73,7 @@ $$
 så koefficienterna $c_{n,k}$ ges av projektionerna
 
 $$
-   c_{n, k} = \int_0^{2\pi}\int_{-1}^1 \left( g(\varphi, s) / W(s) \right) U_n(s) e^{-ik\varphi} ds d\varphi = \int_0^{2\pi} e^{-ik\varphi} \left( \int_{-1}^1 g(\varphi, s) U_n(s) ds\right) d\varphi = \int_0^{2\pi} a_n(s) e^{-ik\varphi} d\varphi
+   c_{n, k} = \int_0^{2\pi}\int_{-1}^1 \left( g(\varphi, s) / W(s) \right) U_n(s) e^{-ik\varphi} W(s) ds d\varphi = \int_0^{2\pi} e^{-ik\varphi} \left( \int_{-1}^1 g(\varphi, s) U_n(s) ds\right) d\varphi = \int_0^{2\pi} a_n(s) e^{-ik\varphi} d\varphi
 $$
 
 dvs den $k$:te Fourier koefficienten till $a_n$, så $g$ uppfyller momentvillkoren om och endast om $c_{n, k}$ är nollskillda endast då $|k|\leq n$ och $k+n$ är jämnt.
