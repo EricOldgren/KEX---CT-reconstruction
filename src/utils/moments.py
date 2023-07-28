@@ -1,6 +1,6 @@
 import torch
 
-from utils.parallel_geometry import ParallelGeometry, setup, DEVICE, extend_geometry
+from utils.geometries.parallel_geometry import ParallelGeometry, setup, DEVICE, extend_geometry
 import scipy
 from math import ceil
 import torch.nn as nn

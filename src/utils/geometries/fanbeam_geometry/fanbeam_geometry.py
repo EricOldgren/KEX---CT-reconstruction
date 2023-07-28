@@ -1,14 +1,13 @@
 import torch
 import odl
 import numpy as np
+from utils.geometries.geometry_base import FBPGeometryBase, DEVICE, DTYPE, nearest_power_of_two
+
 from odl.discr.partition import RectPartition, uniform_partition
 from odl.discr.discr_space import DiscretizedSpace, uniform_discr
 from odl.tomo.geometry import FanBeamGeometry as odl_fanbeam_geometry
 from odl.space.base_tensors import TensorSpace
 import odl.contrib.torch as odl_torch
-
-
-
 
 
 import matplotlib.pyplot as plt
@@ -17,19 +16,8 @@ from statistics import mean
 
 
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DTYPE = torch.float
-CDTYPE = torch.cfloat
-eps = torch.finfo(DTYPE).eps
 
-def nearest_power_of_two(n: int):
-    P = 1
-    while P < n:
-        P *= 2
-    return P
-
-
-class FlatFanBeamGeometry:
+class FlatFanBeamGeometry(FBPGeometryBase):
     """
         Fan Beam Geometry with a flat detector.
 
@@ -159,7 +147,7 @@ class FlatFanBeamGeometry:
         "Wegthed BP operator to use for FBP algorithm"
         return self.BP(X)
     
-    def ram_lak_filter(self):
+    def ram_lak_filter(self, cutoff_ratio: float = None):
         "Ram-Lak filter in frequency domain"
         return self.ws / (2*torch.pi)
 

@@ -4,7 +4,7 @@ import numpy as np
 import odl
 import odl.contrib.torch as odl_torch
 
-from utils.parallel_geometry import ParallelGeometry, DEVICE
+from utils.geometries.parallel_geometry import ParallelGeometry, DEVICE
 from models.analyticmodels import RamLak
 
 geometry = ParallelGeometry(1.0, 900, 300)

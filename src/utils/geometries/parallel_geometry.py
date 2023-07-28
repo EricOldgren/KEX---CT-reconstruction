@@ -4,12 +4,12 @@ import odl.contrib.torch as odl_torch
 import torch
 import numpy as np
 from utils.data_generator import unstructured_random_phantom, random_phantom
+from utils.geometries.geometry_base import FBPGeometryBase, nearest_power_of_two, DEVICE
 import torch.nn as nn
 import random
 import matplotlib.pyplot as plt
 from math import ceil
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class BackProjection(odl.Operator):
 
@@ -27,12 +27,6 @@ class BackProjection(odl.Operator):
     @property
     def adjoint(self):
         return self.ray
-
-def nearest_power_of_two(n: int):
-    P = 1
-    while P < n:
-        P *= 2
-    return P
 
 class ParallelGeometry:
     """

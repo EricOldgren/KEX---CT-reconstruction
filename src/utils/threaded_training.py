@@ -3,14 +3,14 @@ import torch.multiprocessing as mp
 from torch.utils.data import DataLoader, DistributedSampler, Dataset
 import numpy as np
 
-from utils.parallel_geometry import DEVICE
+from utils.geometries import DEVICE
 from utils.moments import SinoMoments
-from models.modelbase import ModelBase
+from models.modelbase import FBPModelBase
 from models.expnet import FNOExtrapolatingBP as ExpBP
 
 # mp.set_sharing_strategy("file_system")
 
-def train_thread(model: ModelBase, dataloader: DataLoader, validation_data: tuple[torch.Tensor], n_epochs: int = 100, lr=0.001, is_display_thread = False):
+def train_thread(model: FBPModelBase, dataloader: DataLoader, validation_data: tuple[torch.Tensor], n_epochs: int = 100, lr=0.001, is_display_thread = False):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     loss_fn = lambda diff : torch.mean(diff*diff)
 

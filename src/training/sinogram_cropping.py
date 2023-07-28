@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import random
-from utils.parallel_geometry import ParallelGeometry
+from utils.geometries.parallel_geometry import ParallelGeometry
 
 FLOAT_EPS = np.finfo(float).eps
 
@@ -71,7 +71,7 @@ def rotate_sinos(X: torch.Tensor, angle_interval: "tuple[float, float]", desired
 if __name__ == "__main__":
     
     from models.analyticmodels import RamLak
-    from utils.parallel_geometry import ParallelGeometry, DEVICE
+    from utils.geometries.parallel_geometry import ParallelGeometry, DEVICE
     import odl.contrib.torch as odl_torch
     import matplotlib.pyplot as plt
     from utils.inverse_moment_transform import extrapolate_sinos

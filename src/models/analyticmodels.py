@@ -1,4 +1,4 @@
-from utils.parallel_geometry import ParallelGeometry, DEVICE
+from utils.geometries.parallel_geometry import ParallelGeometry, DEVICE
 from models.modelbase import ModelBase
 from odl.contrib import torch as odl_torch
 import torch

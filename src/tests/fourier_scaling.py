@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from math import sqrt
 import numpy as np
 
-from utils.parallel_geometry import ParallelGeometry, DEVICE
+from utils.geometries.parallel_geometry import ParallelGeometry, DEVICE
 
 def test_fourier_transforms():
     geometry = ParallelGeometry(1.0, 150, 100)

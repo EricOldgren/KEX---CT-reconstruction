@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from utils.parallel_geometry import BasicModel, ParallelGeometry
+from utils.geometries import ParallelGeometry
 import odl.contrib.torch as odl_torch
 
 def linear_bandlimited_basis(geometry: ParallelGeometry):
