@@ -5,8 +5,8 @@ import numpy as np
 import odl
 import odl.contrib.torch as odl_torch
 
-from utils.geometries.parallel_geometry import ParallelGeometry, DEVICE, extend_geometry, missing_range
-from utils.inverse_moment_transform import extrapolate_sinos
+from utils.geometries.parallel_geometry.parallel_geometry import ParallelGeometry, DEVICE, extend_geometry, missing_range
+from utils.geometries.parallel_geometry.inverse_moment_transform import extrapolate_sinos
 from models.modelbase import ModelBase
 from models.analyticmodels import ramlak_filter
 from utils.fno_1d import FNO1d

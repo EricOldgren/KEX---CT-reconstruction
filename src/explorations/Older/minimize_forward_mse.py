@@ -8,7 +8,7 @@ import odl
 import odl.contrib.torch as odl_torch
 
 from utils.geometries import ParallelGeometry, DEVICE, setup, extend_geometry
-from utils.moments import SinoMoments
+from utils.geometries.parallel_geometry.moments import SinoMoments
 from models.expnet import ExtrapolatingBP
 
 geom = ParallelGeometry(0.5, 450, 300)

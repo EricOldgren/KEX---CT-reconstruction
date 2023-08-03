@@ -1,6 +1,6 @@
 import torch
 
-from utils.geometries.parallel_geometry import DEVICE
+from utils.geometries.parallel_geometry.parallel_geometry import DEVICE
 
 
 

@@ -6,17 +6,22 @@ DTYPE = torch.float
 CDTYPE = torch.cfloat
 eps = torch.finfo(DTYPE).eps
 
-def nearest_power_of_two(n: int):
+def next_power_of_two(n: int):
     P = 1
     while P < n:
         P *= 2
     return P
 
-class FBPGeometryBase(ABC):
+class FBPGeometryBase(torch.nn.Module, ABC):
     """
     2D Geometry suitable for FBP reconstruction algorithms.
     This includes Parallel beam 2D geometry, Fan Beam equiangular geometry, Flat Fan Beam aquidistant geometry
     """
+    jacobian_det: torch.Tensor
+    "Jacobian determinant when changing coordinates from geometry sampling parameters to parallel geometry coordinates."
+    ws: torch.Tensor
+    "Frequencies where the DFT is sampled at"
+
     @abstractmethod
     def project_forward(self, X: torch.Tensor)->torch.Tensor:
         """Forward projection
@@ -38,8 +43,12 @@ class FBPGeometryBase(ABC):
         """
     
     @abstractmethod
-    def remlak_filter(self, cutoff_ratio: float = None)->torch.Tensor:
-        """Filter used for fbp in fourier domain
+    def ram_lak_filter(self, cutoff_ratio: float = None, full_size = False)->torch.Tensor:
+        """Ram-Lak Filter used for fbp. Filter is given in fourier domain.
+
+            Args:
+                - cutoff_ratio: ratio of max frequency to cutoff filter from
+                - full_size: if True filter is the same shape as sinograms in geometry, else it is 1 x Nt - where Nt is size along last axis of sinograms
         """
     
     @abstractmethod
@@ -49,6 +58,11 @@ class FBPGeometryBase(ABC):
     
     @property
     @abstractmethod
-    def jacobian_det(self)->torch.Tensor:
-        """Jacobian determinant when changing coordinates from geometry sampling parameters to parallel geometry coordinates.
-        """
+    def n_projections(self):
+        "number of projections - height of sinograms"
+    
+    @property
+    @abstractmethod
+    def projection_size(self):
+        "number of samples per projection - length of row in sinogram"
+        

@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader, DistributedSampler, Dataset
 import numpy as np
 
 from utils.geometries import DEVICE
-from utils.moments import SinoMoments
+from utils.geometries.parallel_geometry.moments import SinoMoments
 from models.modelbase import FBPModelBase
 from models.expnet import FNOExtrapolatingBP as ExpBP
 

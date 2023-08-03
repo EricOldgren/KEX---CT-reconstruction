@@ -4,7 +4,7 @@ import odl.contrib.torch as odl_torch
 import torch
 import numpy as np
 from utils.data_generator import unstructured_random_phantom, random_phantom
-from utils.geometries.geometry_base import FBPGeometryBase, nearest_power_of_two, DEVICE
+from geometries.geometry_base import FBPGeometryBase, next_power_of_two, DEVICE
 import torch.nn as nn
 import random
 import matplotlib.pyplot as plt
@@ -45,7 +45,7 @@ class ParallelGeometry:
                 :reco_shape - pixel shape of images to be reconstructed
         """
         self.ar = angle_ratio; self.phi_size = phi_size; self.t_size = t_size
-        self.pad_size_left, self.pad_size_right = 0, nearest_power_of_two(t_size)*2 - t_size #total size is the nearset power of two two levels up - at most 4 * t_size
+        self.pad_size_left, self.pad_size_right = 0, next_power_of_two(t_size)*2 - t_size #total size is the nearset power of two two levels up - at most 4 * t_size
         "number of zeros to pad with on each side"
         self.padded_t_size = self.t_size + self.pad_size_left + self.pad_size_right
 

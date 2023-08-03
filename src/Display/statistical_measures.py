@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from src.models.fouriernet import GeneralizedFNO_BP
 from src.models.expnet import FNOExtrapolatingBP
 from src.models.fbpnet import FBPNet
-from utils.geometries.parallel_geometry import ParallelGeometry, DEVICE
+from utils.geometries.parallel_geometry.parallel_geometry import ParallelGeometry, DEVICE
 from src.models.analyticmodels import RamLak
 import random as rnd
 import math

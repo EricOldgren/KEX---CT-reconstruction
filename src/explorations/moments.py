@@ -2,9 +2,9 @@ import torch
 import numpy as np
 from sklearn.linear_model import Ridge
 
-from utils.geometries.parallel_geometry import ParallelGeometry, extend_geometry, DEVICE
-from utils.inverse_moment_transform import get_Xn, get_Un
-from utils.moments import SinoMoments
+from utils.geometries.parallel_geometry.parallel_geometry import ParallelGeometry, extend_geometry, DEVICE
+from utils.geometries.parallel_geometry.inverse_moment_transform import get_Xn, get_Un
+from utils.geometries.parallel_geometry.moments import SinoMoments
 
 
 g = ParallelGeometry(0.5, 450, 300)

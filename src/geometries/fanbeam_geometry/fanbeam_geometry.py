@@ -1,7 +1,7 @@
 import torch
 import odl
 import numpy as np
-from utils.geometries.geometry_base import FBPGeometryBase, DEVICE, DTYPE, nearest_power_of_two
+from geometries.geometry_base import FBPGeometryBase, DEVICE, DTYPE, CDTYPE, next_power_of_two
 
 from odl.discr.partition import RectPartition, uniform_partition
 from odl.discr.discr_space import DiscretizedSpace, uniform_discr
@@ -43,6 +43,8 @@ class FlatFanBeamGeometry(FBPGeometryBase):
                 - xy_minmax_bounds (tuple[float]) : (Xmin, Xmax, Ymin, Ymax) - bounding x and y coordinate values for the reco space
                 - resco_shape (tuple[int, int]) : (H, W) - shape of reco space images
         """
+        super().__init__()
+
 
         # Detector parameters
         self.Nb = beta_size
@@ -57,6 +59,7 @@ class FlatFanBeamGeometry(FBPGeometryBase):
         "max u coordinate on a fictive detector through the origin - i.e h = R / 2D"
 
         self.db = 2*torch.pi / self.Nb
+        "distance along beta axis"
         self.betas = torch.linspace(
             0, 2*torch.pi, self.Nb+1, device=DEVICE, dtype=DTYPE)[:-1][:, None]
         "rotations of detector - shape Nb x 1 for convenient broad casting"
@@ -70,13 +73,13 @@ class FlatFanBeamGeometry(FBPGeometryBase):
 
         # Fourier Stuff
         # total size is the nearset power of two two levels up - at most 4 * Ny, at least 2*Ny
-        self._fourier_pad_left, self._fourier_pad_right = 0, nearest_power_of_two(
+        self._fourier_pad_left, self._fourier_pad_right = 0, next_power_of_two(
             self.Nu)*2 - self.Nu
         "number of zeros to pad data with bbefore fourier transform"
         self.ws: torch.Tensor = 2*torch.pi * \
             torch.fft.rfftfreq(self.padded_u_size, d=self.du).to(
                 DEVICE, dtype=DTYPE)[None]
-        "fourier frequencies the geometry DFT is sampled at."
+        "fourier frequencies the geometry DFT is sampled at. (shape 1 x u_hat_size)"
         self.dw = 2*torch.pi/(self.padded_u_size*self.du)
 
         # Reconstruction space stuff
@@ -108,10 +111,12 @@ class FlatFanBeamGeometry(FBPGeometryBase):
         "shape in form (Ny, Nx)"
         return (self.NY, self.NX)
     @property
-    def u_size(self):
+    def n_projections(self):
+        "alias of Nu"
         return self.Nu
     @property
-    def beta_size(self):
+    def projection_size(self):
+        "alias for Nu"
         return self.Nb
 
     def fourier_transform(self, sinos: torch.Tensor)->torch.Tensor:
@@ -147,69 +152,102 @@ class FlatFanBeamGeometry(FBPGeometryBase):
         "Wegthed BP operator to use for FBP algorithm"
         return self.BP(X)
     
-    def ram_lak_filter(self, cutoff_ratio: float = None):
-        "Ram-Lak filter in frequency domain"
-        return self.ws / (2*torch.pi)
-
+    def ram_lak_filter(self, cutoff_ratio: float = None, full_size = False):
+        k = self.ws / (2*torch.pi)
+        if cutoff_ratio is not None:
+            k[self.ws > self.ws.max()*cutoff_ratio] = 0
+        if full_size:
+            return k.repeat(self.Nb, 1)
+        return k
 
     def fbp_reconstruct(self, sinos: torch.Tensor):
         "reconstruct sinos using FBP"
         return self.BP(self.inverse_fourier_transform(self.fourier_transform(sinos)*self.ram_lak_filter()/2))
 
-def plot_hepler(data: torch.Tensor, points: torch.Tensor, dX: torch.Tensor, dY: torch.Tensor, ping_val = 100):
-    import matplotlib.pyplot as plt
-    plot_data = torch.tensor(data[0])
-    n, _ = points.shape
-    inds_X, inds_Y = (points[:, 0] / dX).to(int), (points[:, 1] / dY).to(int)
-    for i in range(n):
-        px = inds_X[i]
-        py = inds_Y[i]
-        plot_data[py-10:py+10, px-10:px+10] = ping_val
+    def reflect_fill_sinos(self, sinos: torch.Tensor, known_beta_bools: torch.Tensor, linear_interpolation = False):
+        """
+            alpha = alpha
+            beta = beta + (180 - 2alpha) mod 360
+        """
+        assert known_beta_bools.shape == (self.Nb,)
+        Nunknown = int((~known_beta_bools).sum())
+        unknown_betas = self.betas[~known_beta_bools].repeat(1, self.Nu) #shape Nunknonw x Nu
+        unknown_alphas = torch.arctan(self.us / self.R).repeat(Nunknown, 1) # shape Nunknown x Nu
+
+        reflected_betas = unknown_betas + torch.pi - 2*unknown_alphas
+        u_inds = torch.arange(self.Nu-1, -1, -1, device=DEVICE)[None, :].repeat(Nunknown, 1) #flipped order as angle is opposite sign
+
+        if linear_interpolation:
+            beta_inds_lower = (reflected_betas / self.db).to(dtype=torch.int64)
+            beta_inds_upper = beta_inds_lower + 1
+            beta_inds_lower[beta_inds_lower >= self.Nb] -= self.Nb
+            beta_inds_upper[beta_inds_upper >= self.Nb] -= self.Nb
+            beta_weights_upper = reflected_betas.frac()
+            beta_weights_lower = 1 - beta_weights_upper
+            
+            sinos[:, ~known_beta_bools] = sinos[:, beta_inds_lower, u_inds]*beta_weights_lower + sinos[:, beta_inds_upper, u_inds]*beta_weights_upper #Linear interpolation
+        else:
+            beta_inds = (reflected_betas / self.db + 0.5).to(dtype=torch.int64)
+            beta_inds[beta_inds>=self.Nb] -= self.Nb
+            sinos[:, ~known_beta_bools] = sinos[:, beta_inds, u_inds] ##NN interpolation
+
+        return sinos
+
+    def zero_cropp_sinos(self, sinos: torch.Tensor, ar: float, start_r: float):
+        """
+            Cropp sinograms to limited angle data. Sinos are set to zero outside
+
+            return cropped_sinos, known_beta_bool
+        """
+        end_r = start_r + ar
+        start_ind, end_ind = int(2*torch.pi*start_r / self.db), int(2*torch.pi*end_r / self.db)
+        known = torch.zeros(self.Nb, dtype=bool, device=DEVICE)
+        known[start_ind:end_ind] = True
+        res = sinos*0
+        res[:, start_ind:end_ind, :] = sinos[:, start_ind:end_ind, :]
+
+        return res, known
 
 
-    plt.subplot(121)
-    plt.imshow(plot_data)
-    plt.subplot(122)
-    plt.scatter(points[:, 0], points[:, 1])
-    plt.show()
-
-def draw_points_and_grid(Xmin, Xmax, Ymin, Ymax, points, *plot_pointss):
-    import matplotlib.pyplot as plt
-    plt.plot([Xmin]*40, torch.linspace(Ymin, Ymax, 40), c="r")
-    plt.plot([Xmax]*40, torch.linspace(Ymin, Ymax, 40), c="r")
-    plt.plot(torch.linspace(Xmin, Xmax, 40), [Ymin]*40, c="r")
-    plt.plot(torch.linspace(Xmin, Xmax, 40), [Ymax]*40, c="r")
-
-    for plot_points in plot_pointss:
-        plt.plot(plot_points[:, 0], plot_points[:, 1], c="g")
-
-
-    plt.scatter(points[:, 0], points[:, 1], c="b")
-
-    plt.show()
-    
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     phantoms = torch.stack(torch.load("data/HTC2022/HTCTestPhantomsFull.pt", map_location=DEVICE))
+    inspect_ind = 4
     # phantoms = torch.load("data/kits_phantoms_256.pt", map_location=DEVICE)[:500, 0]
     print(phantoms.shape)
 
     geometry = FlatFanBeamGeometry(720, 560, 410.66, 543.74, 112, [-40,40, -40, 40], [512, 512])
     # geometry = FlatFanBeamGeometry(700, 560, 6.0, 10.0, 2.0, [-1.0,1.0, -1.0, 1.0], [256, 256])
-    # plt.imshow(phantoms[0].cpu())
-    # plt.show()
-    times = []
-    for _ in range(20):
-        start = time.time()
-        sinos = geometry.project_forward(phantoms)
-        times.append(time.time() - start)
-        print("projection took", times[-1], "s")
-    print("="*40)
-    print("Average projection time", mean(times))
-    plt.imshow(sinos.cpu().numpy()[2])
-    plt.colorbar()
+    sinos = geometry.project_forward(phantoms)
+    la_sinos, known_beta_bools = geometry.zero_cropp_sinos(sinos, 0.6, 0.0)
+    plt.subplot(131)
+    plt.imshow(sinos.cpu().numpy()[inspect_ind])
+    # plt.colorbar()
+    plt.subplot(133)
+    plt.imshow(la_sinos[inspect_ind].cpu().numpy())    
+    geometry.reflect_fill_sinos(la_sinos, known_beta_bools, True)
+    plt.subplot(132)
+    plt.imshow(la_sinos[inspect_ind].cpu().numpy())
     plt.show()
 
-    print("hello")
+    recons = geometry.fbp_reconstruct(sinos)
+    recons_reflected = geometry.fbp_reconstruct(la_sinos)
+
+    print("MSE recons:", torch.mean(phantoms-recons)**2)
+    print("MSE recon reflected:", torch.mean(phantoms-recons_reflected)**2)
+
+    plt.subplot(131)
+    plt.imshow(phantoms[inspect_ind].cpu())
+    plt.title("GT")
+    plt.subplot(132)
+    plt.imshow(recons[inspect_ind].cpu())
+    plt.title("recon")
+    plt.subplot(133)
+    plt.imshow(recons_reflected[inspect_ind].cpu())
+    plt.title("reocn reflected")
+
+    plt.show()
+
+
 

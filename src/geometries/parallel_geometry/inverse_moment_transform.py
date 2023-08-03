@@ -4,9 +4,8 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import Ridge, Lasso, LinearRegression
 from odl.contrib import torch as odl_torch
 
-from utils.geometries.parallel_geometry import ParallelGeometry, DEVICE, missing_range, extend_geometry
-from utils.moments import SinoMoments
-from models.analyticmodels import RamLak
+from geometries.parallel_geometry.parallel_geometry import ParallelGeometry, DEVICE, missing_range, extend_geometry
+from geometries.parallel_geometry.moments import SinoMoments
 
 
 def get_Xn(phis, n):
