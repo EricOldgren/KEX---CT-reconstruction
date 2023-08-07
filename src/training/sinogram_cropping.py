@@ -3,6 +3,10 @@ import numpy as np
 import random
 from geometries.parallel_geometry import ParallelGeometry
 
+"""
+OLD this is only fpor parallel beam geometry
+"""
+
 FLOAT_EPS = np.finfo(float).eps
 
 def crop_sinos(X: torch.Tensor, ar: float, full_geometry: ParallelGeometry)->"tuple[torch.Tensor, tuple[float, float]]":
