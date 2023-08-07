@@ -1,11 +1,13 @@
 from models.modelbase import FBPModelBase
-from utils.geometries import FBPGeometryBase, DEVICE, DTYPE, CDTYPE
+from geometries import FBPGeometryBase, DEVICE, DTYPE, CDTYPE
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
 
 class AdaptiiveFBP(FBPModelBase):
+    """FBP reconstruction method with a trainable filter kernel
+    """
 
     def __init__(self, geometry: FBPGeometryBase, initial_kernel: torch.Tensor|None = None) -> None:
         super().__init__()
@@ -21,7 +23,7 @@ class AdaptiiveFBP(FBPModelBase):
         return self.geometry.inverse_fourier_transform(self.geometry.fourier_transform(sinos*self.geometry.jacobian_det)*self.kernel)
     
     def forward(self, sinos: torch.Tensor):
-        return self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos))
+        return self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos)/2)
     
 class FBP(FBPModelBase):
     """Standard fixed FBP model. Not learning.
@@ -41,4 +43,4 @@ class FBP(FBPModelBase):
         return self.geometry.inverse_fourier_transform(self.geometry.fourier_transform(sinos*self.geometry.jacobian_det)*self.kernel)
     
     def forward(self, sinos: torch.Tensor):
-        return self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos))
+        return self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos)/2)

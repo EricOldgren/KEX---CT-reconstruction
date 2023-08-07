@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from utils.geometries import FBPGeometryBase, DEVICE, DTYPE
+from geometries import FBPGeometryBase, DEVICE, DTYPE
 from models.modelbase import FBPModelBase
 from utils.fno_1d import FNO1d
 
@@ -27,6 +27,6 @@ class FNO_BP(FBPModelBase):
         return self.fno1d(sinos) + self.geometry.inverse_fourier_transform(self.geometry.fourier_transform(sinos)*self.basefilter)
 
     def forward(self, sinos: torch.Tensor):
-        return self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos))
+        return self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos)/2)
                 
         

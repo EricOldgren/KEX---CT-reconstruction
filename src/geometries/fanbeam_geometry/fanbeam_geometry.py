@@ -66,7 +66,7 @@ class FlatFanBeamGeometry(FBPGeometryBase):
         self.du = 2*self.h / self.Nu
         self.us = -self.h+self.du/2 + self.du * \
             torch.arange(0, self.Nu, device=DEVICE, dtype=DTYPE)[None]
-        "fictive coordinates of measurements along detector through origin, shape 1 x Ny for convenient broad casting"
+        "fictive coordinates of measurements along detector through origin, shape 1 x Nu for convenient broad casting"
 
         self.jacobian_det = self.R**3 / (self.us**2 + self.R**2)**1.5
         "jacobian determinant for the change of variables from fan coordinates (beta, u) to parallel coordinates (phi, t) - shape  1 x Ny for conveneíent broad casting"
@@ -112,12 +112,12 @@ class FlatFanBeamGeometry(FBPGeometryBase):
         return (self.NY, self.NX)
     @property
     def n_projections(self):
-        "alias of Nu"
-        return self.Nu
+        "alias of Nb"
+        return self.Nb
     @property
     def projection_size(self):
         "alias for Nu"
-        return self.Nb
+        return self.Nu
 
     def fourier_transform(self, sinos: torch.Tensor)->torch.Tensor:
         """
@@ -145,7 +145,7 @@ class FlatFanBeamGeometry(FBPGeometryBase):
 
             Returns: sinos (Tensor) of shape N x Nb x Nu
         """
-        return self.Ray(X)
+        return self.Ray(X).to(DEVICE, dtype=DTYPE)
         # return _project_forward(X, self.Xs, self.Ys, self.betas, self.us, self.R, DEVICE=DEVICE, interpolation_method=0)
 
     def project_backward(self, X: torch.Tensor)->torch.Tensor:
@@ -162,12 +162,12 @@ class FlatFanBeamGeometry(FBPGeometryBase):
 
     def fbp_reconstruct(self, sinos: torch.Tensor):
         "reconstruct sinos using FBP"
-        return self.BP(self.inverse_fourier_transform(self.fourier_transform(sinos)*self.ram_lak_filter()/2))
+        return self.project_backward(self.inverse_fourier_transform(self.fourier_transform(sinos*self.jacobian_det)*self.ram_lak_filter()/2))
 
     def reflect_fill_sinos(self, sinos: torch.Tensor, known_beta_bools: torch.Tensor, linear_interpolation = False):
         """
-            alpha = alpha
-            beta = beta + (180 - 2alpha) mod 360
+            in place flling of sinogram
+            applied on full 360deg sinograms, fills unknown region of sinogram by finding equivalent lines on opposite side
         """
         assert known_beta_bools.shape == (self.Nb,)
         Nunknown = int((~known_beta_bools).sum())
@@ -193,40 +193,54 @@ class FlatFanBeamGeometry(FBPGeometryBase):
 
         return sinos
 
-    def zero_cropp_sinos(self, sinos: torch.Tensor, ar: float, start_r: float):
+    def zero_cropp_sinos(self, sinos: torch.Tensor, ar: float, start_ind: int):
         """
-            Cropp sinograms to limited angle data. Sinos are set to zero outside
+            Cropp sinograms to limited angle data. Sinos are set to zero outside cropped region
 
             return cropped_sinos, known_beta_bool
         """
-        end_r = start_r + ar
-        start_ind, end_ind = int(2*torch.pi*start_r / self.db), int(2*torch.pi*end_r / self.db)
+        n_projs = int(self.n_projections * ar)
+        end_ind = (start_ind + n_projs) % self.n_projections
         known = torch.zeros(self.Nb, dtype=bool, device=DEVICE)
-        known[start_ind:end_ind] = True
+        if start_ind < end_ind:
+            known[start_ind:end_ind] = True
+        else:
+            known[start_ind:] = True
+            known[:end_ind] = True
         res = sinos*0
-        res[:, start_ind:end_ind, :] = sinos[:, start_ind:end_ind, :]
+        res[:, known, :] = sinos[:, known, :]
 
         return res, known
+
+    def rotate_sinos(self, sinos: torch.Tensor, shift: int):
+        """
+            shift sinos in cycle by shift steps
+        """
+
+        return torch.concat([
+            sinos[:, -shift:, :], sinos[:, :-shift, :] #works for shift positive and negative
+        ], dim=1)
+        
 
 
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    phantoms = torch.stack(torch.load("data/HTC2022/HTCTestPhantomsFull.pt", map_location=DEVICE))
-    inspect_ind = 4
+    phantoms = torch.stack(torch.load("data/HTC2022/HTCTestPhantomsFull.pt", map_location=DEVICE))[:4]
+    inspect_ind = 2
     # phantoms = torch.load("data/kits_phantoms_256.pt", map_location=DEVICE)[:500, 0]
     print(phantoms.shape)
 
     geometry = FlatFanBeamGeometry(720, 560, 410.66, 543.74, 112, [-40,40, -40, 40], [512, 512])
     # geometry = FlatFanBeamGeometry(700, 560, 6.0, 10.0, 2.0, [-1.0,1.0, -1.0, 1.0], [256, 256])
     sinos = geometry.project_forward(phantoms)
-    la_sinos, known_beta_bools = geometry.zero_cropp_sinos(sinos, 0.6, 0.0)
+    la_sinos, known_beta_bools = geometry.zero_cropp_sinos(sinos, 0.6, 0)
     plt.subplot(131)
     plt.imshow(sinos.cpu().numpy()[inspect_ind])
     # plt.colorbar()
     plt.subplot(133)
     plt.imshow(la_sinos[inspect_ind].cpu().numpy())    
-    geometry.reflect_fill_sinos(la_sinos, known_beta_bools, True)
+    geometry.reflect_fill_sinos(la_sinos, known_beta_bools, False)
     plt.subplot(132)
     plt.imshow(la_sinos[inspect_ind].cpu().numpy())
     plt.show()

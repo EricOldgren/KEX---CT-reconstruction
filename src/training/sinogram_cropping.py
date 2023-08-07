@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import random
-from utils.geometries.parallel_geometry.parallel_geometry import ParallelGeometry
+from geometries.parallel_geometry import ParallelGeometry
 
 FLOAT_EPS = np.finfo(float).eps
 
