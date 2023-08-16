@@ -2,6 +2,7 @@ import torch
 import odl
 import numpy as np
 from geometries.geometry_base import FBPGeometryBase, DEVICE, DTYPE, CDTYPE, next_power_of_two
+from utils.polynomials import PolynomialBase, linear_upsample_inside, down_sample, Legendre, Chebyshev
 
 from odl.discr.partition import RectPartition, uniform_partition
 from odl.discr.discr_space import DiscretizedSpace, uniform_discr
@@ -10,6 +11,7 @@ from odl.space.base_tensors import TensorSpace
 import odl.contrib.torch as odl_torch
 
 
+from typing import Type
 import matplotlib.pyplot as plt
 import time
 from statistics import mean
@@ -94,7 +96,7 @@ class FlatFanBeamGeometry(FBPGeometryBase):
         
         
         vol_space = uniform_discr((xmin, ymin), (xmax, ymax), reco_shape)
-        apart = uniform_partition(0, 2*np.pi, beta_size, nodes_on_bdry=True)
+        apart = uniform_partition(0, 2*np.pi* (1-1/beta_size), beta_size, nodes_on_bdry=True)
         dpart = uniform_partition(-self.h, self.h, u_size, nodes_on_bdry=False)
         odl_geom = odl_fanbeam_geometry(apart, dpart, src_radius=src_origin, det_radius=0)
         ray_trafo = odl.tomo.RayTransform(vol_space, odl_geom)
@@ -219,49 +221,108 @@ class FlatFanBeamGeometry(FBPGeometryBase):
 
         return torch.concat([
             sinos[:, -shift:, :], sinos[:, :-shift, :] #works for shift positive and negative
-        ], dim=1)
+        ], dim=1) 
+
+    def project_sinos(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 10):
+        """
+            Project sinos onto subspace of valid sinograms. The infinite basis of this subspace is cutoff for polynomials of degree larger than N.
+        """
+        us_upsampled = linear_upsample_inside(self.us, factor=upsample_ratio) #refine u scale
+        Nu_upsampled = us_upsampled.shape[-1]
+        us2d = torch.ones_like(self.betas)*us_upsampled
+        betas2d = torch.ones_like(us2d)*self.betas
+        scale = self.du*self.db/upsample_ratio * self.R**3 / (us_upsampled**2 + self.R**2)**1.5 #volume element per sinogram cell
+
+        X = linear_upsample_inside(sinos, factor=upsample_ratio) #lineat interpolation of data
+        phis2d = betas2d + torch.arctan(us2d/self.R) - torch.pi/2
+        ts2d = us2d*self.R / torch.sqrt(self.R**2 + us2d**2)
+        X *= scale
+        res = X*0
+
+        polynomials = PolynomialBasis(self.R*self.h/np.sqrt(self.R**2+self.h**2))
+        W = polynomials.w(ts2d)
+
+        trig_out = torch.zeros_like(phis2d)
+        for n, (pn, l2_normsq_n) in enumerate(polynomials.iterate_polynomials(N, ts2d)):
+            k, basis_index = n % 2, 0
+            
+            # curr_basis = pn.repeat(n+1, 1, 1)
+            # while k <= n:
+            #     if k != 0:
+            #         torch.mul(phis2d, k, out=trig_out)
+            #         torch.sin(trig_out, out=trig_out)
+            #         curr_basis[basis_index] *= trig_out
+            #         basis_index += 1
+            #     torch.mul(phis2d, k, out=trig_out)
+            #     torch.cos(trig_out, out=trig_out)
+            #     curr_basis[basis_index] *= trig_out
+            #     basis_index += 1
+            
+            #     res += torch.einsum("nub, sub, UB, nUB->sUB", curr_basis, X, W, curr_basis)
+            print("projecting onto polynomials of degree", n)
+            print("Norms of basis functions:")
+            while k <= n:
+                sinb_nk = pn * torch.sin(k*phis2d)
+                sinnorm_nk = torch.sum(sinb_nk**2*W*scale)
+                cosb_nk = pn * torch.cos(k*phis2d)
+                cosnorm_nk = torch.sum(cosb_nk**2*W*scale)
+                print("\t", n, k, "sin num", sinnorm_nk, "num / analytic:", sinnorm_nk/(l2_normsq_n*torch.pi))
+                print("\t", n, k, "cos num", cosnorm_nk, "num / analytic:", cosnorm_nk/(l2_normsq_n*(2*torch.pi if k == 0 else torch.pi)))
+
+                if k != 0:
+                    out = torch.einsum("bu,sbu,BU,BU->sBU", sinb_nk, X, W, sinb_nk)
+                    out /= sinnorm_nk
+                    res += out
+                out = torch.einsum("bu,sbu,BU,BU->sBU", cosb_nk, X, W, cosb_nk)
+                out /= cosnorm_nk
+                res += out
+
+                k += 2
         
+        return down_sample(res, factor=upsample_ratio)
+
+                
 
 
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    phantoms = torch.stack(torch.load("data/HTC2022/HTCTestPhantomsFull.pt", map_location=DEVICE))[:4]
-    inspect_ind = 2
-    # phantoms = torch.load("data/kits_phantoms_256.pt", map_location=DEVICE)[:500, 0]
+    # phantoms = torch.stack(torch.load("data/HTC2022/HTCTestPhantomsFull.pt", map_location=DEVICE))[:4]
+    phantoms = torch.load("data/kits_phantoms_256.pt", map_location=DEVICE)[:1, 1]
     print(phantoms.shape)
 
-    geometry = FlatFanBeamGeometry(720, 560, 410.66, 543.74, 112, [-40,40, -40, 40], [512, 512])
-    # geometry = FlatFanBeamGeometry(700, 560, 6.0, 10.0, 2.0, [-1.0,1.0, -1.0, 1.0], [256, 256])
+    # geometry = FlatFanBeamGeometry(720, 560, 410.66, 543.74, 112, [-40,40, -40, 40], [512, 512])
+    geometry = FlatFanBeamGeometry(700, 560, 10.0, 14.0, 3.0, [-1.0,1.0, -1.0, 1.0], [256, 256])
+    start = time.time()
     sinos = geometry.project_forward(phantoms)
+    print("fprward projection took", time.time()-start, "s")
     la_sinos, known_beta_bools = geometry.zero_cropp_sinos(sinos, 0.6, 0)
-    plt.subplot(131)
-    plt.imshow(sinos.cpu().numpy()[inspect_ind])
-    # plt.colorbar()
-    plt.subplot(133)
-    plt.imshow(la_sinos[inspect_ind].cpu().numpy())    
-    geometry.reflect_fill_sinos(la_sinos, known_beta_bools, False)
-    plt.subplot(132)
-    plt.imshow(la_sinos[inspect_ind].cpu().numpy())
-    plt.show()
 
+    start = time.time()
+    print("beginning orthogonal projection")
+    start = time.time()
+    projected_sinos = geometry.project_sinos(sinos, Legendre, 100, 1)
+    print("sino projection took", time.time()-start, "s")
+
+    print("sino mse", torch.mean((projected_sinos-sinos)**2))
+    print("projectoed norm", torch.linalg.norm(projected_sinos))
     recons = geometry.fbp_reconstruct(sinos)
-    recons_reflected = geometry.fbp_reconstruct(la_sinos)
+    recons_projected = geometry.fbp_reconstruct(projected_sinos)
+    print("recon mse", torch.mean((recons_projected-recons)**2))
 
-    print("MSE recons:", torch.mean(phantoms-recons)**2)
-    print("MSE recon reflected:", torch.mean(phantoms-recons_reflected)**2)
-
-    plt.subplot(131)
-    plt.imshow(phantoms[inspect_ind].cpu())
-    plt.title("GT")
-    plt.subplot(132)
-    plt.imshow(recons[inspect_ind].cpu())
-    plt.title("recon")
-    plt.subplot(133)
-    plt.imshow(recons_reflected[inspect_ind].cpu())
-    plt.title("reocn reflected")
-
+    inspect_ind = 0
+    plt.subplot(121)
+    plt.imshow(sinos[inspect_ind].cpu())
+    plt.colorbar()
+    plt.subplot(122)
+    plt.imshow(projected_sinos[inspect_ind].cpu())
+    plt.colorbar()
     plt.show()
-
-
-
+    
+    plt.subplot(121)
+    plt.imshow(recons[inspect_ind].cpu())
+    plt.colorbar()
+    plt.subplot(122)
+    plt.imshow(recons_projected[inspect_ind].cpu())
+    plt.colorbar()
+    plt.show()

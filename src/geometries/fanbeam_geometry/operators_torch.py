@@ -1,5 +1,4 @@
 import torch
-
 """
 Attempt to implement all operators in pytorch.
 """
@@ -110,5 +109,8 @@ def _project_forward(data: torch.Tensor, Xs: torch.Tensor, Ys: torch.Tensor, bet
             #xy
     
     return res
+
+def _project_backwarde(*args):
+    raise NotImplementedError()
  
     
