@@ -130,7 +130,7 @@ def get_prim(f: torch.Tensor):
         res[jvals>ivals] = 0
         return torch.sum(res, dim=-1)
 
-def no_bdry_linspace(start: float, end: float, n_points: int, dtype=None, device=None):
+def no_bdry_linspace(start: float, end: float, n_points: int):
     dx = (end-start)/n_points
     return start + dx/2 + dx*torch.arange(0,n_points)
 
