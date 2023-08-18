@@ -2,7 +2,7 @@ import torch
 import odl
 import numpy as np
 from geometries.geometry_base import FBPGeometryBase, DEVICE, DTYPE, CDTYPE, next_power_of_two
-from utils.polynomials import PolynomialBase, linear_upsample_inside, down_sample, Legendre, Chebyshev
+from utils.polynomials import PolynomialBase, linear_upsample_inside, down_sample_inside, Legendre, Chebyshev, linear_upsample_no_bdry, down_sample_no_bdry
 
 from odl.discr.partition import RectPartition, uniform_partition
 from odl.discr.discr_space import DiscretizedSpace, uniform_discr
@@ -223,17 +223,17 @@ class FlatFanBeamGeometry(FBPGeometryBase):
             sinos[:, -shift:, :], sinos[:, :-shift, :] #works for shift positive and negative
         ], dim=1) 
 
-    def project_sinos(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 10):
+    def project_sinos(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 11):
         """
             Project sinos onto subspace of valid sinograms. The infinite basis of this subspace is cutoff for polynomials of degree larger than N.
         """
-        us_upsampled = linear_upsample_inside(self.us, factor=upsample_ratio) #refine u scale
+        us_upsampled = linear_upsample_no_bdry(self.us, factor=upsample_ratio) #refine u scale
         Nu_upsampled = us_upsampled.shape[-1]
         us2d = torch.ones_like(self.betas)*us_upsampled
         betas2d = torch.ones_like(us2d)*self.betas
         scale = self.du*self.db/upsample_ratio * self.R**3 / (us_upsampled**2 + self.R**2)**1.5 #volume element per sinogram cell
 
-        X = linear_upsample_inside(sinos, factor=upsample_ratio) #lineat interpolation of data
+        X = linear_upsample_no_bdry(sinos, factor=upsample_ratio) #lineat interpolation of data
         phis2d = betas2d + torch.arctan(us2d/self.R) - torch.pi/2
         ts2d = us2d*self.R / torch.sqrt(self.R**2 + us2d**2)
         X *= scale
@@ -279,7 +279,7 @@ class FlatFanBeamGeometry(FBPGeometryBase):
 
                 k += 2
         
-        return down_sample(res, factor=upsample_ratio)
+        return down_sample_no_bdry(res, factor=upsample_ratio)
 
                 
 
@@ -301,7 +301,7 @@ if __name__ == "__main__":
     start = time.time()
     print("beginning orthogonal projection")
     start = time.time()
-    projected_sinos = geometry.project_sinos(sinos, Legendre, 100, 1)
+    projected_sinos = geometry.project_sinos(sinos, Legendre, 100, 11)
     print("sino projection took", time.time()-start, "s")
 
     print("sino mse", torch.mean((projected_sinos-sinos)**2))

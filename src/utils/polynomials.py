@@ -83,15 +83,45 @@ def linear_upsample_inside(X: torch.Tensor, factor = 10):
 
     return res
 
-def linear_upsample_no_bdry(X: torch.Tensor, factor = 10):
-    return
+def linear_upsample_no_bdry(X: torch.Tensor, factor = 11):
+    "Upsampling when discretization does not have points on boundary, factor must be odd. result will have shape (*, last_dim*factor)"
 
-def down_sample(X: torch.Tensor, factor = 10):
+    assert factor % 2 == 1, "factor must be odd for no_boundary linear upsampling"
+    pre_shape, N = X.shape[:-1], X.shape[-1]
+    dX = X*0
+    dX[...,:-1] += X[...,1:]
+    dX[...,:-1] -= X[...,:-1]
+    dX[...,-1] = dX[...,-2] #resuse slope beyond last sampled point
+    # dX = X[...,1:]-X[...,:-1]
+    dX /= factor
+    res = torch.zeros(pre_shape + (N*factor,), dtype=X.dtype, device=X.device)
+
+    vals = X+0 #Copy
+    for i in range(factor):
+        if i == factor//2+1:
+            vals = vals[...,:-1]
+            dX = dX[...,:-1]
+        res[...,factor//2+i::factor] = vals
+        vals += dX
+
+    pre_vals = X[...,0] - dX[...,0]
+    for i in range(factor//2):
+        res[...,factor//2-i-1] = pre_vals
+        pre_vals -= dX[...,0]
+
+    return res
+
+def down_sample_inside(X: torch.Tensor, factor = 10):
     """
         inverse of linear_upsample
         pick out every factor:th element along the last dimension
     """
     return X[..., ::factor]
+def down_sample_no_bdry(X: torch.Tensor, factor = 11):
+    "inverse of `linear_upsample_no_bdry`"
+    assert factor % 2 == 1, "factor must be odd"
+
+    return X[...,factor//2::factor]
 
 def get_prim(f: torch.Tensor):
         n, = f.shape
@@ -100,31 +130,32 @@ def get_prim(f: torch.Tensor):
         res[jvals>ivals] = 0
         return torch.sum(res, dim=-1)
 
+def no_bdry_linspace(start: float, end: float, n_points: int, dtype=None, device=None):
+    dx = (end-start)/n_points
+    return start + dx/2 + dx*torch.arange(0,n_points)
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import numpy as np
-    Nx = 500
+    Nx = 50
     max_deg = 100
-    factor = 5
-    func = lambda xs : sum(torch.sin(k*xs*torch.pi) for k in range(10))
-    x_full = torch.linspace(-1,1, Nx*factor)
-    dx_full = torch.mean(x_full[1:] - x_full[:-1])
-    f_full = func(x_full)
+    factor = 31
+    func = lambda xs : (1-xs**2)**10 #sum(torch.cos(k*xs*torch.pi) for k in range(20))
 
-    x = torch.linspace(-1.0,1.0, Nx)
-    dx = torch.mean(x[1:]-x[:-1])
-    f = func(x)
-    x_upsampled = linear_upsample_inside(x, factor)
-    f_upsampled = linear_upsample_inside(f, factor)
-    # dx = 2.0 / Nx
-    # x = -1.0 + dx/2 + torch.arange(0,Nx)*dx
-    # dx = torch.mean(x[1:] - x[:-1])
-    # dx /= factor
-    # f = linear_upsample_inside(f, factor)
-    # x = linear_upsample_inside(x, factor)
-    # g = f*0
-    
-         
+    x_full_bdry = torch.linspace(-1,1, Nx*factor)
+    f_full_bdry = func(x_full_bdry)
+    x_bdry = torch.linspace(-1.0,1.0, Nx)
+    f_bdry = func(x_bdry)
+    x_upsampled_bdry = linear_upsample_inside(x_bdry, factor)
+    f_upsampled_bdry = linear_upsample_inside(f_bdry, factor)
+
+    x_full_no_bdry = no_bdry_linspace(-1,1,Nx*factor)
+    f_full_no_bdry = func(x_full_no_bdry)
+    x_no_bdry = no_bdry_linspace(-1,1, Nx)
+    f_no_bdry = func(x_no_bdry)
+    x_upsampled_no_bdry = linear_upsample_no_bdry(x_no_bdry, factor)
+    f_upsampled_no_bdry = linear_upsample_no_bdry(f_no_bdry, factor)
+             
 
     def project_with_pols(x: torch.Tensor, f: torch.Tensor, N:int, title:str):
         dx = torch.mean(x[1:]-x[:-1])
@@ -146,36 +177,73 @@ if __name__ == "__main__":
         print("="*40)
         return g
     
-    g_full = project_with_pols(x_full, f_full, max_deg, "full")
-    g = project_with_pols(x, f, max_deg, "sparse")
-    g_upsampled = project_with_pols(x_upsampled, f_upsampled, max_deg, "upsampled")
-    g_up_down = down_sample(g_upsampled, factor)
+    g_full = project_with_pols(x_full_bdry, f_full_bdry, max_deg, "full")
+    g = project_with_pols(x_bdry, f_bdry, max_deg, "sparse")
+    g_upsampled = project_with_pols(x_upsampled_bdry, f_upsampled_bdry, max_deg, "upsampled")
+    g_up_down = down_sample_inside(g_upsampled, factor)
 
-    print("Mses")
     mse_fn = lambda diff : torch.mean(diff**2)
-    print("full", mse_fn(g_full-f_full).item())
-    print("sparse", mse_fn(g-f).item())
-    print("upsampled", mse_fn(g_upsampled-f_upsampled).item())
-    print("up down", mse_fn(g_up_down-f))
 
+    print("Mses with boundary")
+    print("full", mse_fn(g_full-f_full_bdry).item())
+    print("sparse", mse_fn(g-f_bdry).item())
+    print("upsampled", mse_fn(g_upsampled-f_upsampled_bdry).item())
+    print("up down", mse_fn(g_up_down-f_bdry))
+
+    fig, _ = plt.subplots(1,3)
     plt.subplot(131)
     plt.title("full data")
-    plt.plot(x_full, f_full, label="gt")
-    plt.plot(x_full, g_full, label="projection")
+    plt.plot(x_full_bdry, f_full_bdry, label="gt")
+    plt.plot(x_full_bdry, g_full, label="projection")
     plt.legend()
     
     plt.subplot(132)
     plt.title("sparse data")
-    plt.plot(x, f, label="gt")
-    plt.plot(x, g, label="projection")
-    plt.plot(x, g_up_down, label="up down")
+    plt.plot(x_bdry, f_bdry, label="gt")
+    plt.plot(x_bdry, g, label="projection")
+    plt.plot(x_bdry, g_up_down, label="up down")
     plt.legend()
     
     plt.subplot(133)
     plt.title("upsampled data")
-    plt.plot(x_upsampled, f_upsampled, label="gt")
-    plt.plot(x_upsampled, g_upsampled, label="projection")
+    plt.plot(x_upsampled_bdry, f_upsampled_bdry, label="gt")
+    plt.plot(x_upsampled_bdry, g_upsampled, label="projection")
     plt.legend()
+    fig.show()
+
+    ##
+    ##No boundary stuff
+    ##
+    g_full_no_bdry = project_with_pols(x_full_no_bdry, f_full_no_bdry, max_deg, "full no boundary")
+    g_no_bdry = project_with_pols(x_no_bdry, f_no_bdry, max_deg, "sparse no boundary")
+    g_upsampled_no_bdry = project_with_pols(x_upsampled_no_bdry, f_upsampled_no_bdry, max_deg, "upsampled no boundary")
+    g_up_down_no_bdry = down_sample_no_bdry(g_upsampled_no_bdry, factor)
+    
+    print("Mses without boundary")
+    print("full", mse_fn(g_full_no_bdry-f_full_no_bdry).item())
+    print("sparse", mse_fn(g_no_bdry-f_no_bdry).item())
+    print("upsampled", mse_fn(g_upsampled_no_bdry-f_upsampled_no_bdry).item())
+    print("up down", mse_fn(g_up_down_no_bdry-f_no_bdry))
+
+    fig, _ = plt.subplots(1,3)
+    plt.subplot(131)
+    plt.title("full data no bdry")
+    plt.plot(x_full_no_bdry, f_full_no_bdry, label="gt")
+    plt.plot(x_full_no_bdry, g_full_no_bdry, label="projection")
+    plt.legend()
+    
+    plt.subplot(132)
+    plt.title("sparse data no bdry")
+    plt.plot(x_no_bdry, f_no_bdry, label="gt")
+    plt.plot(x_no_bdry, g_no_bdry, label="projection")
+    plt.plot(x_no_bdry, g_up_down_no_bdry, label="up down")
+    plt.legend()
+    
+    plt.subplot(133)
+    plt.title("upsampled data no bdry")
+    plt.plot(x_upsampled_no_bdry, f_upsampled_no_bdry, label="gt")
+    plt.plot(x_upsampled_no_bdry, g_upsampled_no_bdry, label="projection")
+    plt.legend()
+    fig.show()
 
     plt.show()
-    

@@ -1,5 +1,5 @@
 import torch
-from utils.polynomials import linear_upsample_inside, down_sample, PolynomialBase
+from utils.polynomials import linear_upsample_inside, down_sample_inside, PolynomialBase
 
 """
 will be refactored
@@ -61,6 +61,6 @@ def _project_sinos_hlcc(self, sinos: torch.Tensor, PolynomialBasis, N: int, upsa
         
         
         # print("enpoint values", pn[:, 0], pn[:, -1])
-    return down_sample(res, factor=upsample_ratio)
+    return down_sample_inside(res, factor=upsample_ratio)
 
 
