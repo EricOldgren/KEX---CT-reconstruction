@@ -2,7 +2,7 @@ import torch
 import odl
 import numpy as np
 from geometries.geometry_base import FBPGeometryBase, DEVICE, DTYPE, CDTYPE, next_power_of_two
-from geometries.fanbeam_geometry.moment_operators import _moment_projection
+from geometries.fanbeam_geometry.moment_operators import MomentProjectionFunction
 from utils.polynomials import PolynomialBase, linear_upsample_inside, down_sample_inside, Legendre, Chebyshev, linear_upsample_no_bdry, down_sample_no_bdry
 
 from odl.discr.partition import RectPartition, uniform_partition
@@ -224,9 +224,9 @@ class FlatFanBeamGeometry(FBPGeometryBase):
             sinos[:, -shift:, :], sinos[:, :-shift, :] #works for shift positive and negative
         ], dim=1) 
 
-    def project_sinos(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 11):
+    def _slow_sino_projection(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 11):
         """
-            Project sinos onto subspace of valid sinograms. The infinite basis of this subspace is cutoff for polynomials of degree larger than N.
+            Project sinos onto subspace of valid sinograms. The infinite basis of this subspace is cutoff for polynomials of degree larger than N. This is slower than project sinos
         """
         us_upsampled = linear_upsample_no_bdry(self.us, factor=upsample_ratio) #refine u scale
         Nu_upsampled = us_upsampled.shape[-1]
@@ -282,7 +282,7 @@ class FlatFanBeamGeometry(FBPGeometryBase):
         
         return down_sample_no_bdry(res, factor=upsample_ratio)
     
-    def fast_sino_projection(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 1):
+    def project_sinos(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 1):
         """
             Project sinos onto subspace of valid sinograms. The infinite basis of this subspace is cutoff for polynomials of degree larger than N.
         """
@@ -300,22 +300,20 @@ class FlatFanBeamGeometry(FBPGeometryBase):
         normalised_polynomials = torch.stack([pn / np.sqrt(l2_norsm_sq) for pn, l2_norsm_sq in polynomials.iterate_polynomials(N, ts1d)])
 
         return down_sample_no_bdry(
-            _moment_projection(X, normalised_polynomials, W, phis2d),
+            MomentProjectionFunction.apply(X, normalised_polynomials, W, phis2d),
+            # _moment_projection(X, normalised_polynomials, W, phis2d),
             factor=upsample_ratio
         )
-
-                
-
 
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    # phantoms = torch.stack(torch.load("data/HTC2022/HTCTestPhantomsFull.pt", map_location=DEVICE))[:4]
-    phantoms = torch.load("data/kits_phantoms_256.pt", map_location=DEVICE)[:1, 1]
+    phantoms = torch.stack(torch.load("data/HTC2022/HTCTestPhantomsFull.pt", map_location=DEVICE))[:2]
+    # phantoms = torch.load("data/kits_phantoms_256.pt", map_location=DEVICE)[:1, 1]
     print(phantoms.shape)
 
-    # geometry = FlatFanBeamGeometry(720, 560, 410.66, 543.74, 112, [-40,40, -40, 40], [512, 512])
-    geometry = FlatFanBeamGeometry(700, 560, 10.0, 14.0, 3.0, [-1.0,1.0, -1.0, 1.0], [256, 256])
+    geometry = FlatFanBeamGeometry(720, 560, 410.66, 543.74, 112, [-40,40, -40, 40], [512, 512])
+    # geometry = FlatFanBeamGeometry(700, 560, 10.0, 14.0, 3.0, [-1.0,1.0, -1.0, 1.0], [256, 256])
     start = time.time()
     sinos = geometry.project_forward(phantoms)
     print("fprward projection took", time.time()-start, "s")
@@ -323,19 +321,12 @@ if __name__ == "__main__":
 
     start = time.time()
     print("beginning orthogonal projection")
-    # start = time.time()
-    # projected_sinos = geometry.project_sinos(sinos, Legendre, 100, 1)
-    # print("sino projection took", time.time()-start, "s")
 
     start = time.time()
-    projected_sinos2 = geometry.fast_sino_projection(sinos, Legendre, 200, 1)
-    print("other projection took", time.time()-start, "s")
-    projected_sinos = projected_sinos2
-
+    projected_sinos = geometry.project_sinos(sinos, Legendre, 200, 1)
+    print("projection took", time.time()-start, "s")
     print("sino mse", torch.mean((projected_sinos-sinos)**2))
-    print("sino mse2", torch.mean((projected_sinos2-sinos)**2))
 
-    print("projectoed norm", torch.linalg.norm(projected_sinos))
     recons = geometry.fbp_reconstruct(sinos)
     recons_projected = geometry.fbp_reconstruct(projected_sinos)
     print("recon mse", torch.mean((recons_projected-recons)**2))
@@ -349,7 +340,7 @@ if __name__ == "__main__":
     plt.imshow(projected_sinos[inspect_ind].cpu())
     plt.colorbar()
     plt.subplot(133)
-    plt.imshow(projected_sinos2[inspect_ind].cpu())
+    plt.imshow(torch.abs(projected_sinos[inspect_ind]-sinos[inspect_ind]))
     plt.colorbar()
     fig.show()
     
