@@ -130,9 +130,13 @@ def get_prim(f: torch.Tensor):
         res[jvals>ivals] = 0
         return torch.sum(res, dim=-1)
 
-def no_bdry_linspace(start: float, end: float, n_points: int):
+def no_bdry_linspace(start: float, end: float, n_points: int, device = None, dtype = None):
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if dtype is None:
+        dtype = torch.float
     dx = (end-start)/n_points
-    return start + dx/2 + dx*torch.arange(0,n_points)
+    return start + dx/2 + dx*torch.arange(0,n_points, device=device, dtype=dtype)
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt

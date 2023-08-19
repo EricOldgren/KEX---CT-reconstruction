@@ -27,8 +27,8 @@ def test_y_scale():
         factor = random.randint(10,50)*2+1 #must be odd
 
         f = torch.randn(n_points)
-        f[:3] = 0
-        f[-3:] = 0
+        f[:2] = 0
+        f[-2:] = 0
         integral1 = torch.sum(f)
         f_upscaled = linear_upsample_no_bdry(f, factor)
         integral2 = torch.sum(f_upscaled) / factor
