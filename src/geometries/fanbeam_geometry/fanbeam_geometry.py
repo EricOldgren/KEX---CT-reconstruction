@@ -224,63 +224,6 @@ class FlatFanBeamGeometry(FBPGeometryBase):
             sinos[:, -shift:, :], sinos[:, :-shift, :] #works for shift positive and negative
         ], dim=1) 
 
-    def _slow_sino_projection(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 11):
-        """
-            Project sinos onto subspace of valid sinograms. The infinite basis of this subspace is cutoff for polynomials of degree larger than N. This is slower than project sinos
-        """
-        us_upsampled = linear_upsample_no_bdry(self.us, factor=upsample_ratio) #refine u scale
-        Nu_upsampled = us_upsampled.shape[-1]
-        us2d = torch.ones_like(self.betas)*us_upsampled
-        betas2d = torch.ones_like(us2d)*self.betas
-        scale = self.du*self.db/upsample_ratio * self.R**3 / (us_upsampled**2 + self.R**2)**1.5 #volume element per sinogram cell
-
-        X = linear_upsample_no_bdry(sinos, factor=upsample_ratio) #lineat interpolation of data
-        phis2d = betas2d + torch.arctan(us2d/self.R) - torch.pi/2
-        ts2d = us2d*self.R / torch.sqrt(self.R**2 + us2d**2)
-        X *= scale
-        res = X*0
-
-        polynomials = PolynomialBasis(self.R*self.h/np.sqrt(self.R**2+self.h**2))
-        W = polynomials.w(ts2d)
-
-        trig_out = torch.zeros_like(phis2d)
-        for n, (pn, l2_normsq_n) in enumerate(polynomials.iterate_polynomials(N, ts2d)):
-            k, basis_index = n % 2, 0
-            
-            # curr_basis = pn.repeat(n+1, 1, 1)
-            # while k <= n:
-            #     if k != 0:
-            #         torch.mul(phis2d, k, out=trig_out)
-            #         torch.sin(trig_out, out=trig_out)
-            #         curr_basis[basis_index] *= trig_out
-            #         basis_index += 1
-            #     torch.mul(phis2d, k, out=trig_out)
-            #     torch.cos(trig_out, out=trig_out)
-            #     curr_basis[basis_index] *= trig_out
-            #     basis_index += 1
-            
-            #     res += torch.einsum("nub, sub, UB, nUB->sUB", curr_basis, X, W, curr_basis)
-            print("projecting onto polynomials of degree", n)
-            print("Norms of basis functions:")
-            while k <= n:
-                sinb_nk = pn * torch.sin(k*phis2d)
-                sinnorm_nk = torch.sum(sinb_nk**2*W*scale)
-                cosb_nk = pn * torch.cos(k*phis2d)
-                cosnorm_nk = torch.sum(cosb_nk**2*W*scale)
-                print("\t", n, k, "sin num", sinnorm_nk, "num / analytic:", sinnorm_nk/(l2_normsq_n*torch.pi))
-                print("\t", n, k, "cos num", cosnorm_nk, "num / analytic:", cosnorm_nk/(l2_normsq_n*(2*torch.pi if k == 0 else torch.pi)))
-
-                if k != 0:
-                    out = torch.einsum("bu,sbu,BU,BU->sBU", sinb_nk, X, W, sinb_nk)
-                    out /= sinnorm_nk
-                    res += out
-                out = torch.einsum("bu,sbu,BU,BU->sBU", cosb_nk, X, W, cosb_nk)
-                out /= cosnorm_nk
-                res += out
-
-                k += 2
-        
-        return down_sample_no_bdry(res, factor=upsample_ratio)
     
     def project_sinos(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 1):
         """
@@ -354,3 +297,63 @@ if __name__ == "__main__":
     fig.show()
 
     plt.show()
+
+
+#Deprecated
+# def _slow_sino_projection(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 11):
+#         """
+#             Project sinos onto subspace of valid sinograms. The infinite basis of this subspace is cutoff for polynomials of degree larger than N. This is slower than project sinos
+#         """
+#         us_upsampled = linear_upsample_no_bdry(self.us, factor=upsample_ratio) #refine u scale
+#         Nu_upsampled = us_upsampled.shape[-1]
+#         us2d = torch.ones_like(self.betas)*us_upsampled
+#         betas2d = torch.ones_like(us2d)*self.betas
+#         scale = self.du*self.db/upsample_ratio * self.R**3 / (us_upsampled**2 + self.R**2)**1.5 #volume element per sinogram cell
+
+#         X = linear_upsample_no_bdry(sinos, factor=upsample_ratio) #lineat interpolation of data
+#         phis2d = betas2d + torch.arctan(us2d/self.R) - torch.pi/2
+#         ts2d = us2d*self.R / torch.sqrt(self.R**2 + us2d**2)
+#         X *= scale
+#         res = X*0
+
+#         polynomials = PolynomialBasis(self.R*self.h/np.sqrt(self.R**2+self.h**2))
+#         W = polynomials.w(ts2d)
+
+#         trig_out = torch.zeros_like(phis2d)
+#         for n, (pn, l2_normsq_n) in enumerate(polynomials.iterate_polynomials(N, ts2d)):
+#             k, basis_index = n % 2, 0
+            
+#             # curr_basis = pn.repeat(n+1, 1, 1)
+#             # while k <= n:
+#             #     if k != 0:
+#             #         torch.mul(phis2d, k, out=trig_out)
+#             #         torch.sin(trig_out, out=trig_out)
+#             #         curr_basis[basis_index] *= trig_out
+#             #         basis_index += 1
+#             #     torch.mul(phis2d, k, out=trig_out)
+#             #     torch.cos(trig_out, out=trig_out)
+#             #     curr_basis[basis_index] *= trig_out
+#             #     basis_index += 1
+            
+#             #     res += torch.einsum("nub, sub, UB, nUB->sUB", curr_basis, X, W, curr_basis)
+#             print("projecting onto polynomials of degree", n)
+#             print("Norms of basis functions:")
+#             while k <= n:
+#                 sinb_nk = pn * torch.sin(k*phis2d)
+#                 sinnorm_nk = torch.sum(sinb_nk**2*W*scale)
+#                 cosb_nk = pn * torch.cos(k*phis2d)
+#                 cosnorm_nk = torch.sum(cosb_nk**2*W*scale)
+#                 print("\t", n, k, "sin num", sinnorm_nk, "num / analytic:", sinnorm_nk/(l2_normsq_n*torch.pi))
+#                 print("\t", n, k, "cos num", cosnorm_nk, "num / analytic:", cosnorm_nk/(l2_normsq_n*(2*torch.pi if k == 0 else torch.pi)))
+
+#                 if k != 0:
+#                     out = torch.einsum("bu,sbu,BU,BU->sBU", sinb_nk, X, W, sinb_nk)
+#                     out /= sinnorm_nk
+#                     res += out
+#                 out = torch.einsum("bu,sbu,BU,BU->sBU", cosb_nk, X, W, cosb_nk)
+#                 out /= cosnorm_nk
+#                 res += out
+
+#                 k += 2
+        
+#         return down_sample_no_bdry(res, factor=upsample_ratio)
