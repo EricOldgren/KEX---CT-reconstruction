@@ -1,5 +1,6 @@
 import torch
 from abc import ABC, abstractmethod
+from typing import Tuple
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DTYPE = torch.float
@@ -54,6 +55,26 @@ class FBPGeometryBase(torch.nn.Module, ABC):
     @abstractmethod
     def fbp_reconstruct(self, sinos: torch.Tensor)->torch.Tensor:
         """Reconstruct sinos using FBP
+        """
+    
+    @abstractmethod
+    def zero_cropp_sinos(self, sinos: torch.Tensor, ar: float, start_ind: int)->Tuple[torch.Tensor, torch.Tensor]:
+        """
+            Cropp sinograms to limited angle data. Sinos are set to zero outside cropped region
+
+            return cropped_sinos, known_beta_bool
+        """
+
+    @abstractmethod
+    def reflect_fill_sinos(self, sinos: torch.Tensor, known_beta_bools: torch.Tensor, linear_interpolation = False):
+        """
+            in place flling of sinogram
+            applied on full 360deg sinograms, fills unknown region of sinogram by finding equivalent lines on opposite side
+        """
+    
+    @abstractmethod
+    def get_init_args(self):
+        """Get args used in init method. Necessary to reload geometry after saving a model.
         """
     
     @property

@@ -46,6 +46,7 @@ class FlatFanBeamGeometry(FBPGeometryBase):
                 - xy_minmax_bounds (tuple[float]) : (Xmin, Xmax, Ymin, Ymax) - bounding x and y coordinate values for the reco space
                 - resco_shape (tuple[int, int]) : (H, W) - shape of reco space images
         """
+        self._init_args = (beta_size, u_size, src_origin, src_detector, detector_size, xy_minmax_bounds, reco_shape)
         super().__init__()
 
 
@@ -105,6 +106,8 @@ class FlatFanBeamGeometry(FBPGeometryBase):
         "Fan Beam Ray transform - Module"
         self.BP = odl_torch.OperatorModule(ray_trafo.adjoint)
         "Fan Beam back projection - Module"
+    def get_init_args(self):
+        return self._init_args
 
     @property
     def padded_u_size(self):
@@ -156,7 +159,7 @@ class FlatFanBeamGeometry(FBPGeometryBase):
         return self.BP(X)
     
     def ram_lak_filter(self, cutoff_ratio: float = None, full_size = False):
-        k = self.ws / (2*torch.pi)
+        k = self.ws.to(CDTYPE) / (2*torch.pi)
         if cutoff_ratio is not None:
             k[self.ws > self.ws.max()*cutoff_ratio] = 0
         if full_size:

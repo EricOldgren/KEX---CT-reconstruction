@@ -4,8 +4,7 @@ import numpy as np
 import odl.contrib.torch as odl_torch
 import matplotlib.pyplot as plt
 import time
-from utils.fanbeam_geometry import FlatFanBeamGeometry, DEVICE
-
+from geometries import FlatFanBeamGeometry, DEVICE
 
 n_phantoms = 3
 phantoms = torch.stack(torch.load("data/HTC2022/HTCTestPhantomsFull.pt")).to(DEVICE)
