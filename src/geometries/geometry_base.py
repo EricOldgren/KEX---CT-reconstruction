@@ -2,10 +2,7 @@ import torch
 from abc import ABC, abstractmethod
 from typing import Tuple
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DTYPE = torch.float
-CDTYPE = torch.cfloat
-eps = torch.finfo(DTYPE).eps
+from utils.torch_tools import DEVICE, DTYPE, CDTYPE, eps
 
 def next_power_of_two(n: int):
     P = 1

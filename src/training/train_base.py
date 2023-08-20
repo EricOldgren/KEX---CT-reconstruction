@@ -8,7 +8,6 @@ from statistics import mean
 import matplotlib.pyplot as plt
 
 ar = 0.5 #angle ratio
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 PHANTOM_DATA = torch.stack(torch.load("data/HTC2022/HTCTrainingPhantoms.pt")).to(DEVICE)
 
 geometry = FlatFanBeamGeometry(720, 560, 410.66, 543.74, 112, [-40,40, -40, 40], [512, 512])

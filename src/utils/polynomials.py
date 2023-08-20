@@ -2,6 +2,8 @@ import torch
 from abc import ABC, abstractmethod
 from typing import Iterable, Tuple
 
+from utils.torch_tools import no_bdry_linspace
+
 class PolynomialBase(ABC):
     "Family of polynomials orthogonal on the interval [-a,a] with weight function W"
     a: float
@@ -129,14 +131,6 @@ def get_prim(f: torch.Tensor):
         ivals, jvals = torch.arange(0,n)[:,None].repeat(1,n), torch.arange(0,n)[None].repeat(n,1)
         res[jvals>ivals] = 0
         return torch.sum(res, dim=-1)
-
-def no_bdry_linspace(start: float, end: float, n_points: int, device = None, dtype = None):
-    if device is None:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if dtype is None:
-        dtype = torch.float
-    dx = (end-start)/n_points
-    return start + dx/2 + dx*torch.arange(0,n_points, device=device, dtype=dtype)
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
