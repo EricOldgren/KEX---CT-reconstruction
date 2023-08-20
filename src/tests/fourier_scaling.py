@@ -9,7 +9,7 @@ from geometries import ParallelGeometry, DEVICE
 def test_fourier_transforms():
     geometry = ParallelGeometry(1.0, 150, 100)
 
-    x = torch.randn((1,1,geometry.t_size)).to(device=DEVICE)
+    x = torch.randn((1,1,geometry.Nt)).to(device=DEVICE)
 
     xhat = geometry.fourier_transform(x, padding=False)
     recovered = geometry.inverse_fourier_transform(xhat, padding=False)

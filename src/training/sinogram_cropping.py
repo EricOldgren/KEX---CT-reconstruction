@@ -38,7 +38,7 @@ def crop_sinos(X: torch.Tensor, ar: float, full_geometry: ParallelGeometry)->"tu
 def zeropad_limited_angle_sinos(X: torch.Tensor, full_geometry: ParallelGeometry):
     assert full_geometry.ar == 1.0
     N, lim_Np, Nt = X.shape
-    Np = full_geometry.phi_size
+    Np = full_geometry.Np
     return torch.concat([X, torch.zeros((N, Np-lim_Np,Nt), dtype=X.dtype, device=X.device)], dim=1)
     
     

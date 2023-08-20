@@ -86,4 +86,5 @@ class FBPGeometryBase(torch.nn.Module, ABC):
     @abstractmethod
     def projection_size(self):
         "number of samples per projection - length of row in sinogram"
+
         

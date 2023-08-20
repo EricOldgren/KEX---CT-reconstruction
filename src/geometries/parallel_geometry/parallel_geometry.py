@@ -1,265 +1,208 @@
-import odl
-from odl import DiscretizedSpace
-import odl.contrib.torch as odl_torch
+from typing import Tuple
 import torch
-import numpy as np
-from utils.data_generator import unstructured_random_phantom, random_phantom
-from geometries.geometry_base import FBPGeometryBase, next_power_of_two, DEVICE
-import torch.nn as nn
-import random
+
+from geometries.geometry_base import FBPGeometryBase, next_power_of_two, DEVICE, DTYPE, CDTYPE
+
+
+from odl import Operator
+from odl.tomo import RayTransform as odl_RayTransform, Parallel2dGeometry as odl_parallel_geometry
+from odl.discr.discr_space import uniform_discr
+from odl.discr.partition import uniform_partition
+import odl.contrib.torch as odl_torch
+
+import matplotlib
+matplotlib.use("WebAgg")
 import matplotlib.pyplot as plt
-from math import ceil
 
 
-class BackProjection(odl.Operator):
+class ParallelGeometry(FBPGeometryBase):
+    """
+        Parallel 2D Geometry.
+        Implementation has functions for forward and backward projections as well as fourier transform along detector axis with appropriate scaling and projection of sinograms onto subspace of valid sinograms..
 
-    def __init__(self, ray: odl.tomo.RayTransform):
-        self.ray = ray
-        super(BackProjection, self).__init__(self.ray.range, self.ray.domain, linear=True)
-
-    @classmethod
-    def from_space(clc, reco_space, geometry):
-        return BackProjection(odl.tomo.RayTransform(reco_space, geometry))
+        This implementation uses the following notation:
+            phi: angle bewteen normal of line and the x-axis, meassured positive counter-clockwise (thus phi = 0 is lines pointing straight up)
+            t: displacement of line
+            rho: radius of reco space and max value along detector
+    """
     
-    def _call(self, x):
-        return self.ray.adjoint(x)
+    def __init__(self, phi_size: int, t_size: int, xy_minmax_bounds: 'tuple[float, float, float, float]', reco_shape: 'tuple[int, int]'):
+        
+        super().__init__()
+        self._init_args = (phi_size, t_size, xy_minmax_bounds, reco_shape)
+        self.Np, self.Nt = phi_size, t_size
+
+        # Reconstruction space stuff
+        self.NY, self.NX = reco_shape
+        xmin, xmax, ymin, ymax = xy_minmax_bounds
+        self.dX, self.dY = (xmax - xmin) / self.NX, (ymax - ymin) / self.NY
+        "step size in reconstruction space"
+        self.Xs = xmin + self.dX / 2 + self.dX * \
+            torch.arange(0, self.NX, device=DEVICE, dtype=DTYPE)[None]
+        self.Ys = ymin + self.dY/2 + self.dY * \
+            torch.arange(0, self.NY, device=DEVICE, dtype=DTYPE)[:, None]
+        
+        #Sino space stuff
+        self.rho = torch.linalg.norm(torch.tensor([xmax-xmin, ymax-ymin], dtype=DTYPE)).item()
+        self.dphi, self.dt = 2*torch.pi / self.Np, 2*self.rho/ self.Nt
+        self.phis = torch.linspace(
+            0, 2*torch.pi, self.Np+1, device=DEVICE, dtype=DTYPE)[:-1][:, None]
+        self.ts = (-self.rho + self.dt*torch.arange(0, self.Nt, device=DEVICE, dtype=DTYPE))[None]
+        self.jacobian_det = torch.ones_like(self.ts)
+        "jacobian det - trivial in parallel geometry i.e tensor of ones"        
+
+        #Fourier domain stuff
+        self._fourier_pad_left, self._fourier_pad_right = 0, next_power_of_two(t_size)*2 - t_size #total size is the nearset power of two two levels up - at most 4 * t_size
+        self.ws: torch.Tensor = 2*torch.pi * \
+            torch.fft.rfftfreq(self.padded_t_size, d=self.dt).to(
+                DEVICE, dtype=DTYPE)[None]
+        "fourier frequencies the geometry DFT is sampled at. (shape 1 ws_size)"      
+        self.omega: float = torch.pi * min(1.0 / (self.dphi*self.rho), 1 / self.dt)
+        "maximum bandwidth for functions to be exactly restored from this sinogram sampling scheme."
+    
+        # Make a parallel beam geometry with odl
+        apart = uniform_partition(0, 2*torch.pi* (1-1/phi_size), phi_size, nodes_on_bdry=True)
+        dpart = uniform_partition(-self.rho, self.rho, t_size, nodes_on_bdry=False)
+        odl_geom = odl_parallel_geometry(apart, dpart)
+        vol_space = uniform_discr((xmin, ymin), (xmax, ymax), reco_shape)
+        ray_trafo = odl_RayTransform(vol_space, odl_geom)
+
+        self.Ray = odl_torch.OperatorModule(ray_trafo)
+        "Parallel Beam Ray transform - Module"
+        self.BP = odl_torch.OperatorModule(ray_trafo.adjoint)
+        "Parallel Beam backprojection - Module"
+    def get_init_args(self):
+        return self._init_args
 
     @property
-    def adjoint(self):
-        return self.ray
-
-class ParallelGeometry:
-    """
-        Wrapper for odl Parallel2dGeometry. Adds functionality for appropriate fourier transform and bandwidth.
-    """
+    def n_projections(self):
+        return self.Np
+    @property
+    def projection_size(self):
+        return self.Nt
+    @property
+    def padded_t_size(self):
+        return self._fourier_pad_left + self.Nt + self._fourier_pad_right
+   
     
-    def __init__(self, angle_ratio: float, phi_size: int, t_size: int, reco_shape = (256, 256), reco_space: DiscretizedSpace = None, in_middle = False):
-        """
-            Create a parallel beam geometry with corresponding forward and backward projections.
-            For maximazing omega at full angle - phi_size ~ pi * t_size / 2
-
-            parameters
-                :angle_ratio - angle gemoetry is 0 to pi * angle_ratio
-                :phi_size - number of angles for measurements, i.e angle resolution
-                :t_size - number of lines per angle, i.e detector resolution
-                :reco_shape - pixel shape of images to be reconstructed
-        """
-        self.ar = angle_ratio; self.phi_size = phi_size; self.t_size = t_size
-        self.pad_size_left, self.pad_size_right = 0, next_power_of_two(t_size)*2 - t_size #total size is the nearset power of two two levels up - at most 4 * t_size
-        "number of zeros to pad with on each side"
-        self.padded_t_size = self.t_size + self.pad_size_left + self.pad_size_right
-
-        if reco_space is None:
-            self.reco_space = odl.uniform_discr(min_pt=[-1.0, -1.0], max_pt=[1.0, 1.0], shape=reco_shape, dtype='float32')
-        else:
-            self.reco_space = reco_space
-        self.rho = np.linalg.norm(self.reco_space.max_pt - self.reco_space.min_pt) / 2
-        "Radius of the detector space"
-        
-        start_angle = 0.0 if not in_middle else (1.0-angle_ratio)/2 * np.pi
-        self.in_middle = in_middle
-        self.angle_partition = odl.uniform_partition(start_angle, start_angle + np.pi*angle_ratio, phi_size)
-        # Detector: uniformly sampled, n = t_size, min = -rho, max = rho
-        self.detector_partition = odl.uniform_partition(-self.rho, self.rho, t_size)
-    
-        # Make a parallel beam geometry with flat detector
-        self.geometry = odl.tomo.Parallel2dGeometry(self.angle_partition, self.detector_partition)
-        self.dphi = np.mean(self.geometry.angles[1:] - self.geometry.angles[:-1])
-        "Average angle step in detector"
-        self.dt: float = 2*self.rho / t_size
-        "Average detector step, i.e distance between adjacent detectors"
-
-        self.omega: float = np.pi * min(self.ar / (self.dphi*self.rho), 1 / self.dt) #ar added to phi term - precision is never higher than if sampling would be over full angle
-        "Maximum bandwith that can be reconstructed exactly using the given partition"
-        self.fourier_domain: torch.Tensor = 2*np.pi * torch.fft.rfftfreq(t_size, d=self.dt).to(DEVICE)
-        "1rank tensor consisting of the angular velocities where the fourier transform of functions defined on the detector partition are sampled using the discrete fourier transform"
-        self.fourier_domain_padded: torch.Tensor = 2*np.pi * torch.fft.rfftfreq(self.padded_t_size, d=self.dt).to(DEVICE)
-
-        self.ray = odl.tomo.RayTransform(self.reco_space, self.geometry)
-
-        self.BP = BackProjection(self.ray)
-    
-    def fourier_transform(self, sinos: torch.Tensor, padding = False):
+    def fourier_transform(self, sinos: torch.Tensor):
         """
             Returns samples of the fourier transform of a function defined on the detector partition.
             Applies the torch fft on gpu and scales the result accordingly.
         """
-        assert sinos.shape[-1] == self.t_size, "Not an appropriate function"
-        a = -self.rho  #first sampled point in real space
-        omgs = self.fourier_domain
-        if padding: #Do padding
-            sinos = nn.functional.pad(sinos, (self.pad_size_left, self.pad_size_right), "constant", 0)
-            a = a - self.dt * self.pad_size_left
-            omgs = self.fourier_domain_padded
-        return self.dt*(torch.cos(a*omgs)-1j*torch.sin(a*omgs))*torch.fft.rfft(sinos, axis=-1) #self.dt*torch.exp(-1j*a*self.fourier_domain)*torch.fft.rfft(sino, axis=-1)
+        assert sinos.shape[-1] == self.Nt, "Not an appropriate function"
+        a = -self.rho - self.dt * self._fourier_pad_left   #first sampled point in real space
+        
+        sinos = torch.nn.functional.pad(sinos, (self._fourier_pad_left, self._fourier_pad_right), "constant", 0)
+        return self.dt*(torch.cos(a*self.ws)-1j*torch.sin(a*self.ws))*torch.fft.rfft(sinos, axis=-1) #self.dt*torch.exp(-1j*a*self.fourier_domain)*torch.fft.rfft(sino, axis=-1)
     
     def inverse_fourier_transform(self, sino_hats, padding = False):
         "Inverse of Geometry.fourier_transform"
-        a = -self.rho
-        omgs = self.fourier_domain
-        if padding: #Undo padding stuff
-            a = a - self.dt * self.pad_size_left
-            omgs = self.fourier_domain_padded
-        back_scaled = (torch.cos(a*omgs)+1j*torch.sin(a*omgs)) / self.dt * sino_hats # torch.exp(1j*a*self.fourier_domain) / self.dt * sino_hat
+        a = -self.rho - self.dt * self._fourier_pad_left
+        back_scaled = (torch.cos(a*self.ws)+1j*torch.sin(a*self.ws)) / self.dt * sino_hats # torch.exp(1j*a*self.fourier_domain) / self.dt * sino_hat
         sinos = torch.fft.irfft(back_scaled, axis=-1)
-        if padding:
-            sinos = sinos[:, :, self.pad_size_left:-self.pad_size_right]
+        sinos = sinos[:, :, self._fourier_pad_left:-self._fourier_pad_right] #undo padding
         return sinos
     
-    @property
-    def angles(self)->np.ndarray:
-        "numpy array of angles meassured at, i.e phi-axis"
-        return self.angle_partition.meshgrid[0]
-    @property
-    def tangles(self)->torch.Tensor:
-        "tensor of angles meassured at, i.e phi-axis"
-        return torch.from_numpy(self.angles).to(DEVICE, dtype=torch.float)
+    def project_forward(self, X: torch.Tensor) -> torch.Tensor:
+        return self.Ray(X).to(DEVICE, dtype=DTYPE)
+    def project_backward(self, X: torch.Tensor) -> torch.Tensor:
+        return self.BP(X)
+    
+    def ram_lak_filter(self, cutoff_ratio: float = None, full_size=False) -> torch.Tensor:
+        k = self.ws.to(CDTYPE) / (2*torch.pi)
+        if cutoff_ratio is not None:
+            k[self.ws > self.ws.max()*cutoff_ratio] = 0
+        if full_size:
+            return k.repeat(self.Np, 1)
+        return k
 
-    @property
-    def translations(self):
-        "numpy array of positions along detector, i.e t-axis (s-axis in Natterer)"
-        return self.detector_partition.meshgrid[0]
+    def fbp_reconstruct(self, sinos: torch.Tensor) -> torch.Tensor:
+        return self.project_backward(self.inverse_fourier_transform(self.fourier_transform(sinos)*self.ram_lak_filter()/2))
+    
+    def zero_cropp_sinos(self, sinos: torch.Tensor, ar: float, start_ind: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        n_projs = int(self.n_projections * ar)
+        end_ind = (start_ind + n_projs) % self.n_projections
+        known = torch.zeros(self.n_projections, dtype=bool, device=DEVICE)
+        if start_ind < end_ind:
+            known[start_ind:end_ind] = True
+        else:
+            known[start_ind:] = True
+            known[:end_ind] = True
+        res = sinos*0
+        res[:, known, :] = sinos[:, known, :]
 
+        return res, known
+    def rotate_sinos(self, sinos: torch.Tensor, shift: int):
+        """
+            shift sinos in cycle by shift steps
+        """
+        return torch.concat([
+            sinos[:, -shift:, :], sinos[:, :-shift, :] #works for shift positive and negative
+        ], dim=1)
+    
+    def reflect_fill_sinos(self, sinos: torch.Tensor, known_beta_bools: torch.Tensor, linear_interpolation=False):
+        """In place flling of sinogram applied on full 360deg sinograms. In parallel geometry this is exact as long as phi_size is even, thus no interpolation is done.
+        """
+        inds = torch.arange(0, self.Np, device=DEVICE)
+        unknown_inds = inds[~known_beta_bools]
+        reflected_inds = (unknown_inds + self.n_projections//2)
+        reflected_inds %= self.n_projections
+        sinos[..., unknown_inds, :] = torch.flip(sinos[..., reflected_inds, :], dims=(-1,))
+        return sinos
+    
     def __repr__(self) -> str:
         return f"""Geometry(
-            angle ratio: {self.ar} phi_size: {self.phi_size} t_size: {self.t_size}
+            angle ratio: {self.ar} phi_size: {self.Np} t_size: {self.Nt}
             reco_space: {self.reco_space}
         )"""
 
 
-class BasicModel(nn.Module):
-
-    def __init__(self, geometry: ParallelGeometry, kernel: torch.Tensor = None, trainable_kernel=True, dtype=torch.complex64, **kwargs):
-        "Linear layer consisting of a 1D sinogram kernel in frequency domain"
-        super(BasicModel, self).__init__(**kwargs)
-        
-        self.geometry = geometry
-        self.BP_layer = odl_torch.OperatorModule(geometry.BP)
-
-        if kernel == None:
-            #start_kernel = np.linspace(0, 1.0, geometry.fourier_domain.shape[0]) * np.random.triangular(0, 25, 50)
-            #if random.random() < 0.5: start_kernel *= -1
-            #self.kernel = nn.Parameter(torch.from_numpy(start_kernel).to(DEVICE), requires_grad=trainable_kernel)
-            self.kernel = nn.Parameter(torch.randn(geometry.fourier_domain.shape, dtype=dtype).to(DEVICE), requires_grad=trainable_kernel)
-        else:
-            assert kernel.shape == geometry.fourier_domain.shape, f"wrong formatted specific kernel {kernel.shape} for geometry {geometry}"
-            self.kernel = nn.Parameter(kernel.to(DEVICE), requires_grad=trainable_kernel)
+if __name__ == "__main__":
+    PHANTOMS = torch.stack(torch.load("data/HTC2022/HTCTestPhantomsFull.pt")).to(DEVICE, dtype=DTYPE)
     
-    def forward(self, sinos):
-        sino_freq = self.geometry.fourier_transform(sinos)
-        filtered_sinos = self.kernel*sino_freq
-        filtered_sinos = self.geometry.inverse_fourier_transform(filtered_sinos)    #memory problem
+    geometry = ParallelGeometry(900, 300, [-1,1,-1,1], [512, 512])
+    ar = 0.5
+    SINOS = geometry.project_forward(PHANTOMS)
+    sinos_la, known_beta_bools = geometry.zero_cropp_sinos(SINOS, ar, 0)
+    geometry.reflect_fill_sinos(sinos_la, known_beta_bools)
 
-        return self.BP_layer(filtered_sinos)
-    
-    def regularisation_term(self):
-        "Returns a sum which penalizies large kernel values at large frequencies, in accordance with Nattarer's sampling Theorem"
-        penalty_coeffs = torch.zeros(self.geometry.fourier_domain.shape).to(DEVICE) #Create penalty coefficients -- 0 for small frequencies one above Omega
-        penalty_coeffs[self.geometry.fourier_domain > self.geometry.omega] = 1.0
-        
-        (mid_sec, ) = torch.where( (self.geometry.omega*0.9 < self.geometry.fourier_domain) & (self.geometry.fourier_domain <= self.geometry.omega)) # straight line joining free and panalized regions
-        penalty_coeffs[mid_sec] = torch.linspace(0, 1.0, mid_sec.shape[0]).to(DEVICE)
+    recons = geometry.fbp_reconstruct(sinos_la)
+    recons_orig = geometry.fbp_reconstruct(SINOS)
 
-        return torch.mean(self.kernel*self.kernel*penalty_coeffs)
+    print("="*40)
+    print("Sino max absolute error:", torch.max(torch.abs(sinos_la-SINOS)))
+    print("recon mse:", torch.mean((recons-PHANTOMS)**2))
+    print("recon mse orig:", torch.mean((recons_orig-PHANTOMS)**2))
+    print("="*40)
 
-    def convert(self, geometry: ParallelGeometry):
-        "Create a new model with the same kernels but for reconstruction in a different geometry"
-        if (geometry.fourier_domain != self.geometry.fourier_domain).any(): # this depends on t_size and rho
-            raise NotImplementedError("Can only convert to geometries with the same fourier domain at the moment. Models have the same fourier domain if t_size and rho are the same!") #maybe add way to convert between later
-        return BasicModel(geometry, kernel=self.kernel)
+    inspect_ind = 3
 
-    def visualize_output(self, test_sinos, test_y, loss_fn = lambda diff : torch.mean(diff*diff)):
+    fig, _ = plt.subplots(1,2)
+    plt.subplot(121)
+    plt.imshow(SINOS[inspect_ind].cpu())
+    plt.colorbar()
+    plt.subplot(122)
+    plt.imshow(sinos_la[inspect_ind].cpu())
+    plt.colorbar()
+    fig.show()
 
-        ind = random.randint(0, test_sinos.shape[0]-1)
-        with torch.no_grad():
-            test_out = self.forward(test_sinos)  
+    fig, _ = plt.subplots(1,3)
+    plt.subplot(131)
+    plt.imshow(PHANTOMS[inspect_ind].cpu())
+    plt.colorbar()
+    plt.subplot(132)
+    plt.imshow(recons[inspect_ind].cpu())
+    plt.colorbar()
+    plt.subplot(133)
+    plt.imshow(recons_orig[inspect_ind].cpu())
+    plt.colorbar()
+    fig.show()
 
-        loss = loss_fn(test_y-test_out)
-        print()
-        print(f"Evaluating current kernel, validation loss: {loss.item()} using angle ratio: {self.geometry.ar}. Displayiing sample nr {ind}: ")
+    plt.show()    
 
-        sample_sino, sample_y, sample_out = test_sinos[ind].to("cpu"), test_y[ind].to("cpu"), test_out[ind].to("cpu")
-        
-        plt.cla()
-        plt.plot(self.geometry.fourier_domain.cpu(), self.kernel.detach().cpu(), label="filter in frequency domain")
-        plt.legend()
-        plt.figure()
-        plt.subplot(131)
-        plt.imshow(sample_y)
-        plt.title("Real data")
-        plt.subplot(132)
-        plt.imshow(sample_out)
-        plt.title("Filtered Backprojection")
 
-        plt.pause(0.05)
 
-def setup(geometry: ParallelGeometry, num_to_generate = 1000, train_ratio=0.8, pre_computed_phantoms: torch.Tensor = None,use_realistic=False, data_path=None):
-    """
-        Creates Geometry with appropriate forward and backward projections in the given angle ratio and generates random data as specified
-        parameters
-            :angle_ratio - angle gemoetry is 0 to pi * angle_ratio
-            :phi_size - number of angles for measurements / ray transform
-            :t_size - number of lines per angle
-            :num_samples - number of randomly generated datapoints
-            :train_ratio - ratio of generated samples used for training data
 
-        return  (train_sinos, train_y, test_sinos, test_y), geometry
-    """
 
-    #Use stored data
-    if use_realistic:
-        read_data: torch.Tensor = torch.load(data_path).moveaxis(0,1).to(DEVICE)
-        read_data = torch.concat([read_data[1], read_data[0], read_data[2]])
-        read_data = read_data[:500] # -- uncomment to read this data
-        read_data /= torch.max(torch.max(read_data, dim=-1).values, dim=-1).values[:, None, None]
-    else:
-        read_data = torch.tensor([]).to(DEVICE)
 
-    ray_layer = odl_torch.OperatorModule(geometry.ray)
-
-    #Use previously generated phantoms to save time
-    to_construct = num_to_generate
-        
-    if pre_computed_phantoms is None:
-        pre_computed_phantoms = torch.tensor([]).to(DEVICE)
-    else:
-        assert pre_computed_phantoms.shape[1:] == geometry.reco_space.shape
-        to_construct = max(0, num_to_generate - pre_computed_phantoms.shape[0])
-    
-    #Construct new phantoms
-    print("Constructing random phantoms...")
-    constructed_data = np.zeros((to_construct, *geometry.reco_space.shape))
-    for i in range(to_construct): #This is quite slow
-        constructed_data[i] = unstructured_random_phantom(reco_space=geometry.reco_space, num_ellipses=10).asarray()
-    constructed_data = torch.from_numpy(constructed_data).to(DEVICE).to(dtype=torch.float32)
-
-    #Combine phantoms
-    full_data=torch.concat((read_data, pre_computed_phantoms.to(DEVICE), constructed_data ))
-    N_tot_samples = full_data.shape[0]
-    permutation = list(range(N_tot_samples))
-    random.shuffle(permutation) #give this as index to tensor to randomly reshuffle order of phantoms
-    full_data=full_data[permutation]
-
-    print("Calculating sinograms...")
-    sinos: torch.Tensor = ray_layer(full_data)
-
-    n_training = int(N_tot_samples*train_ratio)
-    train_y, train_sinos = full_data[:n_training], sinos[:n_training] #torch.concat((full_data[:n_training-200],full_data[-200:])), torch.concat((sinos[:n_training-200],sinos[-200:])) 
-    test_y, test_sinos = full_data[n_training:], sinos[n_training:] #full_data[n_training-200:-200], sinos[n_training-200:-200]
-
-    print("Constructed training dataset of shape ", train_y.shape)
-
-    return (train_sinos, train_y, test_sinos, test_y)
-
-def extend_geometry(geometry: ParallelGeometry):
-    "Extends a geometry from limited angle to a full angle geometry in which a subregion of sinograms corresponds to sinograms in the limited geometry."
-    ar, phi_size, t_size = geometry.ar, geometry.phi_size, geometry.t_size
-
-    full_phi_size = ceil(1.0 / ar * phi_size)
-    return ParallelGeometry(1.0, full_phi_size, t_size, reco_space=geometry.reco_space)
-
-def missing_range(geometry: ParallelGeometry, extended_geometry: ParallelGeometry = None):
-    "Calculate the angles where projecctions are missing."
-
-    if extended_geometry == None: extended_geometry = extend_geometry(geometry)
-    return np.concatenate([extended_geometry.angles[extended_geometry.angles<geometry.angles[0]], extended_geometry.angles[extended_geometry.angles > geometry.angles[-1]]])

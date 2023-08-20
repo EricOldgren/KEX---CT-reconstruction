@@ -24,7 +24,7 @@ class FlatFanBeamGeometry(FBPGeometryBase):
     """
         Fan Beam Geometry with a flat detector.
 
-        Implementation has functions for forward and backward projections as well as fourier transform along detector axis with appropriate scaling.
+        Implementation has functions for forward and backward projections as well as fourier transform along detector axis with appropriate scaling and projection of sinograms onto subspace that satisfies the HLCC conditions..
 
         This implementation uses the following notation:
             Beta: rotation angle of the source. This angle is meassured between the central ray and the x-axis and meassured positive counter-clockwise
