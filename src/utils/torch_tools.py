@@ -2,7 +2,7 @@ import torch
 
 #
 #Centralized device and dtype for all files. Can be conveniently changed e.g to cpu when debuggging
-#
+#These constants should be imported to other files
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DTYPE = torch.float
 CDTYPE = torch.cfloat
@@ -12,6 +12,7 @@ eps = torch.finfo(DTYPE).eps
 
 #Tools
 def no_bdry_linspace(start: float, end: float, n_points: int):
+    "linspace with same sampling as the odl default, points at the boundaries are shifted inwards by half of a cell width"
     dx = (end-start)/n_points
     return start + dx/2 + dx*torch.arange(0,n_points, device=DEVICE, dtype=DTYPE)
 
