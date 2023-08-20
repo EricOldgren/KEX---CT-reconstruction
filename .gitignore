@@ -1,3 +1,4 @@
 *while-running.png
 data/*
 .vscode/*
+src/.env
