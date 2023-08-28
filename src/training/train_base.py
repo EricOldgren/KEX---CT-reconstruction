@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from geometries import FlatFanBeamGeometry, DEVICE
-from models.fbps import AdaptiiveFBP as AFBP
+from models.fbps import AdaptiveFBP as AFBP
 from models.FNOBPs.fnobp import FNO_BP
 from models.modelbase import plot_model_progress
 from statistics import mean

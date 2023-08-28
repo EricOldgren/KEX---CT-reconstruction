@@ -1,9 +1,11 @@
-from typing import Literal, Type
 import torch
+from typing import Literal, Type
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 import matplotlib.pyplot as plt
 
-from geometries import FBPGeometryBase, FlatFanBeamGeometry, ParallelGeometry
+from utils.tools import PathType
+from geometries import FBPGeometryBase, AVAILABLE_FBP_GEOMETRIES
 
 class FBPModelBase(torch.nn.Module, ABC):
 
@@ -37,18 +39,19 @@ def evaluate_batches(pred: torch.Tensor, gt: torch.Tensor, ind: int, title: str)
     assert 0 <= ind < N
     mse = torch.mean((pred-gt)**2)
     fig, _ = plt.subplots(1,2)
+    fig.suptitle(f"{title}, MSE: {mse:.4f}")
     plt.subplot(121)
     plt.imshow(pred[ind].cpu(), vmin=vmin, vmax=vmax)
-    plt.title(title + " - predicted")
+    plt.title("predicted")
     plt.colorbar()
     plt.subplot(122)
     plt.imshow(gt[ind].cpu(), vmin=vmin, vmax=vmax)
     plt.colorbar()
-    plt.title(title + " - gt")
+    plt.title("gt")
 
     return fig, mse
 
-def plot_model_progress(model: FBPModelBase, cropped_sinos: torch.Tensor, full_sinos: torch.Tensor, phantoms: torch.Tensor, disp_ind: int = 0, force_show=False):
+def plot_model_progress(model: FBPModelBase, cropped_sinos: torch.Tensor, full_sinos: torch.Tensor, phantoms: torch.Tensor, disp_ind: int = 0, model_name: str = None, force_show=False):
     """
         Print mses and plot reconstruction samples for model.
         This will display: sinogram extrappolation, sinogram filtering and reconstruction
@@ -61,11 +64,15 @@ def plot_model_progress(model: FBPModelBase, cropped_sinos: torch.Tensor, full_s
         exp_sinos = model.get_extrapolated_sinos(cropped_sinos)
         filtered_sinos = model.get_extrapolated_filtered_sinos(cropped_sinos)
         recons = model(cropped_sinos)
-    
-    sin_fig, sin_mse = evaluate_batches(exp_sinos, full_sinos, disp_ind, "sinogram")
-    filtered_sin_fig, filtered_sin_mse = evaluate_batches(filtered_sinos, full_filtered_sinos, disp_ind, "filtered sinograms")
-    recon_fig, recon_mse = evaluate_batches(recons, phantoms, disp_ind, "reconstruction")
 
+    if model_name is None:
+        model_name = type(model).__name__
+    sin_fig, sin_mse = evaluate_batches(exp_sinos, full_sinos, disp_ind, title=f"{model_name} - sinograms")
+    filtered_sin_fig, filtered_sin_mse = evaluate_batches(filtered_sinos, full_filtered_sinos, disp_ind, title=f"{model_name} - filtered sinograms")
+    recon_fig, recon_mse = evaluate_batches(recons, phantoms, disp_ind, title=f"{model_name} - reconstructions")
+
+    print("="*40)
+    print(model_name)
     print("sinogram mse:", sin_mse)
     print("filterd sinogram mse: ", filtered_sin_mse)
     print("reconstruction mse: ", recon_mse)
@@ -76,32 +83,74 @@ def plot_model_progress(model: FBPModelBase, cropped_sinos: torch.Tensor, full_s
     if force_show:
         plt.show()
 
-def save_model_checkpoint(model: FBPModelBase, optimizer: torch.optim.Optimizer, loss: torch.Tensor, path, geometry_class: Literal["FlatFanBeam", "Parallel"], angle_ratio: float):
+@dataclass
+class TrainingCheckPoint:
+    model: FBPModelBase
+    geometry: FBPGeometryBase
+    optimizer: torch.optim.Optimizer
+    loss: torch.Tensor
+    angle_ratio: float
+
+
+pytorch_optimizers = [
+    torch.optim.Adadelta,
+    torch.optim.Adagrad,
+    torch.optim.Adam,
+    torch.optim.AdamW,
+    torch.optim.SparseAdam,
+    torch.optim.Adamax,
+    torch.optim.ASGD,
+    torch.optim.LBFGS,
+    torch.optim.NAdam,
+    torch.optim.RAdam,
+    torch.optim.RMSprop,
+    torch.optim.Rprop,
+    torch.optim.SGD
+]
+pytorch_optimizer_dict = {opt.__name__: opt for opt in pytorch_optimizers}
+fbp_geometry_dict = {g.__name__: g for g in AVAILABLE_FBP_GEOMETRIES}
+def save_model_checkpoint(model: FBPModelBase, optimizer: torch.optim.Optimizer, loss: torch.Tensor, angle_ratio: float, path: PathType):
+    if not type(optimizer).__name__ in pytorch_optimizer_dict:
+        print("Optimizer class is not recognized, resuming training from this checkpoint may not work as expected!")
+    if not type(model.geometry).__name__ in fbp_geometry_dict:
+        print("Geometry unrecognized, loading this model may not work!")
+        
     torch.save({
         "model_state_dict": model.state_dict(),
         "model_args": model.get_init_torch_args(),
         "geometry_args": model.geometry.get_init_args(),
+        "geometry_class_name": type(model.geometry).__name__,
         "optimizer_state_dict": optimizer.state_dict(),
+        "optimizer_class_name": type(optimizer).__name__,
         "loss": loss,
-        "geometry_class": geometry_class,
         "angle_ratio": angle_ratio
     }, path)
 
-def load_model_from_checkpoint(path, ModelClass: Type[FBPModelBase]):
+
+def load_model_checkpoint(path: PathType, ModelClass: Type[FBPModelBase]):
     state_dict = torch.load(path)
+    
     model_state_dict = state_dict["model_state_dict"]
     model_args = state_dict["model_args"]
     geometry_args = state_dict["geometry_args"]
-    geometry_class = state_dict["geometry_class"]
-    if geometry_class == "FlatFanBeam":
-        geometry = FlatFanBeamGeometry(*geometry_args)
-    elif geometry_class == "Parallel":
-        geometry = ParallelGeometry(*geometry_args)
-    else:
-        raise ValueError(f"Geometry class ({geometry_class}) in state_dict is invalid!")
-    
+    geometry_class_name = state_dict["geometry_class_name"]
+    optimizer_state_dict = state_dict["optimizer_state_dict"]
+    optimizer_class_name = state_dict["optimizer_class_name"]
+    loss = state_dict["loss"]
+    angle_ratio = state_dict["angle_ratio"]
+
+    assert geometry_class_name in fbp_geometry_dict, f"unrecognized geometry type, {geometry_class_name}"
+    geometry = fbp_geometry_dict[geometry_class_name](*geometry_args)
+
     model = ModelClass(geometry, *model_args)
     model.load_state_dict(model_state_dict)
-
-    return model
+    
+    try:
+        optimizer: torch.optim.Optimizer = pytorch_optimizer_dict[optimizer_class_name](model.parameters(), lr=1.0)
+        optimizer.load_state_dict(optimizer_state_dict)
+    except:
+        print("Couldn't load optimizer.")
+        optimizer = None
+    
+    return TrainingCheckPoint(model, geometry, optimizer, loss, angle_ratio)
 

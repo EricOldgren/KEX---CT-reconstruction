@@ -1,12 +1,12 @@
 from typing import Any
-from models.modelbase import FBPModelBase, load_model_from_checkpoint
+from models.modelbase import FBPModelBase, load_model_checkpoint
 from geometries import FBPGeometryBase, DEVICE, DTYPE, CDTYPE
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
 
-class AdaptiiveFBP(FBPModelBase):
+class AdaptiveFBP(FBPModelBase):
     """FBP reconstruction method with a trainable filter kernel
     """
 
@@ -31,8 +31,8 @@ class AdaptiiveFBP(FBPModelBase):
         return F.relu(self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos)/2))
     
     @staticmethod
-    def load(path):
-        return load_model_from_checkpoint(path, AdaptiiveFBP)
+    def load_checkpoint(path):
+        return load_model_checkpoint(path, AdaptiveFBP)
     
 class FBP(FBPModelBase):
     """Standard fixed FBP model. Not learning.
@@ -59,5 +59,5 @@ class FBP(FBPModelBase):
         return F.relu(self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos)/2))
     
     @staticmethod
-    def load(path):
-        return load_model_from_checkpoint(path, FBP)
+    def load_checkpoint(path):
+        return load_model_checkpoint(path, FBP)

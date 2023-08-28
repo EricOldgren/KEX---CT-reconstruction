@@ -172,8 +172,10 @@ class FlatFanBeamGeometry(FBPGeometryBase):
 
     def reflect_fill_sinos(self, sinos: torch.Tensor, known_beta_bools: torch.Tensor, linear_interpolation = False):
         """
-            in place flling of sinogram
+            in place flling of limited angle sinograms
             applied on full 360deg sinograms, fills unknown region of sinogram by finding equivalent lines on opposite side
+
+            return sinos, new_known_region
         """
         assert known_beta_bools.shape == (self.Nb,)
         Nunknown = int((~known_beta_bools).sum())
@@ -184,6 +186,7 @@ class FlatFanBeamGeometry(FBPGeometryBase):
         u_inds = torch.arange(self.Nu-1, -1, -1, device=DEVICE)[None, :].repeat(Nunknown, 1) #flipped order as angle is opposite sign
 
         if linear_interpolation:
+            print("Known region is not implemented for linear interpolation yet")
             beta_inds_lower = (reflected_betas / self.db).to(dtype=torch.int64)
             beta_inds_upper = beta_inds_lower + 1
             beta_inds_lower[beta_inds_lower >= self.Nb] -= self.Nb
@@ -192,12 +195,17 @@ class FlatFanBeamGeometry(FBPGeometryBase):
             beta_weights_lower = 1 - beta_weights_upper
             
             sinos[:, ~known_beta_bools] = sinos[:, beta_inds_lower, u_inds]*beta_weights_lower + sinos[:, beta_inds_upper, u_inds]*beta_weights_upper #Linear interpolation
+            new_known_region = None
         else:
             beta_inds = (reflected_betas / self.db + 0.5).to(dtype=torch.int64)
             beta_inds[beta_inds>=self.Nb] -= self.Nb
             sinos[:, ~known_beta_bools] = sinos[:, beta_inds, u_inds] ##NN interpolation
 
-        return sinos
+            new_known_region = known_beta_bools[:, None].repeat(1, self.Nu)
+            new_known_region[~known_beta_bools] |= known_beta_bools[beta_inds] #Unknown betas that are mapped to known betas are now known
+
+
+        return sinos, new_known_region
 
     def zero_cropp_sinos(self, sinos: torch.Tensor, ar: float, start_ind: int):
         """

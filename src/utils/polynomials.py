@@ -2,7 +2,7 @@ import torch
 from abc import ABC, abstractmethod
 from typing import Iterable, Tuple
 
-from utils.torch_tools import no_bdry_linspace
+from utils.tools import no_bdry_linspace
 
 class PolynomialBase(ABC):
     "Family of polynomials orthogonal on the interval [-a,a] with weight function W"

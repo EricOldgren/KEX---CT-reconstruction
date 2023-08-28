@@ -143,13 +143,20 @@ class ParallelGeometry(FBPGeometryBase):
     
     def reflect_fill_sinos(self, sinos: torch.Tensor, known_beta_bools: torch.Tensor, linear_interpolation=False):
         """In place flling of sinogram applied on full 360deg sinograms. In parallel geometry this is exact as long as phi_size is even, thus no interpolation is done.
+        
+            return filled_sinos, new_known_region
         """
+        assert known_beta_bools.shape == (self.Np,)
         inds = torch.arange(0, self.Np, device=DEVICE)
         unknown_inds = inds[~known_beta_bools]
         reflected_inds = (unknown_inds + self.n_projections//2)
         reflected_inds %= self.n_projections
         sinos[..., unknown_inds, :] = torch.flip(sinos[..., reflected_inds, :], dims=(-1,))
-        return sinos
+
+        new_known_region = known_beta_bools | 0
+        new_known_region[~known_beta_bools] |= known_beta_bools[reflected_inds]
+        
+        return sinos, new_known_region[:, None].repeat(1, self.Nt)
     
     def __repr__(self) -> str:
         return f"""Geometry(

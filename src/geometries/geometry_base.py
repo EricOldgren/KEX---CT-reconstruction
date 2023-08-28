@@ -2,7 +2,7 @@ import torch
 from abc import ABC, abstractmethod
 from typing import Tuple
 
-from utils.torch_tools import DEVICE, DTYPE, CDTYPE, eps
+from utils.tools import DEVICE, DTYPE, CDTYPE, eps
 
 def next_power_of_two(n: int):
     P = 1
@@ -63,10 +63,12 @@ class FBPGeometryBase(torch.nn.Module, ABC):
         """
 
     @abstractmethod
-    def reflect_fill_sinos(self, sinos: torch.Tensor, known_beta_bools: torch.Tensor, linear_interpolation = False):
+    def reflect_fill_sinos(self, sinos: torch.Tensor, known_beta_bools: torch.Tensor, linear_interpolation = False)->Tuple[torch.Tensor, torch.Tensor]:
         """
-            in place flling of sinogram
+            In place flling of limited angle sinograms
             applied on full 360deg sinograms, fills unknown region of sinogram by finding equivalent lines on opposite side
+
+            return: filled_sinos, new_known_region
         """
     
     @abstractmethod
@@ -84,4 +86,29 @@ class FBPGeometryBase(torch.nn.Module, ABC):
     def projection_size(self):
         "number of samples per projection - length of row in sinogram"
 
-        
+
+def naive_sino_filling(sinos: torch.Tensor, known_beta_bools: torch.Tensor):
+    "Interpolate limited angle sinogram linearly along angle direction. This is only intended as a first input to a network."
+    N, n_projections, projection_size = sinos.shape
+    all_inds = torch.arange(0, n_projections)
+    known_inds, unknown_inds = all_inds[known_beta_bools], all_inds[~known_beta_bools]
+    n_unknown = known_beta_bools.count_nonzero().item()
+
+    res = sinos + 0
+    lower_ind = known_inds[-1]
+    last_vals = sinos[:, lower_ind:lower_ind+1, :]
+    for i in range(n_unknown):
+        upper_ind = known_inds[i]
+        vals = sinos[:, upper_ind:upper_ind+1, :]
+        if i == 0: #wrapping point
+            between = (unknown_inds < upper_ind) | (unknown_inds >= lower_ind)
+        else:
+            between = (unknown_inds < upper_ind) & (unknown_inds >= lower_ind)
+        between = unknown_inds[between]
+        nb = between.nelement()
+        res[:, between, :] = last_vals + (vals-last_vals)*(torch.arange(1, nb+1, device=sinos.device) / (nb+1))[None, :, None] 
+
+        lower_ind = upper_ind
+        last_vals = vals
+
+    return res
