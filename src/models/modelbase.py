@@ -14,12 +14,12 @@ class FBPModelBase(torch.nn.Module, ABC):
         super().__init__()
     
     @abstractmethod
-    def get_extrapolated_sinos(self,  sinos: torch.Tensor):
+    def get_extrapolated_sinos(self,  sinos: torch.Tensor, known_angles: torch.Tensor, angles_out: torch.Tensor):
         """Get sinos extrapolated with model - required for evaluation plotting
         """
     
     @abstractmethod
-    def get_extrapolated_filtered_sinos(self, sinos: torch.Tensor):
+    def get_extrapolated_filtered_sinos(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out: torch.Tensor):
         """Get filtered full sinos - required evaluation for plotting
         """
     
@@ -28,6 +28,10 @@ class FBPModelBase(torch.nn.Module, ABC):
         """Get args used in init method that are torch saveable in a state_dict, this cannot include `model.geometry`.
             Necessary to reload model after saving a model.
         """
+    
+    @abstractmethod
+    def forward(seld, sinos: torch.Tensor, *args):
+        ...
 
 
 
@@ -51,24 +55,26 @@ def evaluate_batches(pred: torch.Tensor, gt: torch.Tensor, ind: int, title: str)
 
     return fig, mse
 
-def plot_model_progress(model: FBPModelBase, cropped_sinos: torch.Tensor, full_sinos: torch.Tensor, phantoms: torch.Tensor, disp_ind: int = 0, model_name: str = None, force_show=False):
+def plot_model_progress(model: FBPModelBase, full_sinos: torch.Tensor, known_angles: torch.Tensor, out_angles: torch.Tensor, phantoms: torch.Tensor, disp_ind: int = 0, model_name: str = None, force_show=False):
     """
         Print mses and plot reconstruction samples for model.
         This will display: sinogram extrappolation, sinogram filtering and reconstruction
     """
-    N, _, _ = cropped_sinos.shape
+    N, _, _ = full_sinos.shape
 
     geometry = model.geometry
     full_filtered_sinos = geometry.inverse_fourier_transform(geometry.fourier_transform(full_sinos*geometry.jacobian_det)*geometry.ram_lak_filter())
+    cropped_sinos = full_sinos * 0
+    cropped_sinos[:, known_angles] = full_sinos[:, known_angles]
     with torch.no_grad():
-        exp_sinos = model.get_extrapolated_sinos(cropped_sinos)
-        filtered_sinos = model.get_extrapolated_filtered_sinos(cropped_sinos)
-        recons = model(cropped_sinos)
+        exp_sinos = model.get_extrapolated_sinos(cropped_sinos, known_angles, out_angles)
+        filtered_sinos = model.get_extrapolated_filtered_sinos(cropped_sinos, known_angles, out_angles)
+        recons = model(cropped_sinos, known_angles, out_angles)
 
     if model_name is None:
         model_name = type(model).__name__
     sin_fig, sin_mse = evaluate_batches(exp_sinos, full_sinos, disp_ind, title=f"{model_name} - sinograms")
-    filtered_sin_fig, filtered_sin_mse = evaluate_batches(filtered_sinos, full_filtered_sinos, disp_ind, title=f"{model_name} - filtered sinograms")
+    filtered_sin_fig, filtered_sin_mse = evaluate_batches(filtered_sinos, full_sinos, disp_ind, title=f"{model_name} - filtered sinograms")
     recon_fig, recon_mse = evaluate_batches(recons, phantoms, disp_ind, title=f"{model_name} - reconstructions")
 
     print("="*40)

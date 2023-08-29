@@ -86,11 +86,21 @@ class FBPGeometryBase(torch.nn.Module, ABC):
     def projection_size(self):
         "number of samples per projection - length of row in sinogram"
 
+def mark_cyclic(bools: torch.Tensor, start: int, end:int):
+    "mark interval from start to end as true where tensor is regarded as cyclic"
+    if start < end:
+        bools[start:end] = True
+    else:
+        bools[:end] = True
+        bools[start:] = True
+
+    return bools
+
 
 def naive_sino_filling(sinos: torch.Tensor, known_beta_bools: torch.Tensor):
     "Interpolate limited angle sinogram linearly along angle direction. This is only intended as a first input to a network."
     N, n_projections, projection_size = sinos.shape
-    all_inds = torch.arange(0, n_projections)
+    all_inds = torch.arange(0, n_projections, device=sinos.device)
     known_inds, unknown_inds = all_inds[known_beta_bools], all_inds[~known_beta_bools]
     n_unknown = known_beta_bools.count_nonzero().item()
 

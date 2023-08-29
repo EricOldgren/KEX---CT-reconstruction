@@ -153,7 +153,7 @@ class ParallelGeometry(FBPGeometryBase):
         reflected_inds %= self.n_projections
         sinos[..., unknown_inds, :] = torch.flip(sinos[..., reflected_inds, :], dims=(-1,))
 
-        new_known_region = known_beta_bools | 0
+        new_known_region = known_beta_bools.clone()
         new_known_region[~known_beta_bools] |= known_beta_bools[reflected_inds]
         
         return sinos, new_known_region[:, None].repeat(1, self.Nt)

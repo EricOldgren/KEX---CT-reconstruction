@@ -14,14 +14,6 @@ DTYPE = torch.float
 CDTYPE = torch.cfloat
 eps = torch.finfo(DTYPE).eps
 
-
-
-#Data loading
-def get_htc2022_train_phantoms():
-    return torch.stack(torch.load( GIT_ROOT / "data/HTC2022/HTCTrainingPhantoms.pt", map_location=DEVICE)).to(DTYPE)
-
-def get_kits_train_phantoms():
-    return torch.load(GIT_ROOT / "data/kits_phantoms_256.pt", map_location=DEVICE)[:500, 1]
 #expressions
 def no_bdry_linspace(start: float, end: float, n_points: int):
     "linspace with same sampling as the odl default, points at the boundaries are shifted inwards by half of a cell width"
@@ -39,3 +31,11 @@ def RMSE(x: torch.Tensor, gt: torch.Tensor):
 def PSNR(x: torch.Tensor, gt: torch.Tensor):
     "peak signal to noise ratio"
     return 20*torch.log10(torch.max(x))-10*torch.log10(MSE(x,gt))
+
+def rot_mat(angle: float):
+    tangle = torch.tensor(angle)
+    c, s = torch.cos(tangle), torch.sin(tangle) 
+    return torch.tensor([
+        [c, -s],
+        [s, c]
+   ], device=DEVICE, dtype=DTYPE)
