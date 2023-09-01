@@ -289,11 +289,11 @@ class FlatFanBeamGeometry(FBPGeometryBase):
         return MomentExpansionFunction.apply(sinos, volume_scale, normalised_polynomials, W, phis2d, CDTYPE, max_k)
 
 
-    def synthesise_series(self, coefficients: torch.Tensor, PolynomialBasis: Type[PolynomialBase], n_degs:  int)->torch.Tensor:
+    def synthesise_series(self, coefficients: torch.Tensor, PolynomialBasis: Type[PolynomialBase])->torch.Tensor:
         """Transform basis coefficients to sinogram by summation.
 
         Args:
-            coefficients (torch.Tensor): coefficients
+            coefficients (torch.Tensor): coefficients of shape (batch_size x M x K)
             PolynomialBasis (Type[PolynomialBase]): polynomial family used for basis
             n_degs (int): number of polynomials used in basis
 
@@ -301,6 +301,7 @@ class FlatFanBeamGeometry(FBPGeometryBase):
             torch.Tensor: sinograms obtained from the given basis coefficients
         """
         
+        N, n_degs, max_k = coefficients.shape
         betas2d = self.betas.repeat(1, self.Nu)
         volume_scale = self.du*self.db * self.R**3 / (self.us**2 + self.R**2)**1.5 #volume element per sinogram cell
         phis2d = betas2d + torch.arctan(self.us/self.R) - torch.pi/2

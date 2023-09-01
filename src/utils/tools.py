@@ -33,14 +33,20 @@ def PSNR(x: torch.Tensor, gt: torch.Tensor):
     return 20*torch.log10(torch.max(x))-10*torch.log10(MSE(x,gt))
 
 def htc_score(Irs: torch.Tensor, Its: torch.Tensor):
-    """Calculate the reconstruction score used in the HTC competetition! Note that the score is returned for each input phantom. 
+    """Calculate the reconstruction score used in the HTC competetition! Note that the score is returned for each input phantom.
+
+    Citing from HTC score description:
+
+        The score is based on the confusion matrix of the classification of the pixels between empty (0) or material (1),
+        it is given by the Matthews correlation coefficient (MCC). The score is betqeen -1 and 1. A score of +1 (best) represents a perfect reconstruction, 0 no better than
+        random reconstruction, and −1 (worst) indicates total disagreement between reconstruction and ground truth. 
 
     Args:
         Irs (torch.Tensor): binary reconstruction tensor of shape (batch_size x 512 x 512)
         Its (torch.Tensor): binary gt phantoms of same shape
 
     Returns:
-        torch.Tensor : score of shape (batch_size,)
+        torch.Tensor : score of shape (batch_size)
     """
     assert Irs.dtype == torch.bool and Its.dtype == torch.bool, "input should be in binary format, use appropriate threshholding before calculating the score."
 

@@ -22,7 +22,7 @@ PolFamily = Legendre #Chebyshev
 n_deg = 120
 n_trig_degs = 60
 
-# projected = geometry.synthesise_series(geometry.series_expand(SINOS, PolFamily, n_deg, n_trig_degs), PolFamily, n_deg)
+# projected = geometry.synthesise_series(geometry.series_expand(SINOS, PolFamily, n_deg, n_trig_degs), PolFamily)
 projected = geometry.moment_project(SINOS, PolFamily, n_deg)
 print("projected loss:", torch.mean((projected-SINOS)**2))
 coefficients = geometry.series_expand(SINOS, PolFamily, n_deg, n_trig_degs)
@@ -46,7 +46,7 @@ for it in range(n_iters):
 
         coefficients_it = torch.zeros((N, n_deg, n_trig_degs), device=DEVICE, dtype=CDTYPE)
         coefficients_it[:, hlcc_mask] += to_train
-        exp = geometry.synthesise_series(coefficients_it, PolFamily, n_deg)
+        exp = geometry.synthesise_series(coefficients_it, PolFamily)
         recons = geometry.fbp_reconstruct(exp)
 
         loss = torch.mean((recons-PHANTOMS)**2)
@@ -58,7 +58,7 @@ for it in range(n_iters):
 
 disp_ind = 2
 
-enforced_synthesised = geometry.synthesise_series(strict_coeffs, PolFamily, n_deg)
+enforced_synthesised = geometry.synthesise_series(strict_coeffs, PolFamily)
 print("MSE of invalid coefficients:", torch.mean(torch.abs(strict_coeffs-orig_coefficients)**2))
 print("projected loss (sino domain):", torch.mean((projected-SINOS)**2))
 print("projected via enforce loss (sino domain):", torch.mean((enforced_synthesised-SINOS)**2))
