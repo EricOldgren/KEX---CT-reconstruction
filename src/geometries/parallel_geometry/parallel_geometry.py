@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Type
 import torch
 
 from geometries.geometry_base import FBPGeometryBase, next_power_of_two, DEVICE, DTYPE, CDTYPE
@@ -11,6 +11,8 @@ from odl.discr.partition import uniform_partition
 import odl.contrib.torch as odl_torch
 
 import matplotlib
+
+from utils.polynomials import PolynomialBase
 matplotlib.use("WebAgg")
 import matplotlib.pyplot as plt
 
@@ -78,6 +80,9 @@ class ParallelGeometry(FBPGeometryBase):
     def n_projections(self):
         return self.Np
     @property
+    def min_n_projs(self):
+        return int(self.Np / 2 + 0.5)
+    @property
     def projection_size(self):
         return self.Nt
     @property
@@ -108,6 +113,9 @@ class ParallelGeometry(FBPGeometryBase):
         return self.Ray(X).to(DEVICE, dtype=DTYPE)
     def project_backward(self, X: torch.Tensor) -> torch.Tensor:
         return self.BP(X)
+    
+    def moment_project(self, sinos: torch.Tensor, PolynomialBasis: type[PolynomialBase], N: int, upsample_ratio=1):
+        raise NotImplementedError("Orthogonal projection in parallel geometry is about to be implemented.")
     
     def ram_lak_filter(self, cutoff_ratio: float = None, full_size=False) -> torch.Tensor:
         k = self.ws.to(CDTYPE) / (2*torch.pi)

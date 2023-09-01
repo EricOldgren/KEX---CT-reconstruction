@@ -2,7 +2,7 @@ import torch
 import odl
 import numpy as np
 from geometries.geometry_base import FBPGeometryBase, DEVICE, DTYPE, CDTYPE, next_power_of_two
-from geometries.fanbeam_geometry.moment_operators import MomentProjectionFunction
+from geometries.fanbeam_geometry.moment_operators import MomentProjectionFunction, MomentExpansionFunction, MomentSynthesisFunction, enforce_moment_constraints, get_moment_mask
 from utils.polynomials import PolynomialBase, linear_upsample_inside, down_sample_inside, Legendre, Chebyshev, linear_upsample_no_bdry, down_sample_no_bdry
 
 from odl.discr.partition import RectPartition, uniform_partition
@@ -12,7 +12,7 @@ from odl.space.base_tensors import TensorSpace
 import odl.contrib.torch as odl_torch
 
 
-from typing import Type
+from typing import Type, Iterable, List
 import matplotlib.pyplot as plt
 import time
 from statistics import mean
@@ -120,6 +120,11 @@ class FlatFanBeamGeometry(FBPGeometryBase):
     def n_projections(self):
         "alias of Nb"
         return self.Nb
+    @property
+    def min_n_projs(self):
+        alpha_max = np.arctan(self.h / self.R)
+        return int((0.5+alpha_max/torch.pi)*self.Nb + 0.5)
+
     @property
     def projection_size(self):
         "alias for Nu"
@@ -236,7 +241,7 @@ class FlatFanBeamGeometry(FBPGeometryBase):
         ], dim=1) 
 
     
-    def project_sinos(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 1):
+    def moment_project(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 1):
         """
             Project sinos onto subspace of valid sinograms. The infinite basis of this subspace is cutoff for polynomials of degree larger than N.
         """
@@ -258,6 +263,58 @@ class FlatFanBeamGeometry(FBPGeometryBase):
             # _moment_projection(X, normalised_polynomials, W, phis2d),
             factor=upsample_ratio
         )
+    def series_expand(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], n_degs: int, max_k: int = None)->torch.Tensor:
+        """Project sinograms to obtain the basis coefficients ofa sinogram batch.
+
+        Args:
+            sinos (torch.Tensor)
+            PolynomialBasis (Type[PolynomialBase]): Polynomial Family in basis
+            n_degs (int): number of polynomials used in basis
+            max_k (int, optional): number of trigonometric functions to consider at most for each polynomial. Defaults to None.
+
+        Returns:
+            torch.Tensor: _description_
+        """
+        if max_k is not None:
+            assert max_k <= n_degs
+        betas2d = self.betas.repeat(1, self.Nu)
+        volume_scale = self.du*self.db * self.R**3 / (self.us**2 + self.R**2)**1.5 #volume element per sinogram cell
+        phis2d = betas2d + torch.arctan(self.us/self.R) - torch.pi/2
+        ts1d = (self.us*self.R / torch.sqrt(self.R**2 + self.us**2))[0]
+
+        polynomials = PolynomialBasis(self.R*self.h/np.sqrt(self.R**2+self.h**2))
+        W = polynomials.w(ts1d)
+        normalised_polynomials = torch.stack([pn / np.sqrt(l2_norsm_sq) for pn, l2_norsm_sq in polynomials.iterate_polynomials(n_degs, ts1d)])
+
+        return MomentExpansionFunction.apply(sinos, volume_scale, normalised_polynomials, W, phis2d, CDTYPE, max_k)
+
+
+    def synthesise_series(self, coefficients: torch.Tensor, PolynomialBasis: Type[PolynomialBase], n_degs:  int)->torch.Tensor:
+        """Transform basis coefficients to sinogram by summation.
+
+        Args:
+            coefficients (torch.Tensor): coefficients
+            PolynomialBasis (Type[PolynomialBase]): polynomial family used for basis
+            n_degs (int): number of polynomials used in basis
+
+        Returns:
+            torch.Tensor: sinograms obtained from the given basis coefficients
+        """
+        
+        betas2d = self.betas.repeat(1, self.Nu)
+        volume_scale = self.du*self.db * self.R**3 / (self.us**2 + self.R**2)**1.5 #volume element per sinogram cell
+        phis2d = betas2d + torch.arctan(self.us/self.R) - torch.pi/2
+        ts1d = (self.us*self.R / torch.sqrt(self.R**2 + self.us**2))[0]
+
+        polynomials = PolynomialBasis(self.R*self.h/np.sqrt(self.R**2+self.h**2))
+        W = polynomials.w(ts1d)
+        normalised_polynomials = torch.stack([pn / np.sqrt(l2_norsm_sq) for pn, l2_norsm_sq in polynomials.iterate_polynomials(n_degs, ts1d)])
+
+        return MomentSynthesisFunction.apply(coefficients, normalised_polynomials, W, phis2d, volume_scale, CDTYPE)
+    
+
+
+            
 
 
 if __name__ == "__main__":
@@ -277,7 +334,7 @@ if __name__ == "__main__":
     print("beginning orthogonal projection")
 
     start = time.time()
-    projected_sinos = geometry.project_sinos(sinos, Legendre, 200, 1)
+    projected_sinos = geometry.moment_project(sinos, Legendre, 200, 1)
     print("projection took", time.time()-start, "s")
     print("sino mse", torch.mean((projected_sinos-sinos)**2))
 

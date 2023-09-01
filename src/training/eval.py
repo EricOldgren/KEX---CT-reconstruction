@@ -1,6 +1,6 @@
 import torch
 import matplotlib
-matplotlib.use("WebAgg")
+matplotlib.use("WebAgg") #works on remote machine
 import matplotlib.pyplot as plt
 
 from utils.data import get_htc2022_train_phantoms, get_kits_train_phantoms

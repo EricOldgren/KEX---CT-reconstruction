@@ -1,12 +1,14 @@
 import torch
 from abc import ABC, abstractmethod
-from typing import Iterable, Tuple
+from typing import Iterable, Tuple, Type
 
 from utils.tools import no_bdry_linspace
 
 class PolynomialBase(ABC):
     "Family of polynomials orthogonal on the interval [-a,a] with weight function W"
     a: float
+    key: int
+    "family id. Used when saving to recover Polynomial family."
 
     def __init__(self, a: float) -> None:
         self.a = a
@@ -19,6 +21,7 @@ class PolynomialBase(ABC):
         "weight function for inner product sampled at the given xs"
 
 class Legendre(PolynomialBase):
+    key = 0
 
     def iterate_polynomials(self, N: int, x: torch.Tensor):
         "iterate through the N first legendre polynomials"
@@ -36,7 +39,7 @@ class Legendre(PolynomialBase):
         return x*0+1
 
 class Chebyshev(PolynomialBase):
-
+    key = 1
 
     def iterate_polynomials(self, N: int, x: torch.Tensor):
         k = 0
@@ -60,7 +63,10 @@ class Chebyshev(PolynomialBase):
         torch.sqrt(res, out=res)
         return res #sqrt(1-(x/a)^2)
 
-
+ALL_AVAILABLE_POLYNOMIAL_FAMILIES: Tuple[Type[PolynomialBase]] = (Legendre, Chebyshev)
+POLYNOMIAL_FAMILY_MAP = {
+    f.key: f for f in ALL_AVAILABLE_POLYNOMIAL_FAMILIES
+}
 
 def linear_upsample_inside(X: torch.Tensor, factor = 10):
     """

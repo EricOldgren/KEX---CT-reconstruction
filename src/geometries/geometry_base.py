@@ -1,8 +1,9 @@
 import torch
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import Tuple, Type
 
 from utils.tools import DEVICE, DTYPE, CDTYPE, eps
+from utils.polynomials import PolynomialBase
 
 def next_power_of_two(n: int):
     P = 1
@@ -72,10 +73,22 @@ class FBPGeometryBase(torch.nn.Module, ABC):
         """
     
     @abstractmethod
+    def moment_project(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 1):
+        """Project sinos onto subspace of valid sinograms. The infinite basis of this subspace is cutoff for polynomials of degree larger than N.
+        """
+    
+    @abstractmethod
     def get_init_args(self):
         """Get args used in init method. Necessary to reload geometry after saving a model.
         """
     
+    @property
+    @abstractmethod
+    def min_n_projs(self):
+        """
+            Return minimum number of projections required for an entire sinogram (2pi angle range) to be known
+        """
+
     @property
     @abstractmethod
     def n_projections(self):

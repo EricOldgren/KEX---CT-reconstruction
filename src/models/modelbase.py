@@ -30,7 +30,7 @@ class FBPModelBase(torch.nn.Module, ABC):
         """
     
     @abstractmethod
-    def forward(seld, sinos: torch.Tensor, *args):
+    def forward(seld, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out: torch.Tensor):
         ...
 
 

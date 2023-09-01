@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from typing import Tuple
 
-from utils.tools import DEVICE, DTYPE, no_bdry_linspace, rot_mat, GIT_ROOT
+from utils.tools import DEVICE, DTYPE, no_bdry_linspace, GIT_ROOT
 
 #Data loading
 def get_htc2022_train_phantoms():
@@ -13,6 +13,14 @@ def get_kits_train_phantoms():
 def get_kits_test_phantom():
     return torch.load(GIT_ROOT / "data/kits_phantoms_256.pt", map_location=DEVICE)[500:, 1]
 
+#Data generation
+def rotation_matrix(angle: float):
+    tangle = torch.tensor(angle)
+    c, s = torch.cos(tangle), torch.sin(tangle) 
+    return torch.tensor([
+        [c, -s],
+        [s, c]
+   ], device=DEVICE, dtype=DTYPE)
 
 def random_disc_phantom(xy_minmax: Tuple[float, float, float, float], disc_radius: float, shape: Tuple[int, int], n_inner_ellipses: int = 10):
     mx, Mx, my, My = xy_minmax
@@ -37,17 +45,15 @@ def random_disc_phantom(xy_minmax: Tuple[float, float, float, float], disc_radiu
         rb = ra / np.random.uniform(0.5, min(2, max_ri / ra))
         tilt = np.random.uniform(0, 2*np.pi)
 
-        mat = rot_mat(tilt) @ torch.tensor([
+        mat = rotation_matrix(tilt) @ torch.tensor([
             [1/ra**2, 0],
             [0, 1 / rb**2]
-        ], device=DEVICE, dtype=DTYPE) @ rot_mat(tilt).T
+        ], device=DEVICE, dtype=DTYPE) @ rotation_matrix(tilt).T
         res[torch.einsum("ijc,ck,ijk ->ij", coords2D-ceneteri, mat, coords2D-ceneteri) < 1] = 0
         # res[((coords2D - ceneteri)**2).sum(dim=-1) < inner_disc_radius_i**2] = 0
 
     return res
 
-
-#Data generatio
 def generate_htclike_batch(n_phantoms: int = 10, n_inner_ellipses = 5):
     res = torch.zeros((n_phantoms, 512, 512), device=DEVICE, dtype=DTYPE)
     for i in range(n_phantoms):

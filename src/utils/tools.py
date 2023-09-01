@@ -9,7 +9,7 @@ GIT_ROOT = (Path(__file__) / "../../..").resolve()
 
 #Centralized device and dtype for all files. Can be conveniently changed e.g to cpu when debuggging
 #These constants should be imported to other files
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cpu") #torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DTYPE = torch.float
 CDTYPE = torch.cfloat
 eps = torch.finfo(DTYPE).eps
@@ -32,10 +32,33 @@ def PSNR(x: torch.Tensor, gt: torch.Tensor):
     "peak signal to noise ratio"
     return 20*torch.log10(torch.max(x))-10*torch.log10(MSE(x,gt))
 
-def rot_mat(angle: float):
-    tangle = torch.tensor(angle)
-    c, s = torch.cos(tangle), torch.sin(tangle) 
-    return torch.tensor([
-        [c, -s],
-        [s, c]
-   ], device=DEVICE, dtype=DTYPE)
+def htc_score(Irs: torch.Tensor, Its: torch.Tensor):
+    """Calculate the reconstruction score used in the HTC competetition! Note that the score is returned for each input phantom. 
+
+    Args:
+        Irs (torch.Tensor): binary reconstruction tensor of shape (batch_size x 512 x 512)
+        Its (torch.Tensor): binary gt phantoms of same shape
+
+    Returns:
+        torch.Tensor : score of shape (batch_size,)
+    """
+    assert Irs.dtype == torch.bool and Its.dtype == torch.bool, "input should be in binary format, use appropriate threshholding before calculating the score."
+
+    TPs = torch.sum(Its & Irs, dim=(-1,-2), dtype=torch.float)
+    TNs = torch.sum((~Its) & (~Irs), dim=(-1,-2), dtype=torch.float)
+    FPs = torch.sum((~Its) & Irs, dim=(-1,-2), dtype=torch.float)
+    FNs = torch.sum(Its & (~Irs), dim=(-1,-2), dtype=torch.float)
+
+    # TP = float(len(np.where(AND(It, Ir))[0]))
+    # TN = float(len(np.where(AND(NOT(It), NOT(Ir)))[0]))
+    # FP = float(len(np.where(AND(NOT(It), Ir))[0]))
+    # FN = float(len(np.where(AND(It, NOT(Ir)))[0]))
+    # cmat = torch.tensor([[TP, FN], [FP, TN]])
+    # Matthews correlation coefficient (MCC)
+    
+    numerators = TPs * TNs - FPs * FNs
+    denominators = torch.sqrt((TPs + FPs) * (TPs + FNs) * (TNs + FPs) * (TNs + FNs))
+    res = numerators * 0
+    res[denominators != 0] = numerators[denominators != 0] / denominators[denominators != 0]
+
+    return res

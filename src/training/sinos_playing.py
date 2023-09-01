@@ -34,7 +34,7 @@ for it in range(20):
         sino_figit, mseit = evaluate_batches(exp, SINOS, disp_ind, f"exp it: {it}")
         figit, mseit_recon = evaluate_batches(recons, PHANTOMS, disp_ind, f"reconstruction it: {it}")
         print("iteration:", it+1, "sino mse:", mseit, "recon mse:", mseit_recon)
-    exp[:, ~known] = geometry.project_sinos(exp, Legendre, 30)[:, ~known]
+    exp[:, ~known] = geometry.moment_project(exp, Legendre, 30)[:, ~known]
 
 
 
