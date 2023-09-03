@@ -4,17 +4,12 @@ import torch
 from geometries.geometry_base import FBPGeometryBase, next_power_of_two, DEVICE, DTYPE, CDTYPE
 
 
-from odl import Operator
 from odl.tomo import RayTransform as odl_RayTransform, Parallel2dGeometry as odl_parallel_geometry
 from odl.discr.discr_space import uniform_discr
 from odl.discr.partition import uniform_partition
 import odl.contrib.torch as odl_torch
 
-import matplotlib
-
 from utils.polynomials import PolynomialBase
-matplotlib.use("WebAgg")
-import matplotlib.pyplot as plt
 
 
 class ParallelGeometry(FBPGeometryBase):
@@ -128,19 +123,6 @@ class ParallelGeometry(FBPGeometryBase):
     def fbp_reconstruct(self, sinos: torch.Tensor) -> torch.Tensor:
         return self.project_backward(self.inverse_fourier_transform(self.fourier_transform(sinos)*self.ram_lak_filter()/2))
     
-    def zero_cropp_sinos(self, sinos: torch.Tensor, ar: float, start_ind: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        n_projs = int(self.n_projections * ar)
-        end_ind = (start_ind + n_projs) % self.n_projections
-        known = torch.zeros(self.n_projections, dtype=bool, device=DEVICE)
-        if start_ind < end_ind:
-            known[start_ind:end_ind] = True
-        else:
-            known[start_ind:] = True
-            known[:end_ind] = True
-        res = sinos*0
-        res[:, known, :] = sinos[:, known, :]
-
-        return res, known
     def rotate_sinos(self, sinos: torch.Tensor, shift: int):
         """
             shift sinos in cycle by shift steps
@@ -166,6 +148,11 @@ class ParallelGeometry(FBPGeometryBase):
         
         return sinos, new_known_region[:, None].repeat(1, self.Nt)
     
+    def synthesise_series(self, coefficients: torch.Tensor, PolynomialBasis: type[PolynomialBase]):
+        raise NotImplementedError("Comming soon...")
+
+
+
     def __repr__(self) -> str:
         return f"""Geometry(
             angle ratio: {self.ar} phi_size: {self.Np} t_size: {self.Nt}
@@ -174,6 +161,7 @@ class ParallelGeometry(FBPGeometryBase):
 
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
     PHANTOMS = torch.stack(torch.load("data/HTC2022/HTCTestPhantomsFull.pt")).to(DEVICE, dtype=DTYPE)
     
     geometry = ParallelGeometry(900, 300, [-1,1,-1,1], [512, 512])

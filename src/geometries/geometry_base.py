@@ -54,14 +54,6 @@ class FBPGeometryBase(torch.nn.Module, ABC):
     def fbp_reconstruct(self, sinos: torch.Tensor)->torch.Tensor:
         """Reconstruct sinos using FBP
         """
-    
-    @abstractmethod
-    def zero_cropp_sinos(self, sinos: torch.Tensor, ar: float, start_ind: int)->Tuple[torch.Tensor, torch.Tensor]:
-        """
-            Cropp sinograms to limited angle data. Sinos are set to zero outside cropped region
-
-            return cropped_sinos, known_beta_bool
-        """
 
     @abstractmethod
     def reflect_fill_sinos(self, sinos: torch.Tensor, known_beta_bools: torch.Tensor, linear_interpolation = False)->Tuple[torch.Tensor, torch.Tensor]:
@@ -73,9 +65,37 @@ class FBPGeometryBase(torch.nn.Module, ABC):
         """
     
     @abstractmethod
+    def synthesise_series(self, coefficients: torch.Tensor, PolynomialBasis: Type[PolynomialBase])->torch.Tensor:
+        """Transform basis coefficients to sinogram by summation.
+
+        Args:
+            coefficients (torch.Tensor): coefficients of shape (batch_size x M x K)
+            PolynomialBasis (Type[PolynomialBase]): polynomial family used for basis
+            n_degs (int): number of polynomials used in basis
+
+        Returns:
+            torch.Tensor: sinograms obtained from the given basis coefficients
+        """
+    
+    @abstractmethod
+    def series_expand(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], n_degs: int, max_k: int = None)->torch.Tensor:
+        """Project sinograms to obtain the basis coefficients ofa sinogram batch.
+
+        Args:
+            sinos (torch.Tensor)
+            PolynomialBasis (Type[PolynomialBase]): Polynomial Family in basis
+            n_degs (int): number of polynomials used in basis
+            max_k (int, optional): number of trigonometric functions to consider at most for each polynomial. Defaults to None.
+
+        Returns:
+            torch.Tensor: _description_
+        """
+    
+    @abstractmethod
     def moment_project(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 1):
         """Project sinos onto subspace of valid sinograms. The infinite basis of this subspace is cutoff for polynomials of degree larger than N.
         """
+    
     
     @abstractmethod
     def get_init_args(self):
@@ -84,20 +104,44 @@ class FBPGeometryBase(torch.nn.Module, ABC):
     
     @property
     @abstractmethod
-    def min_n_projs(self):
+    def min_n_projs(self)->int:
         """
             Return minimum number of projections required for an entire sinogram (2pi angle range) to be known
         """
 
     @property
     @abstractmethod
-    def n_projections(self):
+    def n_projections(self)->int:
         "number of projections - height of sinograms"
     
     @property
     @abstractmethod
-    def projection_size(self):
+    def projection_size(self)->int:
         "number of samples per projection - length of row in sinogram"
+
+    def n_known_projections(self, ar: float):
+        return int(self.n_projections * ar)
+
+    def zero_cropp_sinos(self, sinos: torch.Tensor, ar: float, start_ind: int):
+        """
+            Cropp full angle [0,2pi] sinograms to limited angle data. Sinos are set to zero outside cropped region
+
+            return cropped_sinos, known_beta_bool
+        """
+        n_projs = self.n_known_projections(ar)
+        end_ind = (start_ind + n_projs) % self.n_projections
+        known = torch.zeros(self.Nb, dtype=bool, device=DEVICE)
+        if start_ind < end_ind:
+            known[start_ind:end_ind] = True
+        else:
+            known[start_ind:] = True
+            known[:end_ind] = True
+        res = sinos*0
+        res[:, known, :] = sinos[:, known, :]
+
+        return res, known
+
+
 
 def mark_cyclic(bools: torch.Tensor, start: int, end:int):
     "mark interval from start to end as true where tensor is regarded as cyclic"

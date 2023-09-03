@@ -21,18 +21,18 @@ class AdaptiveFBP(FBPModelBase):
     def get_init_torch_args(self):
         return self._init_args
 
-    def get_extrapolated_sinos(self, sinos: torch.Tensor, known_angles: torch.Tensor, out_angles: torch.Tensor):
+    def get_extrapolated_sinos(self, sinos: torch.Tensor, known_angles: torch.Tensor, out_angles: torch.Tensor = None):
         "AFBP does no extrapolation, returns input"
         res = sinos + 0
         self.geometry.reflect_fill_sinos(res, known_angles)
         return res
 
-    def get_extrapolated_filtered_sinos(self, sinos: torch.Tensor, known_angles: torch.Tensor, out_angles: torch.Tensor):
+    def get_extrapolated_filtered_sinos(self, sinos: torch.Tensor, known_angles: torch.Tensor, out_angles: torch.Tensor = None):
         "only first argument used"
         return self.geometry.inverse_fourier_transform(self.geometry.fourier_transform(self.get_extrapolated_sinos(sinos, known_angles, out_angles)*self.geometry.jacobian_det)*self.kernel)
         
     
-    def forward(self, sinos: torch.Tensor, known_angles: torch.Tensor, out_angles: torch.Tensor):
+    def forward(self, sinos: torch.Tensor, known_angles: torch.Tensor, out_angles: torch.Tensor = None):
         return F.relu(self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos, known_angles, out_angles)/2))
     
     @staticmethod

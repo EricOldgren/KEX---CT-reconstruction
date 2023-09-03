@@ -30,7 +30,7 @@ class FBPModelBase(torch.nn.Module, ABC):
         """
     
     @abstractmethod
-    def forward(seld, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out: torch.Tensor):
+    def forward(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out: torch.Tensor):
         ...
 
 
@@ -116,6 +116,16 @@ pytorch_optimizers = [
 pytorch_optimizer_dict = {opt.__name__: opt for opt in pytorch_optimizers}
 fbp_geometry_dict = {g.__name__: g for g in AVAILABLE_FBP_GEOMETRIES}
 def save_model_checkpoint(model: FBPModelBase, optimizer: torch.optim.Optimizer, loss: torch.Tensor, angle_ratio: float, path: PathType):
+    """Save model and training data.
+
+    Args:
+        model (FBPModelBase): _description_
+        optimizer (torch.optim.Optimizer): _description_
+        loss (torch.Tensor): _description_
+        angle_ratio (float): _description_
+        path (PathType): _description_
+    """
+
     if not type(optimizer).__name__ in pytorch_optimizer_dict:
         print("Optimizer class is not recognized, resuming training from this checkpoint may not work as expected!")
     if not type(model.geometry).__name__ in fbp_geometry_dict:

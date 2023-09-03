@@ -212,25 +212,6 @@ class FlatFanBeamGeometry(FBPGeometryBase):
 
         return sinos, new_known_region
 
-    def zero_cropp_sinos(self, sinos: torch.Tensor, ar: float, start_ind: int):
-        """
-            Cropp sinograms to limited angle data. Sinos are set to zero outside cropped region
-
-            return cropped_sinos, known_beta_bool
-        """
-        n_projs = int(self.n_projections * ar)
-        end_ind = (start_ind + n_projs) % self.n_projections
-        known = torch.zeros(self.Nb, dtype=bool, device=DEVICE)
-        if start_ind < end_ind:
-            known[start_ind:end_ind] = True
-        else:
-            known[start_ind:] = True
-            known[:end_ind] = True
-        res = sinos*0
-        res[:, known, :] = sinos[:, known, :]
-
-        return res, known
-
     def rotate_sinos(self, sinos: torch.Tensor, shift: int):
         """
             shift sinos in cycle by shift steps

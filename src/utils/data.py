@@ -8,6 +8,7 @@ from utils.tools import DEVICE, DTYPE, no_bdry_linspace, GIT_ROOT
 def get_htc2022_train_phantoms():
     return torch.stack(torch.load( GIT_ROOT / "data/HTC2022/HTCTrainingPhantoms.pt", map_location=DEVICE)).to(DTYPE)
 
+
 def get_kits_train_phantoms():
     return torch.load(GIT_ROOT / "data/kits_phantoms_256.pt", map_location=DEVICE)[:500, 1]
 def get_kits_test_phantom():
@@ -41,7 +42,7 @@ def random_disc_phantom(xy_minmax: Tuple[float, float, float, float], disc_radiu
         centerxi, centeryi = centerx + ri*np.cos(phii), centery + ri*np.sin(phii)
         ceneteri = torch.tensor([centeryi, centerxi], device=DEVICE, dtype=DTYPE)
 
-        ra = np.random.triangular(0, (max_ri-ri)/2,  max_ri-ri)
+        ra = np.random.triangular(0, (max_ri-ri)/4,  (max_ri-ri)/2)
         rb = ra / np.random.uniform(0.5, min(2, max_ri / ra))
         tilt = np.random.uniform(0, 2*np.pi)
 

@@ -1,57 +1,64 @@
+print("hello")
 import torch
-from torch.utils.data import DataLoader, TensorDataset
-from geometries import FlatFanBeamGeometry, DEVICE
+from torch.utils.data import TensorDataset, DataLoader
+import matplotlib
+matplotlib.use("WebAgg")
+
+print("hello")
+print("hello", torch.cuda.memory_summary())
+from utils.tools import MSE, GIT_ROOT
+from utils.data import get_htc2022_train_phantoms, get_kits_train_phantoms, get_htclike_train_phantoms, generate_htclike_batch
+from utils.polynomials import Legendre, Chebyshev
+from geometries import FlatFanBeamGeometry, DEVICE, HTC2022_GEOMETRY, ParallelGeometry
+from models.modelbase import save_model_checkpoint, plot_model_progress
 from models.fbps import AdaptiveFBP as AFBP
-from models.FNOBPs.fnobp import FNO_BP
-from models.modelbase import plot_model_progress
+from models.SerieBPs.series_bp1 import Series_BP
 from statistics import mean
-import matplotlib.pyplot as plt
+print("hello")
 
-ar = 0.5 #angle ratio
-PHANTOM_DATA = torch.stack(torch.load("data/HTC2022/HTCTrainingPhantoms.pt")).to(DEVICE)
+PHANTOM_DATA = torch.concat([get_htc2022_train_phantoms(), generate_htclike_batch(5,5)])
+geometry = HTC2022_GEOMETRY
+ar = 0.25
+M, K = 100, 50
 
-geometry = FlatFanBeamGeometry(720, 560, 410.66, 543.74, 112, [-40,40, -40, 40], [512, 512])
 SINO_DATA = geometry.project_forward(PHANTOM_DATA)
+print("hello")
 
-# model = AFBP(geometry)
-model = FNO_BP(geometry, hidden_layers=[40,40], modes=geometry.projection_size//4)
+
+model = Series_BP(geometry, ar, M, K, Legendre.key)
+
+optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, betas=(0.8, 0.9))
 
 dataset = TensorDataset(SINO_DATA, PHANTOM_DATA)
-dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
+dataloader = DataLoader(dataset, batch_size=12, shuffle=True)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
 mse_fn = lambda diff : torch.mean(diff**2)
-n_epochs = 20
+n_epochs = 1500
 for epoch in range(n_epochs):
-    batch_losses = []
+    batch_losses, batch_sino_losses, batch_recon_losses = [], [], []
     for sino_batch, phantom_batch in dataloader:
         optimizer.zero_grad()
 
-        start_ind = torch.randint(0, geometry.n_projections, (1,)).item()
-        la_sinos, known_beta_bool = geometry.zero_cropp_sinos(sino_batch, ar=ar, start_ind=start_ind) #known_beta_bool is True at angles where sinogram is meassured and false otherwise
-        la_sinos = geometry.reflect_fill_sinos(la_sinos, known_beta_bool)
-        la_sinos = geometry.rotate_sinos(la_sinos, -start_ind) #FNO needs known angles to be in the same region all the time
+        start_ind = 0 #torch.randint(0, geometry.n_projections, (1,)).item()
+        la_sinos, known_angles = geometry.zero_cropp_sinos(sino_batch, ar, start_ind)
+        exp_sinos = model.get_extrapolated_sinos(la_sinos, known_angles)
 
-        filtered = model.get_extrapolated_filtered_sinos(la_sinos)
-        filtered = geometry.rotate_sinos(filtered, start_ind) #rotate back
-        recons = geometry.project_backward(filtered/2) #sinogram covers 360deg  - double coverage
+        loss_sino_domain = MSE(exp_sinos, sino_batch)
+        # recons = geometry.fbp_reconstruct(exp_sinos)
+        # loss_recon_domain = MSE(recons, phantom_batch)
+        loss = loss_sino_domain
 
-        loss = mse_fn(phantom_batch - recons)
         loss.backward()
         optimizer.step()
 
         batch_losses.append(loss.cpu().item())
+        batch_sino_losses.append(loss_sino_domain.cpu().item())
+        batch_recon_losses.append(-1)
     
-    print("Epoch:", epoch+1, "loss is:", mean(batch_losses))
+    print("Epoch:", epoch+1, "loss is:", mean(batch_losses), "sino loss is:", mean(batch_sino_losses), "recon loss is:", mean(batch_recon_losses), "Memory:", torch.cuda.memory_allocated(DEVICE))
 
-
-plot_model_progress(model, geometry, geometry.reflect_fill_sinos(*geometry.zero_cropp_sinos(SINO_DATA, ar, 0)), SINO_DATA, PHANTOM_DATA)
-
-
-    
-
-
-
-
-
+save_model_checkpoint(model, optimizer, loss, ar, f"series_bp_v1.pt")
+print("checkpoint saved")
+disp_ind = 2
+plot_model_progress(model, SINO_DATA, known_angles, None, PHANTOM_DATA, disp_ind, "Series BP", True)
 
