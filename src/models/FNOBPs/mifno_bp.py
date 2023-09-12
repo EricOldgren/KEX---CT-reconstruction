@@ -1,9 +1,7 @@
-print("hello")
 import torch
 import torch.nn.functional as F
 
 from typing import Tuple, List
-print("hello")
 
 from utils.tools import DEVICE, DTYPE, MSE
 from utils.polynomials import POLYNOMIAL_FAMILY_MAP, Legendre
@@ -11,7 +9,6 @@ from utils.fno_1d import FNO1d
 from geometries import FBPGeometryBase
 from models.modelbase import FBPModelBase
 from models.FNOBPs.fnobp import FNO_BP
-print("hello")
 
 
 class FNO_SinoExp(FBPModelBase):
@@ -54,7 +51,6 @@ class FNO_SinoExp(FBPModelBase):
     def forward(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out: torch.Tensor = None):
         return self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos, known_angles))
     
-print("hello")
 if __name__ == "__main__":
     from torch.utils.data import TensorDataset, DataLoader
     import matplotlib
@@ -65,7 +61,7 @@ if __name__ == "__main__":
     from models.modelbase import save_model_checkpoint, plot_model_progress
 
 
-    print("hello")
+
     geometry = HTC2022_GEOMETRY
     PHANTOMS = torch.concat([get_htc2022_train_phantoms()[:-2], generate_htclike_batch(5, 5)])
     SINOS = geometry.project_forward(PHANTOMS)

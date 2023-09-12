@@ -1,14 +1,11 @@
-print("hello") 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from math import ceil
-
-print("hello") 
+ 
 from utils.polynomials import Legendre, POLYNOMIAL_FAMILY_MAP
 from geometries import FBPGeometryBase, DEVICE, DTYPE, CDTYPE, get_moment_mask
-from models.modelbase import FBPModelBase, load_model_checkpoint, PathType
-print("hello") 
+from models.modelbase import FBPModelBase, load_model_checkpoint, PathType 
 
 
 class Series_BP(FBPModelBase):
@@ -68,7 +65,6 @@ class Series_BP(FBPModelBase):
         return load_model_checkpoint(path, Series_BP).model
     
 
-print("hello") 
         
 if __name__ == "__main__":
     from utils.tools import MSE, htc_score

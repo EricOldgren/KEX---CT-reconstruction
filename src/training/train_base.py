@@ -1,11 +1,8 @@
-print("hello")
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 import matplotlib
 matplotlib.use("WebAgg")
 
-print("hello")
-print("hello", torch.cuda.memory_summary())
 from utils.tools import MSE, GIT_ROOT
 from utils.data import get_htc2022_train_phantoms, get_kits_train_phantoms, get_htclike_train_phantoms, generate_htclike_batch
 from utils.polynomials import Legendre, Chebyshev
@@ -14,7 +11,7 @@ from models.modelbase import save_model_checkpoint, plot_model_progress
 from models.fbps import AdaptiveFBP as AFBP
 from models.SerieBPs.series_bp1 import Series_BP
 from statistics import mean
-print("hello")
+
 
 PHANTOM_DATA = torch.concat([get_htc2022_train_phantoms(), generate_htclike_batch(5,5)])
 geometry = HTC2022_GEOMETRY
@@ -22,7 +19,7 @@ ar = 0.25
 M, K = 100, 50
 
 SINO_DATA = geometry.project_forward(PHANTOM_DATA)
-print("hello")
+
 
 
 model = Series_BP(geometry, ar, M, K, Legendre.key)
