@@ -108,6 +108,19 @@ def newton(f, x0:Union[float,torch.Tensor], tol = 1e-3, max_iters = 300):
         
 
 def better_disc_phantom(xy_minmax: Tuple[float, float, float, float], disc_radius: float, shape: Tuple[int, int], expected_num_inner_ellipses: int = 10, min_ellips_ratio = 0.25, max_ellips_ratio = 1.0):
+    """Generate one phantom similar to the phantoms from the HTC dataset. A circle with value one with a number of radomly placed and tilted non-intersecting ellipses inside of it.
+
+    Args:
+        xy_minmax (Tuple[float, float, float, float]): [xmin, xmax, ymin, ymax] of reconstruction space. Can be chosen arbitrary as long as disc_radiues is appropriate scale.
+        disc_radius (float): radius of cirlce at the center of the phantom.
+        shape (Tuple[int, int]): shape of the phantom tensor to be generated.
+        expected_num_inner_ellipses (int, optional): This regulates how densely the ellipses are placed. Defaults to 10.
+        min_ellips_ratio (float, optional): ratio between the smallest allowed value and the maximum radius that can fit without intersection for ech randomly generated inner ellips. Must be < max_ellips_ratio. Defaults to 0.25.
+        max_ellips_ratio (float, optional): ratio between the smallest allowed value and the maximum radius that can fit without intersection for ech randomly generated inner ellips. Must be <= 1.0. Defaults to 1.0.
+
+    Returns:
+        Tensor: a phantom consisting of the values 1 and 0. 
+    """
     mx, Mx, my, My = xy_minmax
     NX, NY = shape
     assert Mx-mx > 2*disc_radius and My - my > 2*disc_radius, f"{disc_radius} radius is too large"
@@ -146,49 +159,9 @@ def better_disc_phantom(xy_minmax: Tuple[float, float, float, float], disc_radiu
         if max_angle-min_angle < 0.03:
             raise ConvergenceError("Same extrema found multiple times")
 
-        ##
-        ##DEBUGGING
-        # print("max angle:", max_angle, "min_angle:", min_angle)
-        # print("thetas:", theta1, theta2)
-        # edge_point1 = ellips2disc @ torch.stack([torch.cos(theta1), torch.sin(theta1)]) + dummy_centeri
-        # edge_inds1 = xy2inds(edge_point1)
-        # edge_point2 = ellips2disc @ torch.stack([torch.cos(theta2), torch.sin(theta2)]) + dummy_centeri
-        # edge_inds2 = xy2inds(edge_point2)
-        # disc2ellips = torch.linalg.inv(ellips2disc)
-        # print("edge points:", edge_point1, edge_point2)
-        # print("edge angles:", get_angles(edge_point1-center), get_angles(edge_point2-center))
-        # mat = disc2ellips.T@disc2ellips
-        # disp = torch.zeros(shape, device=DEVICE, dtype=DTYPE)
-        # disp[((coords2D - center)**2).sum(dim=-1) < disc_radius**2] = 1
-        # disp[torch.einsum("ijc,ck,ijk ->ij", coords2D-dummy_centeri, mat, coords2D-dummy_centeri) < 1] = 0
-        # disp[(get_angles(coords2D-center) < (max_angle + 0.1)) & (get_angles(coords2D-center) >= (max_angle - 0.1)) ] = 0.5
-        # disp[edge_inds1[1]-5:edge_inds1[1]+5, edge_inds1[0]-5:edge_inds1[0]+5] = 2
-        # disp[edge_inds2[1]-5:edge_inds2[1]+5, edge_inds2[0]-5:edge_inds2[0]+5] = 2
-        # plt.imshow(disp.cpu())
-        # plt.colorbar()
-        # plt.figure()
-        ###DEBUGGING
-
         return min_angle, max_angle
 
     angle = start_phi
-    ##DEBUGGING
-    # angles_img = get_angles(coords2D - center)
-    # plt.imshow(angles_img.cpu())
-    # plt.title("angles")
-    # plt.colorbar()
-    # plt.figure()
-    # plt.subplot(121)
-    # plt.imshow(coords2D[...,0].cpu())
-    # plt.subplot(122)
-    # plt.imshow(coords2D[...,1].cpu())
-    # plt.title("cords")
-    # plt.colorbar()
-    # plt.figure()
-    # print("xy_minmax:", xy_minmax)
-    # print("start angle:", start_phi)
-    ##DEBUGGING
-
 
     while angle - start_phi < 2*np.pi:
         max_ri = disc_radius*0.8
@@ -214,7 +187,7 @@ def better_disc_phantom(xy_minmax: Tuple[float, float, float, float], disc_radiu
             continue
         
         phii = angle + np.random.exponential(2*np.pi/expected_num_inner_ellipses) - ma #angle to center of ellips
-        if phii + Ma + 0.1 > start_phi + 2*torch.pi:
+        if phii + Ma + 0.1 > start_phi + 2*torch.pi: #risk of colliding with first ellips
             break
         disc2ellips = disc2ellips @ rotation_matrix(-phii)
         mat = disc2ellips.T@disc2ellips
@@ -234,12 +207,6 @@ def better_disc_phantom(xy_minmax: Tuple[float, float, float, float], disc_radiu
         # plt.figure()
         ##DEBUG
 
-    #DEBUG
-    # plt.imshow(res.cpu())
-    # plt.title("res")
-    # plt.colorbar()
-    # plt.figure()
-    #DEBUG
     return res
 
 
