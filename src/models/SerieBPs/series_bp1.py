@@ -46,9 +46,9 @@ class Series_BP(FBPModelBase):
             out = conv(out)
             out = F.leaky_relu(out, 0.2)
 
-        out = torch.mean(out, dim=(-1,-2), dtype=CDTYPE)
+        out = torch.mean(out, dim=(-1,-2)) + 0*1j
 
-        coefficients = self.lin_out(out).reshape(N, self.M, self.K)
+        coefficients: torch.Tensor = self.lin_out(out).reshape(N, self.M, self.K)
         if self.strict_moments:
             coefficients[:, ~self.moment_mask] *= 0
 
@@ -80,6 +80,7 @@ if __name__ == "__main__":
     ar = 0.25
     geometry = HTC2022_GEOMETRY
     PHANTOMS, VALIDATION_PHANTOMS = get_htc_trainval_phantoms()
+    # PHANTOMS = VALIDATION_PHANTOMS = get_htc2022_train_phantoms()
     print("phantoms are loaded")
     SINOS = geometry.project_forward(PHANTOMS)
     print("sinos are calculated")
@@ -92,7 +93,7 @@ if __name__ == "__main__":
     print(model)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-    n_epochs = 300
+    n_epochs = 30
     for epoch in range(n_epochs):
         sino_losses, recon_losses = [], []
         for phantom_batch, sino_batch in dataloader:
@@ -115,7 +116,11 @@ if __name__ == "__main__":
     disp_ind = 1
     save_model_checkpoint(model, optimizer, mse_sinos, ar, GIT_ROOT / f"data/models/serries_bpv1.1_sino_mse_{mse_sinos.item()}.pt")
     plot_model_progress(model, VALIDATION_SINOS, known_angles, VALIDATION_PHANTOMS, disp_ind=disp_ind)
-    plt.show()
+    
+    for i in plt.get_fignums():
+        fig = plt.figure(i)
+        title = fig._suptitle.get_text() if fig._suptitle is not None else f"fig{i}"
+        plt.savefig(f"{title}.png")
     
 
 

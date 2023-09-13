@@ -23,14 +23,14 @@ def no_bdry_linspace(start: float, end: float, n_points: int):
 
 def MSE(x: torch.Tensor, gt: torch.Tensor):
     "mean squared error function"
-    return torch.mean((x-gt)**2)
+    return torch.mean(torch.abs(x-gt)**2)
 def RMSE(x: torch.Tensor, gt: torch.Tensor):
     "root mean squared error function"
     return torch.sqrt(MSE(x, gt))
 
 def PSNR(x: torch.Tensor, gt: torch.Tensor):
     "peak signal to noise ratio"
-    return 20*torch.log10(torch.max(x))-10*torch.log10(MSE(x,gt))
+    return 20*torch.log10(torch.max(torch.abs(x)))-10*torch.log10(MSE(x,gt))
 
 def htc_score(Irs: torch.Tensor, Its: torch.Tensor):
     """Calculate the reconstruction score used in the HTC competetition! Note that the score is returned for each input phantom.
