@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-import scipy
+from sklearn.model_selection import train_test_split
 from typing import Tuple, Union
 
 from torch.autograd.functional import hessian
@@ -10,6 +10,17 @@ from utils.tools import DEVICE, DTYPE, no_bdry_linspace, GIT_ROOT
 #Data loading
 def get_htc2022_train_phantoms():
     return torch.stack(torch.load( GIT_ROOT / "data/HTC2022/HTCTrainingPhantoms.pt", map_location=DEVICE)).to(DTYPE)
+def get_synthetic_htc_phantoms():
+    "retrieve generated phantoms designed to look like the HTC data phantoms"
+    return torch.load(GIT_ROOT / "data/synthetic_htc_data.pt", map_location=DEVICE)
+def get_htc_trainval_phantoms():
+    """retrieve train_phantoms, validation_phantoms
+        return train_set, validation_phantoms
+    """
+    htc_phantoms = get_htc2022_train_phantoms()
+    train_phantoms, validation_phantoms = train_test_split(htc_phantoms, test_size=3)
+    train_set = torch.concat([train_phantoms, get_synthetic_htc_phantoms()])
+    return train_set, validation_phantoms
 
 
 def get_kits_train_phantoms():
@@ -64,25 +75,6 @@ def random_disc_phantom(xy_minmax: Tuple[float, float, float, float], disc_radiu
 class ConvergenceError(Exception):
     ...
 
-def optimize(f,x0: torch.Tensor, maximize = False, max_iters = 500, tol=1e-4):
-    "return argmin(max) f, min(max) f"
-    x = x0.clone()
-    x_last = None
-    x.requires_grad_()
-    optimizer = torch.optim.SGD([x], lr=0.001)
-    for it in range(max_iters):
-        res: torch.Tensor = f(x)
-        print("\tIter:", it, "res:", res)
-        if maximize:
-            res*=-1
-        res.backward()
-        # if x_last is not None and torch.linalg.norm(x-x_last) < tol:
-        #     break
-        x_last = x.detach()
-        optimizer.step()
-
-    return x, f(x)
-
 def newton(f, x0:Union[float,torch.Tensor], tol = 1e-3, max_iters = 300):
     "return argmin(max) f, min(max) f"
     x = torch.tensor(x0, device=DEVICE, dtype=DTYPE)
@@ -103,7 +95,6 @@ def newton(f, x0:Union[float,torch.Tensor], tol = 1e-3, max_iters = 300):
         if it > max_iters:
             raise ConvergenceError("Max iteration exceeded in Newton's method. Iteration is not converging (fast enough).")
 
-    
     return x, f(x)
         
 
@@ -136,14 +127,15 @@ def better_disc_phantom(xy_minmax: Tuple[float, float, float, float], disc_radiu
     res[((coords2D - center)**2).sum(dim=-1) < disc_radius**2] = 1
     if expected_num_inner_ellipses == 0:
         return res
-    start_phi = np.random.uniform(0,2*np.pi)
+
     def get_angles(x: torch.Tensor):
         res = torch.angle(x[...,0] + 1j*x[...,1])
-        # while (res < 0).any() or (res >= 2*torch.pi).any():
+        # while (res < 0).any() or (res >= 2*torch.pi).any(): #uncomment for angles between o and 2pi
         #     res[res < 0] += 2*torch.pi
         #     res[res >= 2*torch.pi] -= 2*torch.pi
         return res
     def get_angle_span(ellips2disc: torch.Tensor, ri: float)->Tuple[torch.Tensor, torch.Tensor]:
+        "angle span of an ellips"
         dummy_phii = 0
         dummy_centeri = torch.tensor([centerx+np.cos(dummy_phii)*ri,centery+np.sin(dummy_phii)*ri], device=DEVICE, dtype=DTYPE)
         def f(theta: torch.Tensor):
@@ -161,32 +153,33 @@ def better_disc_phantom(xy_minmax: Tuple[float, float, float, float], disc_radiu
 
         return min_angle, max_angle
 
+    start_phi = np.random.uniform(0,2*np.pi)
     angle = start_phi
-
     while angle - start_phi < 2*np.pi:
         max_ri = disc_radius*0.8
-        ri = np.random.triangular(0.1*max_ri, max_ri, max_ri)
+        ri = np.random.triangular(0.1*max_ri, max_ri, max_ri) #distance between ellips center and center of disc
+        bound_segment = disc_radius*0.95
         
-        max_ra = min(max_ri-ri, ri) * max_ellips_ratio
-        min_ra = min(max_ri-ri, ri) * min_ellips_ratio
-        ra = np.random.triangular(min_ra, (min_ra+max_ra)/2,  max_ra)
-        rb = ra / np.random.uniform(0.5, min(2, max_ri / ra))
-        rel_tilt = np.random.uniform(0, 2*np.pi)
+        max_ra = min(bound_segment-ri, ri) * max_ellips_ratio
+        min_ra = min(bound_segment-ri, ri) * min_ellips_ratio
+        ra = np.random.triangular(min_ra, (min_ra+max_ra)/2,  max_ra) #radius along main axis
+        rb = ra * np.random.uniform(0.5, 1.0) #radius along second axis
+        rel_tilt = np.random.uniform(0, 2*np.pi) #rotation of ellips
 
         Rrel = rotation_matrix(rel_tilt)
-        disc2ellips = torch.tensor([
+        disc2ellips = torch.tensor([ #change of coordinates from disc to ellips
             [1/ra, 0],
             [0, 1 / rb]
         ], device=DEVICE, dtype=DTYPE) @ Rrel
 
         ellips2disc = torch.linalg.inv(disc2ellips)
         try:
-            ma, Ma = get_angle_span(ellips2disc, ri)
+            ma, Ma = get_angle_span(ellips2disc, ri) #min_angle, max_angle
         except(ConvergenceError) as err:
             print("convergence failed:", err)
             continue
         
-        phii = angle + np.random.exponential(2*np.pi/expected_num_inner_ellipses) - ma #angle to center of ellips
+        phii = angle + np.random.exponential(2*np.pi/expected_num_inner_ellipses) - ma #angle to center of next ellips -- intent is to replicate a poisson process
         if phii + Ma + 0.1 > start_phi + 2*torch.pi: #risk of colliding with first ellips
             break
         disc2ellips = disc2ellips @ rotation_matrix(-phii)
@@ -195,7 +188,6 @@ def better_disc_phantom(xy_minmax: Tuple[float, float, float, float], disc_radiu
         centeri = torch.stack([centerxi, centeryi])
         res[torch.einsum("ijc,ck,ijk ->ij", coords2D-centeri, mat, coords2D-centeri) < 1] = 0
         angle = phii + Ma + 0.1
-
         ##DEBUG
         # disp = res + 0
         # zero_centered_phii = phii + 0
@@ -210,9 +202,6 @@ def better_disc_phantom(xy_minmax: Tuple[float, float, float, float], disc_radiu
     return res
 
 
-
-
-
 if __name__ == '__main__':
     import matplotlib
     matplotlib.use("WebAgg")
@@ -220,7 +209,6 @@ if __name__ == '__main__':
     xy_minmax = [-1,1,-1,1]
     disc_radius = 0.8
     phantom_shape = (512, 512)
-
 
     generated_synthetic_data = []
     scales_counts = [

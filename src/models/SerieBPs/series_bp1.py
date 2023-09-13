@@ -67,25 +67,53 @@ class Series_BP(FBPModelBase):
 
         
 if __name__ == "__main__":
+    from torch.utils.data import TensorDataset, DataLoader
     from utils.tools import MSE, htc_score
     from utils.polynomials import Legendre, Chebyshev
-    from utils.data import get_htc2022_train_phantoms
+    from utils.data import get_htc2022_train_phantoms, get_htc_trainval_phantoms
     from geometries import HTC2022_GEOMETRY
+    from models.modelbase import plot_model_progress
     import matplotlib
     import matplotlib.pyplot as plt
+    from statistics import mean
     ar = 0.25
     geometry = HTC2022_GEOMETRY
-    PHANTOMS = get_htc2022_train_phantoms()
+    PHANTOMS, VALIDATION_PHANTOMS = get_htc_trainval_phantoms()
     SINOS = geometry.project_forward(PHANTOMS)
+    dataset = TensorDataset(PHANTOMS, SINOS)
+    dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
+
     M, K = 120, 60
 
     model = Series_BP(geometry, ar, M, K, Legendre.key)
-
     print(model)
-    sinos_la, knwon_angles = geometry.zero_cropp_sinos(SINOS, ar, 0)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-    out = model.forward(sinos_la, knwon_angles)  
+    n_epochs = 200
+    for epoch in range(n_epochs):
+        sino_losses, recon_losses = [], []
+        for phantom_batch, sino_batch in dataloader:
+            optimizer.zero_grad()
 
-    print(MSE(out, PHANTOMS))
+            la_sinos, known_angles = geometry.zero_cropp_sinos(sino_batch, ar, 0)
+
+            exp_sinos = model.get_extrapolated_sinos(la_sinos, known_angles)
+            mse_sinos = MSE(exp_sinos, sino_batch)
+
+            mse_sinos.backward()
+            optimizer.step()
+            sino_losses.append(mse_sinos.item())
+
+        print("epoch:", epoch, "sino loss:", mean(sino_losses))
+
+    VALIDATION_SINOS = geometry.project_forward(VALIDATION_PHANTOMS)
+    _, known_angles = geometry.zero_cropp_sinos(VALIDATION_SINOS, ar, 0)
+
+    disp_ind = 1
+    plot_model_progress(model, VALIDATION_SINOS, known_angles, VALIDATION_PHANTOMS, disp_ind=disp_ind)
+    plt.show()
+    
+
+
 
 
