@@ -3,3 +3,4 @@ data/*
 .vscode/*
 src/.env
 */__pycache__/*
+*.png
