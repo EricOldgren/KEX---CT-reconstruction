@@ -1,14 +1,13 @@
 import torch
 
-import matplotlib
-matplotlib.use("WebAgg")
+# matplotlib.use("WebAgg")
 import matplotlib.pyplot as plt
 from utils.data import get_htc2022_train_phantoms, GIT_ROOT
 
 from models.modelbase import load_model_checkpoint, plot_model_progress, evaluate_batches
 from models.SerieBPs.series_bp1 import Series_BP
 
-checkpoint = load_model_checkpoint(GIT_ROOT / "checkpoint_epoch_500_sfbp.pt", Series_BP)
+checkpoint = load_model_checkpoint(GIT_ROOT / "data/models/serries_bpv1.1_sino_mse_96.10559844970703.pt", Series_BP)
 model: Series_BP = checkpoint.model
 geometry = model.geometry
 ar = checkpoint.angle_ratio
@@ -33,7 +32,10 @@ sin_fig.show()
 recon_fig.show()
 bin_fig.show()
 
-plt.show()
+for i in plt.get_fignums():
+    fig = plt.figure(i)
+    title = fig._suptitle.get_text() if fig._suptitle is not None else f"fig{i}"
+    plt.savefig(f"{title}.png")
 
 
 

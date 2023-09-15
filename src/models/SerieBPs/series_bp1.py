@@ -89,11 +89,11 @@ if __name__ == "__main__":
 
     M, K = 120, 60
 
-    model = Series_BP(geometry, ar, M, K, Legendre.key)
+    model = Series_BP(geometry, ar, M, K, Legendre.key, strict_moments=False)
     print(model)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-    n_epochs = 30
+    n_epochs = 300
     for epoch in range(n_epochs):
         sino_losses, recon_losses = [], []
         for phantom_batch, sino_batch in dataloader:
@@ -114,8 +114,8 @@ if __name__ == "__main__":
     _, known_angles = geometry.zero_cropp_sinos(VALIDATION_SINOS, ar, 0)
 
     disp_ind = 1
-    save_model_checkpoint(model, optimizer, mse_sinos, ar, GIT_ROOT / f"data/models/serries_bpv1.1_sino_mse_{mse_sinos.item()}.pt")
-    plot_model_progress(model, VALIDATION_SINOS, known_angles, VALIDATION_PHANTOMS, disp_ind=disp_ind)
+    save_model_checkpoint(model, optimizer, mse_sinos, ar, GIT_ROOT / f"data/models/serries_bp_not_strict_v1.1_sino_mse_{mean(sino_losses)}.pt")
+    plot_model_progress(model, VALIDATION_SINOS, known_angles, VALIDATION_PHANTOMS, disp_ind=disp_ind, model_name="SeriesBP_not_strict")
     
     for i in plt.get_fignums():
         fig = plt.figure(i)

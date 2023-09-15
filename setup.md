@@ -1,5 +1,8 @@
 # Quick Setup Guide for Linux
 
+## Clone repo
+- git: `git clone https://github.com/EricOldgren/KEX---CT-reconstruction.git`
+
 ## Install Conda
 - Run
     ```
@@ -19,5 +22,4 @@
 - odl: `pip install git+https://github.com/odlgroup/odl.git`
 - matplotlib: `pip install matplotlib`
 - sklearn: `pip install scikit-learn`
-- git: `git clone https://github.com/EricOldgren/KEX---CT-reconstruction.git`
-- DONE
+## DONE
