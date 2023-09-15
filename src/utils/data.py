@@ -12,7 +12,10 @@ def get_htc2022_train_phantoms():
     return torch.stack(torch.load( GIT_ROOT / "data/HTC2022/HTCTrainingPhantoms.pt", map_location=DEVICE)).to(DTYPE)
 def get_synthetic_htc_phantoms():
     "retrieve generated phantoms designed to look like the HTC data phantoms"
-    return torch.load(GIT_ROOT / "data/synthetic_htc_data.pt", map_location=DEVICE)
+    return torch.concat([
+        torch.load(GIT_ROOT / "data/synthetic_htc_data.pt", map_location=DEVICE),
+        torch.load(GIT_ROOT / "data/synthetic_htc_harder_data.pt", map_location=DEVICE)
+    ])
 def get_htc_trainval_phantoms():
     """retrieve train_phantoms, validation_phantoms
         return train_set, validation_phantoms
@@ -211,32 +214,34 @@ if __name__ == '__main__':
     phantom_shape = (512, 512)
 
     generated_synthetic_data = []
-    scales_counts = [
-        (1.0, 0.9, 3), #max_ellips_ratio, min_ellips_ratio, n_phantoms
-        (1.0, 0.8, 3),
-        (1.0, 0.7, 3),
-        (0.9, 0.5, 3),
-        (0.9, 0.3, 3),
-        (0.5, 0.2, 3),
-        (0.5, 0.1, 3)
+    settings = [
+        (5, 0.9, 1.0, 50), #n_ellipses, min_ellips_ratio, max_ellips_ratio, n_phantoms
+        (10, 0.9, 1.0, 50),
+        (20, 0.9, 1.0, 50),
+        (5, 0.8, 1.0, 50),
+        (10, 0.8, 1.0, 50),
+        (20, 0.8, 1.0, 50),
+        (30, 0.5, 0.6, 50),
+        (50, 0.5, 0.6, 50),
+        (40, 0.4, 0.5, 50),
+        (60, 0.4, 0.5, 50)
     ]
-    density_levels = [0, 10, 15, 20]
 
-    for (M, m, N) in scales_counts:
-        for n_phantoms in density_levels:
+    for n_ellipses, m, M, N in settings:
             for i in range(N):
-                phantom = better_disc_phantom(xy_minmax, disc_radius, phantom_shape, n_phantoms, m, M)
-                if i == 0:
+                phantom = better_disc_phantom(xy_minmax, disc_radius, phantom_shape, n_ellipses, m, M)
+                if i < 2:
                     plt.figure()
                     plt.imshow(phantom.cpu())
                     plt.colorbar()
-                    plt.title(f"M,m,n_ph:{M},{m},{n_phantoms}")
+                    plt.title(f"M,m,n_ph:{M},{m},{n_ellipses}")
                 generated_synthetic_data.append(phantom)
+            print("Data generated with settings:", n_ellipses, m, M, N)
     
     plt.show()
 
     generated_synthetic_data = torch.stack(generated_synthetic_data)
-    save_path = GIT_ROOT / "data/synthetic_htc_data.pt"
+    save_path = GIT_ROOT / "data/synthetic_htc_harder_data.pt"
     torch.save(generated_synthetic_data, save_path)
     print("Data saved to:", save_path)
 
