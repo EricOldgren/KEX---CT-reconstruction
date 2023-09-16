@@ -3,6 +3,7 @@ from typing import Literal, Type
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 from utils.tools import PathType
 from geometries import FBPGeometryBase, AVAILABLE_FBP_GEOMETRIES
@@ -130,7 +131,11 @@ def save_model_checkpoint(model: FBPModelBase, optimizer: torch.optim.Optimizer,
         print("Optimizer class is not recognized, resuming training from this checkpoint may not work as expected!")
     if not type(model.geometry).__name__ in fbp_geometry_dict:
         print("Geometry unrecognized, loading this model may not work!")
-        
+    
+    path = Path(path)
+    if not path.parent.exists():
+        path.parent.mkdir(parents=True)
+
     torch.save({
         "model_state_dict": model.state_dict(),
         "model_args": model.get_init_torch_args(),

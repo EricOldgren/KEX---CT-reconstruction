@@ -1,7 +1,7 @@
 import torch
 from pathlib import Path
 import os
-from typing import Union
+from typing import Union, Tuple
 
 #data and file configs
 PathType = Union[os.PathLike, str]
@@ -68,3 +68,32 @@ def htc_score(Irs: torch.Tensor, Its: torch.Tensor):
     res[denominators != 0] = numerators[denominators != 0] / denominators[denominators != 0]
 
     return res
+
+#Tensor tools
+def pacth_split_image_batch(input: torch.Tensor, patch_shape: Union[int, Tuple[int, int]]):
+    """Split batch of 2D tensors into patches of smaller 2d regions
+
+        args: input of shape (... x H x W)
+              patch_shape = (py, px) where py | H and px | W
+
+        returns tensor of shape (... x (H/py*W/px) x (px*py)) consists of the pacthes of shape py x px taken in order
+    """
+    if isinstance(patch_shape, int):
+        patch_shape = (patch_shape, patch_shape)
+    py, px = patch_shape
+    h, w = input.shape[-2:]
+    assert h % py == 0, f"incompatible shape {input.shape} with {patch_shape}"
+    assert w % px == 0, f"incompatible shape {input.shape} with {patch_shape}"
+
+    return torch.nn.functional.unfold(input[...,None,:,:], patch_shape, padding=0, stride=patch_shape).moveaxis(-1,-2)
+
+def merge_patches(patches: torch.Tensor, img_shape: Tuple[int, int], patch_shape: Union[int, Tuple[int, int]]):
+    "inverse of patch_split_image_batch"
+    if isinstance(patch_shape, int):
+        patch_shape = (patch_shape, patch_shape)
+    py, px = patch_shape
+    h, w = img_shape
+    assert h % py == 0, f"incompatible shape {input.shape} with {patch_shape}"
+    assert w % px == 0, f"incompatible shape {input.shape} with {patch_shape}"
+
+    return torch.nn.functional.fold(patches.moveaxis(-1,-2), (h, w), patch_shape, padding=0, stride=patch_shape)[...,0,:,:]

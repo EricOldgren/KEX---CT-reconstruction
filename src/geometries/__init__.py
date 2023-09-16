@@ -1,3 +1,4 @@
+from .geometry_base import *
 from .parallel_geometry.parallel_geometry import *
 from .fanbeam_geometry import *
 from typing import List

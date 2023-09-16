@@ -15,6 +15,7 @@ class FNO_Encoder(FBPModelBase):
         self.geometry = geometry
         self._init_args = (ar, M, K, hidden_layers_sm, hidden_layers_pk, polynomial_family_key, strict_moments)
         self.ar = ar
+        self.M, self.K = M, K
         self.strict_moments = strict_moments
         self.PolynomialFamily = POLYNOMIAL_FAMILY_MAP[polynomial_family_key]
 
@@ -25,6 +26,17 @@ class FNO_Encoder(FBPModelBase):
         self.fno_pk_imag = FNO1d(channels_phi//2, channels_s, K, layer_widths=hidden_layers_pk, dtype=DTYPE).to(DEVICE)
         self.fno_sm_imag = FNO1d(K//2, channels_phi, M, layer_widths=hidden_layers_sm, dtype=DTYPE).to(DEVICE)
 
+        self.FFN = torch.nn.Sequential(
+            torch.nn.Linear(M*K, 100, device=DEVICE, dtype=DTYPE),
+            torch.nn.ReLU(),
+            torch.nn.Linear(100, M*K, device=DEVICE, dtype=DTYPE)
+        )
+        self.FFN_imag = torch.nn.Sequential(
+            torch.nn.Linear(M*K, 100, device=DEVICE, dtype=DTYPE),
+            torch.nn.ReLU(),
+            torch.nn.Linear(100, M*K, device=DEVICE, dtype=DTYPE)
+        )
+
     def get_init_torch_args(self):
         return self._init_args
     
@@ -34,10 +46,13 @@ class FNO_Encoder(FBPModelBase):
 
         out = self.fno_pk(inp.permute(0,2,1)) # shape: N x K x Nb
         out:torch.Tensor = self.fno_sm(out.permute(0,2,1)) # shape: N x M x K
+        out = out + self.FFN(out.reshape(N,-1)).reshape(N, self.M, self.K)
         out_imag = self.fno_pk_imag(inp.permute(0,2,1))
         out_imag:torch.Tensor = self.fno_sm_imag(out_imag.permute(0,2,1))
+        out_imag = out_imag + self.FFN_imag(out_imag.reshape(N, -1)).reshape(N, self.M, self.K)
 
         coefficients = out + 1j*out_imag
+        coefficients = coefficients
         if self.strict_moments:
             enforce_moment_constraints(coefficients)
 
@@ -74,7 +89,7 @@ if __name__ == "__main__":
 
     M, K = 120, 60
 
-    model = FNO_Encoder(geometry, ar, M, K, hidden_layers_sm=[100, 100, 100], hidden_layers_pk=[100, 100, 100], polynomial_family_key=Legendre.key)
+    model = FNO_Encoder(geometry, ar, M, K, hidden_layers_sm=[120, 150, 120], hidden_layers_pk=[100, 100, 100], polynomial_family_key=Legendre.key)
     print(model)
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
 
