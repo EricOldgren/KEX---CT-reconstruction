@@ -53,44 +53,58 @@ class FNO_SinoExp(FBPModelBase):
     
 if __name__ == "__main__":
     from torch.utils.data import TensorDataset, DataLoader
-    import matplotlib
-    matplotlib.use("WebAgg")
-    import matplotlib.pyplot as plt
+    from utils.tools import MSE, htc_score
+    from utils.polynomials import Legendre, Chebyshev
+    from utils.data import get_htc2022_train_phantoms, get_htc_trainval_phantoms, GIT_ROOT
     from geometries import HTC2022_GEOMETRY
-    from utils.data import get_htc2022_train_phantoms, generate_htclike_batch
-    from models.modelbase import save_model_checkpoint, plot_model_progress
-
-
-
-    geometry = HTC2022_GEOMETRY
-    PHANTOMS = torch.concat([get_htc2022_train_phantoms()[:-2], generate_htclike_batch(5, 5)])
-    SINOS = geometry.project_forward(PHANTOMS)
+    from models.modelbase import plot_model_progress, save_model_checkpoint
+    import matplotlib
+    import matplotlib.pyplot as plt
+    from statistics import mean
     ar = 0.25
-
-    model = FNO_SinoExp(geometry, ar, [40,40])
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, betas=(0.8, 0.9))
+    geometry = HTC2022_GEOMETRY
+    PHANTOMS, VALIDATION_PHANTOMS = get_htc_trainval_phantoms()
+    # PHANTOMS = VALIDATION_PHANTOMS = get_htc2022_train_phantoms()
+    print("phantoms are loaded")
+    SINOS = geometry.project_forward(PHANTOMS)
+    print("sinos are calculated")
     dataset = TensorDataset(PHANTOMS, SINOS)
-    dataloader = DataLoader(dataset, batch_size=5, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
 
-    n_epochs = 3000
+    M, K = 128, 64
+
+    model = FNO_SinoExp(geometry, ar, [100, 100, 100])
+    print(model)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.98), eps=1e-9)
+    warmup_steps = 50
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda epoch : min((epoch+1)**-0.5, (epoch+1)*warmup_steps**-1.5))
+
+    n_epochs = 300
     for epoch in range(n_epochs):
-
+        sino_losses, recon_losses = [], []
         for phantom_batch, sino_batch in dataloader:
             optimizer.zero_grad()
 
-            sinos_la, known_angles = geometry.zero_cropp_sinos(sino_batch, ar, 0)
+            la_sinos, known_angles = geometry.zero_cropp_sinos(sino_batch, ar, 0)
 
-            exp = model.get_extrapolated_sinos(sinos_la, known_angles)
+            exp_sinos = model.get_extrapolated_sinos(la_sinos, known_angles)
+            mse_sinos = MSE(exp_sinos, sino_batch)
 
-            loss = MSE(exp, sino_batch)
-            assert not loss.isnan()
-            loss.backward()
-
+            mse_sinos.backward()
             optimizer.step()
-            print("Epoch:", epoch+1, "loss:", loss.item())
+            sino_losses.append(mse_sinos.item())
 
-    save_model_checkpoint(model, optimizer, loss, ar, "fno_sino_exp_v1.pt")
-    plot_model_progress(model, SINOS, known_angles, None, PHANTOMS, 1, "FNO exp", True)
+        scheduler.step()
+        print("epoch:", epoch, "sino loss:", mean(sino_losses))
 
+    VALIDATION_SINOS = geometry.project_forward(VALIDATION_PHANTOMS)
+    _, known_angles = geometry.zero_cropp_sinos(VALIDATION_SINOS, ar, 0)
+
+    disp_ind = 1
+    save_model_checkpoint(model, optimizer, mse_sinos, ar, GIT_ROOT / f"data/models/fno_expv1_sino_mse_{mean(sino_losses)}.pt")
+    plot_model_progress(model, VALIDATION_SINOS, known_angles, VALIDATION_PHANTOMS, disp_ind=disp_ind)
     
-
+    for i in plt.get_fignums():
+        fig = plt.figure(i)
+        title = fig._suptitle.get_text() if fig._suptitle is not None else f"fig{i}"
+        plt.savefig(f"{title}.png")
