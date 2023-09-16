@@ -13,12 +13,33 @@ MODEL_DIM = 512
 
 
 def complex_attention(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor):
-    ...
+    raise NotImplementedError("not decided on activation function yet:/")
 
 def scaled_dot_product_attention(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor):
     d = Q.shape[-1]
     activations = F.softmax(Q@K.T / np.sqrt(d), dim=-1)
     return activations@V
+
+class SingleHeadAttention(torch.nn.Module):
+
+    def __init__(self, d_qin: int, d_kin: int, d_vin: int, query_key_dim = 512, value_dim = 512):
+        super().__init__()
+
+        self.Wq = nn.Linear(d_qin, query_key_dim, bias=False)
+        self.Wk = nn.Linear(d_kin, query_key_dim, bias=False)
+        self.Wv = nn.Linear(d_vin, value_dim, bias=False)
+        
+    def forward(self, qin: torch.Tensor, kin: torch.Tensor, vin: torch.Tensor):
+        Q = self.Wq(qin)
+        K = self.Wk(kin)
+        V = self.Wv(vin)
+
+        return scaled_dot_product_attention(Q, K, V)
+    
+class MultiheadAttention(torch.nn.Module):
+
+    def __init__(self) -> None:
+        super().__init__()
 
 class AttentionEncoder(FBPModelBase):
 
