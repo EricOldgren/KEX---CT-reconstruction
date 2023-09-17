@@ -10,9 +10,9 @@
     bash Anaconda3-2023.07-2-Linux-x86_64.sh
     ```
 - Then restart terminal to activate conda
-- Create environment
+- Create environment (astra is not compatible with python versions higher than 3.11)
     ```
-    conda create -n odl_torch
+    conda create -n odl_torch python=3.10.9 ipython
     conda activate odl_torch
     ```
 ## Install dependencies

@@ -1,12 +1,34 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
+from utils.tools import PathType
 from utils.fno_1d import FNO1d
+from utils.layers import MultiHeadAttention, positional_encoding
 from utils.polynomials import Legendre, POLYNOMIAL_FAMILY_MAP
 from geometries import FBPGeometryBase, DEVICE, DTYPE, CDTYPE, enforce_moment_constraints
 
-from models.modelbase import FBPModelBase
+from models.modelbase import FBPModelBase, load_model_checkpoint
 
+class _EncoderLayer(nn.Module):
+
+    def __init__(self, M: int, K: int, channels_s: int, channels_phi: int, hidden_layers_sm, hidden_layers_pk):
+        super().__init__()
+
+        self.fno_pk = FNO1d(channels_phi//2, channels_s, K, layer_widths=hidden_layers_pk, dtype=DTYPE).to(DEVICE)
+        self.fno_sm = FNO1d(K//2, channels_phi, M, layer_widths=hidden_layers_sm, dtype=DTYPE).to(DEVICE)
+
+        self.positional_mask = positional_encoding(M, K)
+        self.attention_layer = MultiHeadAttention(K, K, K, dout=K)
+
+    def forward(self, inp: torch.Tensor):
+        N, Nu, Nb = inp.shape
+
+        out = self.fno_pk(inp.permute(0,2,1)) # shape: N x K x Nb
+        out:torch.Tensor = self.fno_sm(out.permute(0,2,1)) # shape: N x M x K
+        pos_masked  = out + self.positional_mask
+        assert not pos_masked.isnan().any()
+        return out + self.attention_layer.forward(pos_masked, pos_masked, pos_masked)
 
 class FNO_Encoder(FBPModelBase):
 
@@ -21,41 +43,30 @@ class FNO_Encoder(FBPModelBase):
 
         channels_s = geometry.projection_size
         channels_phi = geometry.n_known_projections(ar)
-        self.fno_pk = FNO1d(channels_phi//2, channels_s, K, layer_widths=hidden_layers_pk, dtype=DTYPE).to(DEVICE)
-        self.fno_sm = FNO1d(K//2, channels_phi, M, layer_widths=hidden_layers_sm, dtype=DTYPE).to(DEVICE)
-        self.fno_pk_imag = FNO1d(channels_phi//2, channels_s, K, layer_widths=hidden_layers_pk, dtype=DTYPE).to(DEVICE)
-        self.fno_sm_imag = FNO1d(K//2, channels_phi, M, layer_widths=hidden_layers_sm, dtype=DTYPE).to(DEVICE)
-
-        self.FFN = torch.nn.Sequential(
-            torch.nn.Linear(M*K, 100, device=DEVICE, dtype=DTYPE),
-            torch.nn.ReLU(),
-            torch.nn.Linear(100, M*K, device=DEVICE, dtype=DTYPE)
-        )
-        self.FFN_imag = torch.nn.Sequential(
-            torch.nn.Linear(M*K, 100, device=DEVICE, dtype=DTYPE),
-            torch.nn.ReLU(),
-            torch.nn.Linear(100, M*K, device=DEVICE, dtype=DTYPE)
-        )
+        self.encoder_real = _EncoderLayer(M, K, channels_s, channels_phi, hidden_layers_sm, hidden_layers_pk)
+        self.encoder_imag = _EncoderLayer(M, K, channels_s, channels_phi, hidden_layers_sm, hidden_layers_pk)
 
     def get_init_torch_args(self):
         return self._init_args
     
-    def get_extrapolated_sinos(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out = None):
+    def get_coefficients(self, sinos: torch.Tensor, known_angles: torch.Tensor):
+        assert not sinos.isnan().any()
         inp = sinos[:, known_angles]
         N, Nb, Nu = inp.shape
 
-        out = self.fno_pk(inp.permute(0,2,1)) # shape: N x K x Nb
-        out:torch.Tensor = self.fno_sm(out.permute(0,2,1)) # shape: N x M x K
-        out = out + self.FFN(out.reshape(N,-1)).reshape(N, self.M, self.K)
-        out_imag = self.fno_pk_imag(inp.permute(0,2,1))
-        out_imag:torch.Tensor = self.fno_sm_imag(out_imag.permute(0,2,1))
-        out_imag = out_imag + self.FFN_imag(out_imag.reshape(N, -1)).reshape(N, self.M, self.K)
+        out = self.encoder_real.forward(inp)
+        out_imag = self.encoder_imag.forward(inp)
 
         coefficients = out + 1j*out_imag
-        coefficients = coefficients
+        assert not coefficients.isnan().any()
         if self.strict_moments:
             enforce_moment_constraints(coefficients)
 
+        return coefficients
+
+    def get_extrapolated_sinos(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out = None):
+        
+        coefficients = self.get_coefficients(sinos, known_angles)
         return self.geometry.synthesise_series(coefficients, self.PolynomialFamily)
     
     def get_extrapolated_filtered_sinos(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out = None):
@@ -64,6 +75,9 @@ class FNO_Encoder(FBPModelBase):
     def forward(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out = None):
         return self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos, known_angles, angles_out))
 
+    @staticmethod
+    def load(path: PathType)->"FNO_Encoder":
+        return load_model_checkpoint(path, FNO_Encoder).model
     
 
 
@@ -80,20 +94,21 @@ if __name__ == "__main__":
     ar = 0.25
     geometry = HTC2022_GEOMETRY
     PHANTOMS, VALIDATION_PHANTOMS = get_htc_trainval_phantoms()
-    # PHANTOMS = VALIDATION_PHANTOMS = get_htc2022_train_phantoms()
     print("phantoms are loaded")
     SINOS = geometry.project_forward(PHANTOMS)
     print("sinos are calculated")
     dataset = TensorDataset(PHANTOMS, SINOS)
     dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
 
-    M, K = 120, 60
+    M, K = 64, 64
 
-    model = FNO_Encoder(geometry, ar, M, K, hidden_layers_sm=[120, 150, 120], hidden_layers_pk=[100, 100, 100], polynomial_family_key=Legendre.key)
+    model = FNO_Encoder(geometry, ar, M, K, hidden_layers_sm=[100, 100, 100], hidden_layers_pk=[100, 100, 100], polynomial_family_key=Legendre.key, strict_moments=False)
     print(model)
-    optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.98), eps=1e-9)
+    warmup_steps = 50
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda epoch : 30*512**-0.5*min((epoch+1)**-0.5, (epoch+1)*warmup_steps**-1.5))
 
-    n_epochs = 300
+    n_epochs = 150
     for epoch in range(n_epochs):
         sino_losses, recon_losses = [], []
         for phantom_batch, sino_batch in dataloader:
@@ -108,6 +123,7 @@ if __name__ == "__main__":
             optimizer.step()
             sino_losses.append(mse_sinos.item())
 
+        scheduler.step()
         print("epoch:", epoch, "sino loss:", mean(sino_losses))
 
     VALIDATION_SINOS = geometry.project_forward(VALIDATION_PHANTOMS)

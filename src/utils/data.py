@@ -20,10 +20,12 @@ def get_htc_trainval_phantoms():
     """retrieve train_phantoms, validation_phantoms
         return train_set, validation_phantoms
     """
-    htc_phantoms = get_htc2022_train_phantoms()
-    train_phantoms, validation_phantoms = train_test_split(htc_phantoms, test_size=3)
-    train_set = torch.concat([train_phantoms, get_synthetic_htc_phantoms()])
-    return train_set, validation_phantoms
+    return get_synthetic_htc_phantoms(), get_htc2022_train_phantoms()
+    # return train_test_split(get_synthetic_htc_phantoms(), test_size=0.2)
+    # htc_phantoms = get_htc2022_train_phantoms()
+    # train_phantoms, validation_phantoms = train_test_split(htc_phantoms, test_size=3)
+    # train_set = torch.concat([train_phantoms, get_synthetic_htc_phantoms()])
+    # return train_set, validation_phantoms
 
 
 def get_kits_train_phantoms():
