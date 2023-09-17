@@ -3,6 +3,7 @@ from typing import Literal, Type
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 from utils.tools import PathType
 from geometries import FBPGeometryBase, AVAILABLE_FBP_GEOMETRIES
@@ -55,7 +56,7 @@ def evaluate_batches(pred: torch.Tensor, gt: torch.Tensor, ind: int, title: str)
 
     return fig, mse
 
-def plot_model_progress(model: FBPModelBase, full_sinos: torch.Tensor, known_angles: torch.Tensor, out_angles: torch.Tensor, phantoms: torch.Tensor, disp_ind: int = 0, model_name: str = None, force_show=False):
+def plot_model_progress(model: FBPModelBase, full_sinos: torch.Tensor, known_angles: torch.Tensor, phantoms: torch.Tensor,out_angles: torch.Tensor = None, disp_ind: int = 0, model_name: str = None, force_show=False):
     """
         Print mses and plot reconstruction samples for model.
         This will display: sinogram extrappolation, sinogram filtering and reconstruction
@@ -74,7 +75,7 @@ def plot_model_progress(model: FBPModelBase, full_sinos: torch.Tensor, known_ang
     if model_name is None:
         model_name = type(model).__name__
     sin_fig, sin_mse = evaluate_batches(exp_sinos, full_sinos, disp_ind, title=f"{model_name} - sinograms")
-    filtered_sin_fig, filtered_sin_mse = evaluate_batches(filtered_sinos, full_sinos, disp_ind, title=f"{model_name} - filtered sinograms")
+    filtered_sin_fig, filtered_sin_mse = evaluate_batches(filtered_sinos, full_filtered_sinos, disp_ind, title=f"{model_name} - filtered sinograms")
     recon_fig, recon_mse = evaluate_batches(recons, phantoms, disp_ind, title=f"{model_name} - reconstructions")
 
     print("="*40)
@@ -130,7 +131,11 @@ def save_model_checkpoint(model: FBPModelBase, optimizer: torch.optim.Optimizer,
         print("Optimizer class is not recognized, resuming training from this checkpoint may not work as expected!")
     if not type(model.geometry).__name__ in fbp_geometry_dict:
         print("Geometry unrecognized, loading this model may not work!")
-        
+    
+    path = Path(path)
+    if not path.parent.exists():
+        path.parent.mkdir(parents=True)
+
     torch.save({
         "model_state_dict": model.state_dict(),
         "model_args": model.get_init_torch_args(),
