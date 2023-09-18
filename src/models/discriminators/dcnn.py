@@ -1,7 +1,11 @@
 import torch
 import torch.nn as nn
 
-from utils.tools import DEVICE, DTYPE
+from abc import abstractmethod
+from typing import Type
+
+from utils.tools import DEVICE, DTYPE, PathType
+from models.modelbase import FBPModelBase, _init_checkpoint_from_state_dict, _checkpoint_state_dict
 
 
 def concat_pred_inp(inp: torch.Tensor, output: torch.Tensor, known_angles = None):
@@ -10,10 +14,17 @@ def concat_pred_inp(inp: torch.Tensor, output: torch.Tensor, known_angles = None
         return res[:,:, known_angles]
     return res
 
-class DCNN(torch.nn.Module):
+class DiscriminatorBase(torch.nn.Module):
+    @abstractmethod
+    def get_init_args(self):
+        "get args used in init. required to save model."
+
+class DCNN(DiscriminatorBase):
 
     def __init__(self, h: int, w: int, in_c: int, min_c: int = 8, max_c: int = 128):
         super().__init__()
+        self._init_args = (h, w, in_c, min_c, max_c)
+        
         self.inp_shape = (in_c, h, w)
 
         c = in_c
@@ -28,6 +39,9 @@ class DCNN(torch.nn.Module):
         conv_layers.append(nn.Conv2d(c, 1, (1,1), padding=0, device=DEVICE))
         self.conv_layers = nn.ModuleList(conv_layers)
         self.ffnn = nn.Linear(h*w, 1, device=DEVICE)
+
+    def get_init_args(self):
+        return self._init_args
 
     def forward(self, inp: torch.Tensor):
         """
@@ -48,10 +62,12 @@ class DCNN(torch.nn.Module):
         
         return nn.functional.sigmoid(self.ffnn(out.reshape(N,-1)))
     
-class Informed_DCNN(torch.nn.Module):
+class Informed_DCNN(DiscriminatorBase):
 
     def __init__(self, h: int, w: int, in_c: int, n_conditions: int, min_c: int = 8, max_c: int = 128):
         super().__init__()
+        self._init_args = (h, w, in_c, n_conditions, min_c, max_c)
+
         self.inp_shape = (in_c, h, w)
         self.n_conditions = n_conditions
 
@@ -67,6 +83,9 @@ class Informed_DCNN(torch.nn.Module):
         conv_layers.append(nn.Conv2d(c, 1, (1,1), padding=0, device=DEVICE))
         self.conv_layers = nn.ModuleList(conv_layers)
         self.ffnn = nn.Linear(h*w+n_conditions, 1)
+    
+    def get_init_args(self):
+        return self._init_args
 
     def forward(self, inp: torch.Tensor, conditions: torch.Tensor):
         """
@@ -86,3 +105,21 @@ class Informed_DCNN(torch.nn.Module):
             out = nn.functional.leaky_relu(out, 0.2)
         
         return nn.functional.sigmoid(self.ffnn(torch.concat([out.reshape(N,-1), conditions], dim=-1)))
+    
+
+def save_gan(G: FBPModelBase, D: DiscriminatorBase, optimizer, loss: torch.Tensor, ar: float, path: PathType):
+    torch.save({
+        "generator_checkpoint": _checkpoint_state_dict(G, optimizer, loss, ar),
+        "discriminator_checkpoint": {
+            "model_state_dict": D.state_dict(),
+            "model_init_args": D.get_init_args()
+        }
+    }, path)
+def load_gan(path: PathType, g_model: Type[FBPModelBase], d_model: Type[DiscriminatorBase]):
+    state_dict = torch.load(path, map_location=DEVICE)
+    g_checkpoint = _init_checkpoint_from_state_dict(state_dict["generator_checkpoint"], g_model)
+    
+    D = d_model(state_dict["discriminator_checkpoint"]["model_init_args"])
+    D.load_state_dict(state_dict["discriminator_checkpoint"]["model_state_dict"])
+
+    return g_checkpoint, D

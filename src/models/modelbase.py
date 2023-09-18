@@ -90,6 +90,11 @@ def plot_model_progress(model: FBPModelBase, full_sinos: torch.Tensor, known_ang
     if force_show:
         plt.show()
 
+
+###
+###Saving models
+###
+
 @dataclass
 class TrainingCheckPoint:
     model: FBPModelBase
@@ -97,46 +102,8 @@ class TrainingCheckPoint:
     optimizer: torch.optim.Optimizer
     loss: torch.Tensor
     angle_ratio: float
-
-
-pytorch_optimizers = [
-    torch.optim.Adadelta,
-    torch.optim.Adagrad,
-    torch.optim.Adam,
-    torch.optim.AdamW,
-    torch.optim.SparseAdam,
-    torch.optim.Adamax,
-    torch.optim.ASGD,
-    torch.optim.LBFGS,
-    torch.optim.NAdam,
-    torch.optim.RAdam,
-    torch.optim.RMSprop,
-    torch.optim.Rprop,
-    torch.optim.SGD
-]
-pytorch_optimizer_dict = {opt.__name__: opt for opt in pytorch_optimizers}
-fbp_geometry_dict = {g.__name__: g for g in AVAILABLE_FBP_GEOMETRIES}
-def save_model_checkpoint(model: FBPModelBase, optimizer: torch.optim.Optimizer, loss: torch.Tensor, angle_ratio: float, path: PathType):
-    """Save model and training data.
-
-    Args:
-        model (FBPModelBase): _description_
-        optimizer (torch.optim.Optimizer): _description_
-        loss (torch.Tensor): _description_
-        angle_ratio (float): _description_
-        path (PathType): _description_
-    """
-
-    if not type(optimizer).__name__ in pytorch_optimizer_dict:
-        print("Optimizer class is not recognized, resuming training from this checkpoint may not work as expected!")
-    if not type(model.geometry).__name__ in fbp_geometry_dict:
-        print("Geometry unrecognized, loading this model may not work!")
-    
-    path = Path(path)
-    if not path.parent.exists():
-        path.parent.mkdir(parents=True)
-
-    torch.save({
+def _checkpoint_state_dict(model: FBPModelBase, optimizer: torch.optim.Optimizer, loss: torch.Tensor, angle_ratio: float):
+    return {
         "model_state_dict": model.state_dict(),
         "model_args": model.get_init_torch_args(),
         "geometry_args": model.geometry.get_init_args(),
@@ -145,12 +112,8 @@ def save_model_checkpoint(model: FBPModelBase, optimizer: torch.optim.Optimizer,
         "optimizer_class_name": type(optimizer).__name__,
         "loss": loss,
         "angle_ratio": angle_ratio
-    }, path)
-
-
-def load_model_checkpoint(path: PathType, ModelClass: Type[FBPModelBase]):
-    state_dict = torch.load(path)
-    
+    }
+def _init_checkpoint_from_state_dict(state_dict, ModelClass: Type[FBPModelBase]):
     model_state_dict = state_dict["model_state_dict"]
     model_args = state_dict["model_args"]
     geometry_args = state_dict["geometry_args"]
@@ -175,3 +138,47 @@ def load_model_checkpoint(path: PathType, ModelClass: Type[FBPModelBase]):
     
     return TrainingCheckPoint(model, geometry, optimizer, loss, angle_ratio)
 
+def save_model_checkpoint(model: FBPModelBase, optimizer: torch.optim.Optimizer, loss: torch.Tensor, angle_ratio: float, path: PathType):
+    """Save model and training data so that it can be loaded again.
+
+    Args:
+        model (FBPModelBase): _description_
+        optimizer (torch.optim.Optimizer): _description_
+        loss (torch.Tensor): _description_
+        angle_ratio (float): _description_
+        path (PathType): _description_
+    """
+
+    if not type(optimizer).__name__ in pytorch_optimizer_dict:
+        print("Optimizer class is not recognized, resuming training from this checkpoint may not work as expected!")
+    if not type(model.geometry).__name__ in fbp_geometry_dict:
+        print("Geometry unrecognized, loading this model may not work!")
+    
+    path = Path(path)
+    if not path.parent.exists():
+        path.parent.mkdir(parents=True)
+
+    torch.save(_checkpoint_state_dict(model, optimizer, loss, angle_ratio), path)
+
+def load_model_checkpoint(path: PathType, ModelClass: Type[FBPModelBase]):
+    return _init_checkpoint_from_state_dict(torch.load(path), ModelClass)
+    
+
+#Constant dicts
+pytorch_optimizers = [
+    torch.optim.Adadelta,
+    torch.optim.Adagrad,
+    torch.optim.Adam,
+    torch.optim.AdamW,
+    torch.optim.SparseAdam,
+    torch.optim.Adamax,
+    torch.optim.ASGD,
+    torch.optim.LBFGS,
+    torch.optim.NAdam,
+    torch.optim.RAdam,
+    torch.optim.RMSprop,
+    torch.optim.Rprop,
+    torch.optim.SGD
+]
+pytorch_optimizer_dict = {opt.__name__: opt for opt in pytorch_optimizers}
+fbp_geometry_dict = {g.__name__: g for g in AVAILABLE_FBP_GEOMETRIES}
