@@ -1,0 +1,61 @@
+Generatot: FNO_Encoder(
+  (geometry): FlatFanBeamGeometry(
+    (Ray): OperatorModule(RayTransform) ((512, 512) -> (720, 560))
+    (BP): OperatorModule(RayBackProjection) ((720, 560) -> (512, 512))
+  )
+  (encoder_real): _EncoderLayer(
+    (fno_pk): FNO1d(
+      (inp): Linear(in_features=560, out_features=100, bias=True)
+      (conv_list): ModuleList(
+        (0): SpectralConv1d()
+      )
+      (lin_list): ModuleList(
+        (0): Conv1d(100, 100, kernel_size=(1,), stride=(1,))
+      )
+      (out): Linear(in_features=100, out_features=64, bias=True)
+    )
+    (fno_sm): FNO1d(
+      (inp): Linear(in_features=180, out_features=100, bias=True)
+      (conv_list): ModuleList(
+        (0): SpectralConv1d()
+      )
+      (lin_list): ModuleList(
+        (0): Conv1d(100, 100, kernel_size=(1,), stride=(1,))
+      )
+      (out): Linear(in_features=100, out_features=64, bias=True)
+    )
+    (attention_layer): MultiHeadAttention()
+  )
+  (encoder_imag): _EncoderLayer(
+    (fno_pk): FNO1d(
+      (inp): Linear(in_features=560, out_features=100, bias=True)
+      (conv_list): ModuleList(
+        (0): SpectralConv1d()
+      )
+      (lin_list): ModuleList(
+        (0): Conv1d(100, 100, kernel_size=(1,), stride=(1,))
+      )
+      (out): Linear(in_features=100, out_features=64, bias=True)
+    )
+    (fno_sm): FNO1d(
+      (inp): Linear(in_features=180, out_features=100, bias=True)
+      (conv_list): ModuleList(
+        (0): SpectralConv1d()
+      )
+      (lin_list): ModuleList(
+        (0): Conv1d(100, 100, kernel_size=(1,), stride=(1,))
+      )
+      (out): Linear(in_features=100, out_features=64, bias=True)
+    )
+    (attention_layer): MultiHeadAttention()
+  )
+)
+Disctriminator: DCNN(
+  (conv_layers): ModuleList(
+    (0): Conv2d(2, 8, kernel_size=(4, 4), stride=(4, 4))
+    (1): Conv2d(8, 16, kernel_size=(4, 4), stride=(4, 4))
+    (2): Conv2d(16, 32, kernel_size=(4, 4), stride=(4, 4))
+    (3): Conv2d(32, 1, kernel_size=(1, 1), stride=(1, 1))
+  )
+  (ffnn): Linear(in_features=16, out_features=1, bias=True)
+)

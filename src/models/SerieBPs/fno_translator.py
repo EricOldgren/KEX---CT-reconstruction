@@ -3,47 +3,12 @@ import torch.nn.functional as F
 from math import sqrt
 
 from utils.tools import pacth_split_image_batch, merge_patches
+from utils.layers import MultiHeadAttention
 from utils.fno_1d import FNO1d
 from utils.polynomials import Legendre, POLYNOMIAL_FAMILY_MAP
 from geometries import FBPGeometryBase, DEVICE, DTYPE, CDTYPE, enforce_moment_constraints
 
 from models.modelbase import FBPModelBase
-
-def scaled_dot_product_attention(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor):
-    d = Q.shape[-1]
-    activations = F.softmax(Q@K.T / sqrt(d), dim=-1)
-    return activations@V
-
-class MultiHeadAttention(torch.nn.Module):
-
-    def __init__(self, qin_dim: int, kin_dim: int, vin_dim: int, nheads = 8, dk = 512):
-        super().__init__()
-        assert dk % nheads == 0
-        self.nheads = nheads
-        self.dk = dk
-        self.head_dim = dk // nheads
-
-        self.Wqs = torch.nn.Parameter(torch.randn((nheads, self.head_dim, qin_dim), device=DEVICE, dtype=DTYPE)/(self.head_dim*qin_dim), requires_grad=True)
-        self.Wks = torch.nn.Parameter(torch.randn((nheads, self.head_dim, kin_dim), device=DEVICE, dtype=DTYPE)/(self.head_dim*kin_dim), requires_grad=True)
-        self.Wvs = torch.nn.Parameter(torch.randn((nheads, self.head_dim, vin_dim), device=DEVICE, dtype=DTYPE)/(self.head_dim*vin_dim), requires_grad=True)
-
-    def forward(self, qin: torch.Tensor, kin: torch.Tensor, vin: torch.Tensor):
-        """
-            shapes: (...) must coincide
-                qin: ... x nqueries x qin_dim
-                kin: ... x nvals x kin_dim
-                vin: ... x nvals x vin
-
-                return shape: ... x nqueries x dk
-        """
-        Qs = torch.einsum("...qi,hoi->...hqo", qin, self.Wqs)
-        Ks = torch.einsum("...ki,hoi->hko", kin, self.Wks)
-        Vs = torch.einsum("...vi,hoi->hvo", vin, self.Wvs)
-
-        return torch.concat([
-            scaled_dot_product_attention(Qs[...,hi,:,:], Ks[...,hi,:,:], Vs[...,hi,:,:]) for hi in range(self.nheads)
-        ], dim=-1)
-
 
 
 class FNO_Translator(FBPModelBase):

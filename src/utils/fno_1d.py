@@ -173,10 +173,12 @@ class FNO1d(nn.Module):
         # Project to FNO width
         #print(self.inp.weight.dtype)
         x = self.inp(x.permute(0,2,1)).permute(0,2,1)
+        assert not x.isnan().any()
         
         # Evaluate FNO
         for conv_op, lin_op in zip(self.conv_list, self.lin_list):
             x = F.gelu(conv_op(x) + lin_op(x))
+            assert not x.isnan().any()
         
         # Project to out_channels width
         return self.out(x.permute(0,2,1)).permute(0,2,1)

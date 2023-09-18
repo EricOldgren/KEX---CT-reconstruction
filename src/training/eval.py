@@ -11,10 +11,12 @@ from models.SerieBPs.series_bp1 import Series_BP
 from models.SerieBPs.fnoencoder import FNO_Encoder
 
 
-checkpoint = load_model_checkpoint(GIT_ROOT / "data/models/fnoencoderv1_4.292833654247985.pt", FNO_Encoder)
-model: FNO_Encoder = checkpoint.model
+# checkpoint = load_model_checkpoint(GIT_ROOT / "data/models/fnoencoderv1_4.292833654247985.pt", FNO_Encoder)
+model = FNO_Encoder.load("/home/ubuntu/KEX---CT-reconstruction/data/models/fnoencoderv1_8.027480158031496.pt")
+ar = model.ar
+# model: FNO_Encoder = checkpoint.model
+print(model)
 geometry = model.geometry
-ar = checkpoint.angle_ratio
 
 PHANTOMS = get_htc2022_train_phantoms()
 SINOS = geometry.project_forward(PHANTOMS)
