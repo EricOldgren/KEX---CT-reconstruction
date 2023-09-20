@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from math import ceil
  
 from utils.polynomials import Legendre, POLYNOMIAL_FAMILY_MAP
-from geometries import FBPGeometryBase, DEVICE, DTYPE, CDTYPE, get_moment_mask, enforce_moment_constraints
+from geometries import FBPGeometryBase, DEVICE, DTYPE, CDTYPE, get_moment_mask, enforce_moment_constraints, naive_sino_filling
 from models.modelbase import FBPModelBase, load_model_checkpoint, PathType 
 
 
@@ -68,11 +68,13 @@ class UNetBP(FBPModelBase):
 
     def get_extrapolated_sinos(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out: torch.Tensor = None):
          
-        reflected, _ = self.geometry.reflect_fill_sinos(sinos+0, known_angles)
-        projected_coeffs = self.geometry.series_expand(reflected, self.PolynomialFamily, self.M, self.K)
+        reflected_sinos, known_region = geometry.reflect_fill_sinos(la_sinos+0, known_angles)
+        reflected_sinos = naive_sino_filling(reflected_sinos, known_region.sum(dim=-1)>0)
+        proj_coeffs = geometry.series_expand(reflected_sinos, Legendre, self.M, self.K)
+        enforce_moment_constraints(proj_coeffs)
 
-        out_real = self.unet_real(projected_coeffs.real)
-        out_imag = self.unet_imag(projected_coeffs.imag)
+        out_real = self.unet_real(proj_coeffs.real)
+        out_imag = self.unet_imag(proj_coeffs.imag)
         
         coefficients = out_real + 1j*out_imag
         if self.strict_moments:
@@ -121,7 +123,7 @@ if __name__ == "__main__":
     warmup_steps = 50
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda epoch : min((epoch+1)**-0.5, (epoch+1)*warmup_steps**-1.5))
 
-    n_epochs = 300
+    n_epochs = 200
     for epoch in range(n_epochs):
         sino_losses, recon_losses = [], []
         for phantom_batch, sino_batch in dataloader:
