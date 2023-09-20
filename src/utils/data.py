@@ -208,6 +208,7 @@ def better_disc_phantom(xy_minmax: Tuple[float, float, float, float], disc_radiu
 
 
 if __name__ == '__main__':
+    print("this is the data file!!!!")
     import matplotlib
     matplotlib.use("WebAgg")
     import matplotlib.pyplot as plt
