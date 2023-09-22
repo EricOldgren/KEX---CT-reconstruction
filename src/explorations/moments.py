@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from utils.data import get_htc2022_train_phantoms
 from utils.polynomials import Chebyshev, Legendre
 from utils.tools import MSE
-from geometries import HTC2022_GEOMETRY, CDTYPE, get_moment_mask
+from geometries import HTC2022_GEOMETRY, CDTYPE, get_moment_mask, DEVICE
 
 geometry = HTC2022_GEOMETRY
 ar = 0.25
@@ -52,6 +52,9 @@ for it in range(n_iters):
 embedding = torch.zeros((N, M, K), dtype=CDTYPE)
 embedding[:, mask] += coefficients
 exp = geometry.synthesise_series(embedding, Legendre)
+recons = geometry.fbp_reconstruct(exp)
+print("exp error:", MSE(exp, sinos))
+print("recons error:", MSE(recons, phantoms))
 
 disp_ind = 2
 plt.subplot(121)
@@ -59,6 +62,13 @@ plt.imshow(sinos[disp_ind])
 plt.subplot(122)
 plt.title("exp")
 plt.imshow(exp[disp_ind].detach())
+
+plt.figure()
+plt.subplot(121)
+plt.imshow(recons[disp_ind])
+plt.subplot(122)
+plt.title("gt")
+plt.imshow(phantoms[disp_ind])
 
 plt.show()
 
