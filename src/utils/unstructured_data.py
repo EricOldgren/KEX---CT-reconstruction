@@ -32,33 +32,45 @@ def unstructured_random_phantom(reco_space: DiscretizedSpace, num_ellipses = 10)
 
     return res
 
-# def square_phantom(xy_minmax: Tuple[float, float, float, float], shape: Tuple[int, int], n_squares: int = 10, minmax_s: Tuple[float, float] = (0.2, 0.8)):
-#     mx, Mx, my, My = xy_minmax
-#     NX, NY = shape
-#     D = min(Mx-mx, My-my)
-#     mx, Ms = minmax_s
-#     res = torch.zeros(shape, device=DEVICE, dtype=DTYPE)
+def rotation_matrix(angle: float):
+    if isinstance(angle, torch.Tensor):
+        tangle = angle.clone()
+    else:
+        tangle = torch.tensor(angle)
+    c, s = torch.cos(tangle), torch.sin(tangle) 
+    return torch.tensor([
+        [c, -s],
+        [s, c]
+   ], device=DEVICE, dtype=DTYPE)
 
-#     coords2D = torch.cartesian_prod(no_bdry_linspace(my, My, NY), no_bdry_linspace(mx, Mx, NX)).reshape(NY, NX, 2)
+def random_disc_phantom_unstructured(xy_minmax: Tuple[float, float, float, float], disc_radius: float, shape: Tuple[int, int], n_inner_ellipses: int = 10):
+    mx, Mx, my, My = xy_minmax
+    NX, NY = shape
+    assert Mx-mx > 2*disc_radius and My - my > 2*disc_radius, f"{disc_radius} radius is too large"
+    res = torch.zeros(shape, device=DEVICE, dtype=DTYPE)
+    margin_x, margin_y = (Mx-mx - 2*disc_radius)/2 * 0.8, (My-my-2*disc_radius)/2 * 0.8
+    centerx = np.random.uniform((Mx+mx)/2-margin_x, (Mx+mx)/2+margin_x)
+    centery = np.random.uniform((My+my)/2 - margin_y, (My+my)/2+margin_y)
+    center = torch.tensor([centery, centerx], device=DEVICE, dtype=DTYPE)
+    coords2D = torch.cartesian_prod(no_bdry_linspace(my, My, NY), no_bdry_linspace(mx, Mx, NX)).reshape(NY, NX, 2)
+    res[((coords2D - center)**2).sum(dim=-1) < disc_radius**2] = 1
 
-#     for _ in range(n_squares):
-        
-#         s = np.random.uniform(ms, Ms)*D
+    for _ in range(n_inner_ellipses):
+        max_ri = disc_radius*0.95
+        ri = np.random.triangular(0, max_ri, max_ri)
+        phii = np.random.uniform(0, 2*np.pi)
+        centerxi, centeryi = centerx + ri*np.cos(phii), centery + ri*np.sin(phii)
+        ceneteri = torch.tensor([centeryi, centerxi], device=DEVICE, dtype=DTYPE)
 
-#         centerxi, centeryi = np.random.normal() , centery + ri*np.sin(phii)
-#         ceneteri = torch.tensor([centeryi, centerxi], device=DEVICE, dtype=DTYPE)
+        ra = np.random.triangular(0, (max_ri-ri)/4,  (max_ri-ri)/2)
+        rb = ra / np.random.uniform(0.5, min(2, max_ri / ra))
+        tilt = np.random.uniform(0, 2*np.pi)
 
-#         ra = np.random.triangular(0, (max_ri-ri)/4,  (max_ri-ri)/2)
-#         rb = ra / np.random.uniform(0.5, min(2, max_ri / ra))
-#         tilt = np.random.uniform(0, 2*np.pi)
+        mat = rotation_matrix(tilt) @ torch.tensor([
+            [1/ra**2, 0],
+            [0, 1 / rb**2]
+        ], device=DEVICE, dtype=DTYPE) @ rotation_matrix(tilt).T
+        res[torch.einsum("ijc,ck,ijk ->ij", coords2D-ceneteri, mat, coords2D-ceneteri) < 1] = 0
+        # res[((coords2D - ceneteri)**2).sum(dim=-1) < inner_disc_radius_i**2] = 0
 
-#         mat = rotation_matrix(tilt) @ torch.tensor([
-#             [1/ra**2, 0],
-#             [0, 1 / rb**2]
-#         ], device=DEVICE, dtype=DTYPE) @ rotation_matrix(tilt).T
-#         res[torch.einsum("ijc,ck,ijk ->ij", coords2D-ceneteri, mat, coords2D-ceneteri) < 1] = 0
-#         # res[((coords2D - ceneteri)**2).sum(dim=-1) < inner_disc_radius_i**2] = 0
-
-#     return res
-
-    
+    return res
