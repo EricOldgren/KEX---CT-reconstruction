@@ -33,7 +33,7 @@ class FNO_BP(FBPModelBase):
         return self.geometry.inverse_fourier_transform(self.geometry.fourier_transform(sinos*self.geometry.jacobian_det)*self.geometry.ram_lak_filter()/2) + self.fno1d(sinos)
 
     def forward(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out = None):
-        return F.relu(self.get_extrapolated_filtered_sinos(sinos, known_angles))
+        return F.relu(self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos, known_angles)))
 
 
 class FNO_BP_orig(FBPModelBase):

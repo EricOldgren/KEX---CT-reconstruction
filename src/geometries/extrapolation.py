@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 
 
-def extrapolate_fixpoint(la_sinos: torch.Tensor, known_angles: torch.Tensor, geometry: FBPGeometryBase, M: int, K: int, n_iters = 1000, PolynomialFamily = Legendre):
+def extrapolate_fixpoint(la_sinos: torch.Tensor, known_region: torch.Tensor, geometry: FBPGeometryBase, M: int, K: int, n_iters = 1000, PolynomialFamily = Legendre):
     """Extrapolate sinos based on HLCC using fix point iteration
 
     Args:
@@ -32,14 +32,14 @@ def extrapolate_fixpoint(la_sinos: torch.Tensor, known_angles: torch.Tensor, geo
     for it in tqdm(range(n_iters)):
         embedding[:, mask] = cn
         exp = geometry.synthesise_series(embedding, PolynomialFamily)
-        exp[:, ~known_angles] = 0 #Bcn
+        exp[:, ~known_region] = 0 #Bcn
 
         cn += geometry.series_expand(la_sinos-exp, PolynomialFamily, M, K)[:, mask]
 
     embedding[:, mask] = cn
     return geometry.synthesise_series(embedding, PolynomialFamily)
 
-def extrapolate_direct_solve(la_sinos: torch.Tensor, known_angles: torch.Tensor, geometry: FBPGeometryBase, M: int, K: int, u: torch.Tensor = None, l2_reg = 0.2, PolynomialFamily = Legendre):
+def extrapolate_direct_solve(la_sinos: torch.Tensor, known_region: torch.Tensor, geometry: FBPGeometryBase, M: int, K: int, u: torch.Tensor = None, l2_reg = 0.2, PolynomialFamily = Legendre):
     """Extrapolate sinos based on HLCC by directly solving the normal equations for expanding sinos in the known region.
     The matrix used to solve this is factorized via Cholesky decomposition - this can be precomputed and given as an input argument.
 
@@ -71,7 +71,7 @@ def extrapolate_direct_solve(la_sinos: torch.Tensor, known_angles: torch.Tensor,
             inp = torch.zeros((1,M,K)).to(DEVICE, dtype=CDTYPE)
             inp[:, m, k] = 1
             x = geometry.synthesise_series(inp, Legendre)
-            x[:, ~known_angles] *= 0
+            x[:, ~known_region] *= 0
             B[:, i] = geometry.series_expand(x, Legendre, M, K)[0, mask]
         print("Matrix constructed")
         u = torch.linalg.cholesky(B + l2_reg* torch.eye(n_coeffs, device=DEVICE))
@@ -82,7 +82,7 @@ def extrapolate_direct_solve(la_sinos: torch.Tensor, known_angles: torch.Tensor,
     embedding[:, mask] = cs
     return geometry.synthesise_series(embedding, PolynomialFamily), u
 
-def extrapolate_cgm(la_sinos: torch.Tensor, ar: float, geometry: FBPGeometryBase, M: int, K: int, PolynomialFamily = Legendre, tol = 0.1):
+def extrapolate_cgm(la_sinos: torch.Tensor, known_region: torch.Tensor, geometry: FBPGeometryBase, M: int, K: int, PolynomialFamily = Legendre, tol = 0.1):
     """Extrapolate sinos based on HLCC using conjugate gradiend method to solve the normal equations.
 
     Args:
@@ -99,7 +99,6 @@ def extrapolate_cgm(la_sinos: torch.Tensor, ar: float, geometry: FBPGeometryBase
     """
     
     batch_size = la_sinos.shape[0]
-    n_known = geometry.n_known_projections(ar)
     embedding = torch.zeros((batch_size, M, K), device=DEVICE, dtype=CDTYPE)
     mask = get_moment_mask(embedding)
 
@@ -113,7 +112,7 @@ def extrapolate_cgm(la_sinos: torch.Tensor, ar: float, geometry: FBPGeometryBase
         #Calculat Apk (=w)
         embedding[:, mask] = pk
         exp = geometry.synthesise_series(embedding, PolynomialFamily)
-        exp[:, n_known:] = 0
+        exp[:, ~known_region] = 0
         w = geometry.series_expand(exp, PolynomialFamily, M, K)[:, mask] #Apk -  shape batch_size x n
 
         ak = (rk*rk.conj()).sum(dim=-1, keepdim=True) / (pk.conj()*w).sum(dim=-1, keepdim=True) # shape batch_size x 1
@@ -121,7 +120,7 @@ def extrapolate_cgm(la_sinos: torch.Tensor, ar: float, geometry: FBPGeometryBase
         #Calculate r
         embedding[:, mask] = cnext
         exp = geometry.synthesise_series(embedding, PolynomialFamily)
-        exp[:, n_known:] = 0
+        exp[:, ~known_region] = 0
         rnext = geometry.series_expand(la_sinos-exp, PolynomialFamily, M, K)[:, mask]
         # rnext = rk - ak*w
 
