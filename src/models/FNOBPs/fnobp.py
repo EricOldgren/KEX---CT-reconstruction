@@ -1,11 +1,42 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from geometries import FBPGeometryBase, DEVICE, DTYPE
+from geometries import FBPGeometryBase, DEVICE, DTYPE, naive_sino_filling
 from models.modelbase import FBPModelBase, load_model_checkpoint
 from utils.fno_1d import FNO1d
+from typing import Any, List
 
 class FNO_BP(FBPModelBase):
+
+    def __init__(self, geometry: FBPGeometryBase, hidden_layers: List[int], use_base_filter = True, modes = None):
+        super().__init__()
+        self._init_args = (hidden_layers, use_base_filter, modes)
+        self.geometry = geometry
+
+        if use_base_filter:
+            self.basefilter = nn.Parameter(geometry.ram_lak_filter(), requires_grad=False)
+        else:
+            self.basefilter = nn.Parameter(geometry.ram_lak_filter()*0, requires_grad=False)
+        if modes is None:
+            modes = self.geometry.projection_size // 2
+
+        self.fno1d = FNO1d(modes, geometry.n_projections, geometry.n_projections, hidden_layers, dtype=DTYPE).to(DEVICE)
+    
+    def get_init_torch_args(self):
+        return self._init_args
+    
+    def get_extrapolated_sinos(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out = None):
+        return sinos
+    
+    def get_extrapolated_filtered_sinos(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out = None):
+        
+        return self.geometry.inverse_fourier_transform(self.geometry.fourier_transform(sinos*self.geometry.jacobian_det)*self.geometry.ram_lak_filter()/2) + self.fno1d(sinos)
+
+    def forward(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out = None):
+        return F.relu(self.get_extrapolated_filtered_sinos(sinos, known_angles))
+
+
+class FNO_BP_orig(FBPModelBase):
 
     def __init__(self, geometry: FBPGeometryBase, hidden_layers: "list[int]", n_known_angles: int, n_angles_out: int, use_base_filter = True, modes = None) -> None:
         super().__init__()
@@ -41,6 +72,6 @@ class FNO_BP(FBPModelBase):
     
     @staticmethod
     def load_checkpoint(path):
-        return load_model_checkpoint(path, FNO_BP)
+        return load_model_checkpoint(path, FNO_BP_orig)
                 
         

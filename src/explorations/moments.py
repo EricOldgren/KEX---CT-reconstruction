@@ -6,8 +6,8 @@ from utils.tools import MSE
 from geometries import HTC2022_GEOMETRY, CDTYPE, get_moment_mask, DEVICE
 
 geometry = HTC2022_GEOMETRY
-ar = 0.25
-M, K = 64, 64
+ar = 0.05
+M, K = 100, 100
 
 phantoms = get_htc2022_train_phantoms()
 print("phantoms loaded")
@@ -20,11 +20,11 @@ n_known_u = geometry.n_known_projections(ar)
 mask = get_moment_mask(torch.zeros((1,M,K)))
 n_coeffs = mask.sum()
 print(n_coeffs, M*(M+1)//2)
-coefficients = torch.zeros((N, n_coeffs), dtype=CDTYPE, requires_grad=False)
+coefficients = torch.zeros((N, n_coeffs), dtype=CDTYPE, device=DEVICE, requires_grad=False)
 
 l1 = 1e-3
 
-n_iters = 100
+n_iters = 1000
 
 # optimizer = torch.optim.Adam([coefficients], lr=0.3)
 # optimizer = torch.optim.SGD([coefficients], lr=1.0)
@@ -38,7 +38,7 @@ n_iters = 100
 
 for it in range(n_iters):
 
-    embedding = torch.zeros((N, M, K), dtype=CDTYPE)
+    embedding = torch.zeros((N, M, K), dtype=CDTYPE, device=DEVICE) 
     embedding[:, mask] += coefficients
     res = geometry.synthesise_series(embedding, Legendre)
     loss = MSE(res[:, :n_known_u], la_sinos[:, :n_known_u]) #+ l1*torch.mean(torch.abs(coefficients)**2)
@@ -49,7 +49,7 @@ for it in range(n_iters):
     print("iter:", it, "loss:", loss.item())
 
 # exp = la_sinos + 0
-embedding = torch.zeros((N, M, K), dtype=CDTYPE)
+embedding = torch.zeros((N, M, K), dtype=CDTYPE, device=DEVICE)
 embedding[:, mask] += coefficients
 exp = geometry.synthesise_series(embedding, Legendre)
 recons = geometry.fbp_reconstruct(exp)
@@ -58,17 +58,17 @@ print("recons error:", MSE(recons, phantoms))
 
 disp_ind = 2
 plt.subplot(121)
-plt.imshow(sinos[disp_ind])
+plt.imshow(sinos[disp_ind].cpu())
 plt.subplot(122)
 plt.title("exp")
-plt.imshow(exp[disp_ind].detach())
+plt.imshow(exp[disp_ind].cpu())
 
 plt.figure()
 plt.subplot(121)
-plt.imshow(recons[disp_ind])
+plt.imshow(recons[disp_ind].cpu())
 plt.subplot(122)
 plt.title("gt")
-plt.imshow(phantoms[disp_ind])
+plt.imshow(phantoms[disp_ind].cpu())
 
 plt.show()
 

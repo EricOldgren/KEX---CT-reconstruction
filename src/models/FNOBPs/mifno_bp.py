@@ -8,7 +8,7 @@ from utils.polynomials import POLYNOMIAL_FAMILY_MAP, Legendre
 from utils.fno_1d import FNO1d
 from geometries import FBPGeometryBase
 from models.modelbase import FBPModelBase
-from models.FNOBPs.fnobp import FNO_BP
+from models.FNOBPs.fnobp import FNO_BP_orig
 
 
 class FNO_SinoExp(FBPModelBase):
