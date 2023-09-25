@@ -2,6 +2,8 @@ import torch
 from pathlib import Path
 import os
 from typing import Union, Tuple
+import scipy
+import numpy as np
 
 #data and file configs
 PathType = Union[os.PathLike, str]
@@ -68,6 +70,58 @@ def htc_score(Irs: torch.Tensor, Its: torch.Tensor):
     res[denominators != 0] = numerators[denominators != 0] / denominators[denominators != 0]
 
     return res
+
+def _compute_otsu_criteria(im:torch.Tensor, th):
+    """Otsu's method to compute criteria. -- this is from Wikipedia"""
+    # create the thresholded image
+    h, w = im.shape
+    thresholded_im = im * 0
+    thresholded_im[im >= th] = 1
+
+    # compute weights
+    nb_pixels = im.nelement()
+    nb_pixels1 = thresholded_im.count_nonzero()
+    weight1 = nb_pixels1 / nb_pixels
+    weight0 = 1 - weight1
+
+    # if one of the classes is empty, eg all pixels are below or above the threshold, that threshold will not be considered in the search for the best threshold
+    if weight1 == 0 or weight0 == 0:
+        return torch.inf
+
+    # find all pixels belonging to each class
+    val_pixels1 = im[thresholded_im == 1]
+    val_pixels0 = im[thresholded_im == 0]
+
+    # compute variance of these classes
+    var1 = torch.var(val_pixels1) if len(val_pixels1) > 1 else 0
+    var0 = torch.var(val_pixels0) if len(val_pixels0) > 1 else 0
+
+    res = weight0 * var0 + weight1 * var1
+    assert not res.isnan()
+    return res # weight0 * var0 + weight1 * var1
+
+def _find_otsu_threshhold(img: torch.Tensor, vals_to_search = 1000):
+    # testing all thresholds from 0 to the maximum of the image
+    threshold_range = torch.linspace(img.min(), img.max(), vals_to_search)
+    # best threshold is the one minimizing the Otsu criteria
+    return threshold_range[np.argmin([_compute_otsu_criteria(img, th) for th in threshold_range])]
+
+def segment_imgs(imgs: torch.Tensor, vals_to_search = 1000):
+    N, h, w = imgs.shape
+    ijs = torch.cartesian_prod(torch.arange(0, 7), torch.arange(0,7)).reshape(7,7,2)
+    B = torch.zeros((7,7), dtype=torch.bool)
+    B[((ijs-torch.tensor([3, 3]))**2).sum(dim=-1)<=9] = 1
+    B = B.numpy()
+    res = (imgs*0).to(torch.bool)
+    for i in range(N):
+        opt_th = _find_otsu_threshhold(imgs[i], vals_to_search)
+        # A = (imgs[i] >= opt_th).numpy()
+        # res[i] = torch.from_numpy(scipy.ndimage.binary_closing(A)).to(imgs.device)
+        res[i] = (imgs[i] >= opt_th)
+        
+
+    return res 
+
 
 #Tensor tools
 def pacth_split_image_batch(input: torch.Tensor, patch_shape: Union[int, Tuple[int, int]]):

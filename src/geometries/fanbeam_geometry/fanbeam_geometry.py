@@ -219,7 +219,7 @@ class FlatFanBeamGeometry(FBPGeometryBase):
 
         return torch.concat([
             sinos[:, -shift:, :], sinos[:, :-shift, :] #works for shift positive and negative
-        ], dim=1) 
+        ], dim=1)
 
     
     def moment_project(self, sinos: torch.Tensor, PolynomialBasis: Type[PolynomialBase], N: int, upsample_ratio = 1):
