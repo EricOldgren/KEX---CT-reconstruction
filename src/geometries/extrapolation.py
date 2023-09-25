@@ -139,3 +139,34 @@ def extrapolate_cgm(la_sinos: torch.Tensor, known_region: torch.Tensor, geometry
 
     embedding[:, mask] = ck
     return geometry.synthesise_series(embedding, PolynomialFamily)
+
+
+def precompote_normal_matrix(known_region: torch.Tensor, geometry: FBPGeometryBase, M: int, K: int, PolynomialFamily = Legendre):
+    mask = get_moment_mask(torch.zeros((1,M,K)).to(DEVICE, dtype=CDTYPE))
+    n_coeffs = mask.sum()
+
+    B = torch.zeros((n_coeffs, n_coeffs), device=DEVICE, dtype=CDTYPE)
+    mks = torch.cartesian_prod(torch.arange(0,M), torch.arange(0,K)).to(DEVICE).reshape(M, K, 2)[mask]
+    print("constructing matrix")
+    for i, (m, k) in tqdm(enumerate(mks)):
+        inp = torch.zeros((1,M,K)).to(DEVICE, dtype=CDTYPE)
+        inp[:, m, k] = 1
+        x = geometry.synthesise_series(inp, PolynomialFamily)
+        x[:, ~known_region] *= 0
+        B[:, i] = geometry.series_expand(x, PolynomialFamily, M, K)[0, mask]
+    
+    return B
+
+
+class SinoFilling(torch.nn.Module):
+  def __init__(self, geometry: FBPGeometryBase, M: int = 100, K: int = 100, n_iters = 300, PolynomialFamily = Legendre):
+    super().__init__()
+    self.geometry = geometry
+    self.M = M
+    self.K = K
+    self.n_iters = n_iters
+    self.PolynomialFamily = PolynomialFamily
+    self.mask = get_moment_mask(torch.zeros((1,M, K), device=DEVICE))
+
+  def forward(self, la_sinos: torch.Tensor, known_region: torch.Tensor):
+    return extrapolate_fixpoint(la_sinos, known_region, self.geometry, self.M, self.K, self.n_iters, self.PolynomialFamily)
