@@ -1,10 +1,10 @@
 import torch 
-from utils.data import DTYPE 
-from utils.data import DEVICE 
+from src.geometries.data import DTYPE 
+from src.geometries.data import DEVICE 
 from utils.tools import MSE 
 import matplotlib.pyplot as plt 
 from geometries import HTC2022_GEOMETRY 
-from utils.data import get_htc2022_train_phantoms 
+from src.geometries.data import get_htc2022_train_phantoms 
 
 sinos = torch.stack(torch.load("data/HTC2022/HTCTrainingData.pt", map_location=DEVICE)).to(DTYPE)*35
 sinos=sinos[:,0:720,:] 

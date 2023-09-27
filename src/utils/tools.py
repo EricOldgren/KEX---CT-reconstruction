@@ -108,6 +108,7 @@ def _find_otsu_threshhold(img: torch.Tensor, vals_to_search = 1000):
 
 def segment_imgs(imgs: torch.Tensor, vals_to_search = 1000):
     N, h, w = imgs.shape
+    imgs = torch.nn.functional.relu(imgs) #enforce non negativity constraint
     ijs = torch.cartesian_prod(torch.arange(0, 7), torch.arange(0,7)).reshape(7,7,2)
     B = torch.zeros((7,7), dtype=torch.bool)
     B[((ijs-torch.tensor([3, 3]))**2).sum(dim=-1)<=9] = 1

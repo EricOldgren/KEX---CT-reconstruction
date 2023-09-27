@@ -4,7 +4,7 @@ import matplotlib
 matplotlib.use("WebAgg")
 
 from utils.tools import MSE, GIT_ROOT
-from utils.data import get_htc2022_train_phantoms, get_kits_train_phantoms, get_htclike_train_phantoms, generate_htclike_batch
+from src.geometries.data import get_htc2022_train_phantoms, get_kits_train_phantoms, get_htclike_train_phantoms, generate_htclike_batch
 from utils.polynomials import Legendre, Chebyshev
 from geometries import FlatFanBeamGeometry, DEVICE, HTC2022_GEOMETRY, ParallelGeometry
 from models.modelbase import save_model_checkpoint, plot_model_progress

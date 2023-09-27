@@ -1,37 +1,44 @@
 import torch
+import torchvision
 import numpy as np
 from sklearn.model_selection import train_test_split
 from typing import Tuple, Union
+import logging
 
 from torch.autograd.functional import hessian
-
 from utils.tools import DEVICE, DTYPE, no_bdry_linspace, GIT_ROOT
+from geometries.fanbeam_geometry import FlatFanBeamGeometry
+
+##Geometry Config
+scale_factor = 1.0
+htc_th = 0.02
+htc_sino_var = 2e-2
+htc_mean_attenuation = 0.032
+HTC2022_GEOMETRY = FlatFanBeamGeometry(720, 560, 410.66*scale_factor, 543.74*scale_factor, 112.0*scale_factor, [-38*scale_factor,38*scale_factor, -38*scale_factor,38*scale_factor], [512, 512])
+
 
 #Data loading
 def get_htc2022_train_phantoms():
     return torch.stack(torch.load( GIT_ROOT / "data/HTC2022/HTCTrainingPhantoms.pt", map_location=DEVICE)).to(DTYPE)
 def get_synthetic_htc_phantoms():
-    "retrieve generated phantoms designed to look like the HTC data phantoms"
-    return torch.concat([
-        torch.load(GIT_ROOT / "data/synthetic_htc_data.pt", map_location=DEVICE),
-        torch.load(GIT_ROOT / "data/synthetic_htc_harder_data.pt", map_location=DEVICE)
-    ])
-def get_htc_trainval_phantoms():
-    """retrieve train_phantoms, validation_phantoms
-        return train_set, validation_phantoms
-    """
-    return get_synthetic_htc_phantoms(), get_htc2022_train_phantoms()
-    # return train_test_split(get_synthetic_htc_phantoms(), test_size=0.2)
-    # htc_phantoms = get_htc2022_train_phantoms()
-    # train_phantoms, validation_phantoms = train_test_split(htc_phantoms, test_size=3)
-    # train_set = torch.concat([train_phantoms, get_synthetic_htc_phantoms()])
-    # return train_set, validation_phantoms
+    "retrieve generated phantoms phantoms concatenated with the kits data set"
+    generated = torch.load(GIT_ROOT / "data/synthetic_htc_bigbatch.pt", map_location=DEVICE)
+    kits = get_kits_train_phantoms(resize=True)
+    kits *= htc_mean_attenuation / 2 #mean value of phantoms is more than one
+    return torch.concat([generated, kits])
 
 
-def get_kits_train_phantoms():
-    return torch.load(GIT_ROOT / "data/kits_phantoms_256.pt", map_location=DEVICE)[:500, 1]
-def get_kits_test_phantom():
-    return torch.load(GIT_ROOT / "data/kits_phantoms_256.pt", map_location=DEVICE)[500:, 1]
+def get_kits_train_phantoms(resize = True)->torch.Tensor:
+    if resize:
+        return torchvision.transforms.functional.resize(torch.load(GIT_ROOT / "data/kits_phantoms_256.pt", map_location=DEVICE).reshape(-1,256,256), (512, 512))
+    return torch.load(GIT_ROOT / "data/kits_phantoms_256.pt", map_location=DEVICE).reshape(-1,256,256)
+
+def get_htc_traindata():
+    "return sinos, phantoms"
+    sinos = torch.stack(torch.load(GIT_ROOT / "data/HTC2022/HTCTrainingData.pt", map_location=DEVICE))[:, :720]
+    phantoms = HTC2022_GEOMETRY.fbp_reconstruct(sinos)
+
+    return sinos, phantoms
 
 #Data generation
 def rotation_matrix(angle: float):
@@ -150,7 +157,8 @@ def disc_phantom(xy_minmax: Tuple[float, float, float, float], disc_radius: floa
         try:
             ma, Ma = get_angle_span(ellips2disc, ri) #min_angle, max_angle
         except(ConvergenceError) as err:
-            print("convergence failed:", err)
+            logging.debug("convergence failed:", err)
+            # print("convergence failed:", err)
             continue
         
         phii = angle + np.random.exponential(2*np.pi/expected_num_inner_ellipses) - ma #angle to center of next ellips -- intent is to replicate a poisson process
@@ -267,6 +275,7 @@ if __name__ == '__main__':
     import matplotlib
     matplotlib.use("WebAgg")
     import matplotlib.pyplot as plt
+
     print("hellu")
     xy_minmax = [-38, 38, -38, 38.0]
     disc_radius = 35.0

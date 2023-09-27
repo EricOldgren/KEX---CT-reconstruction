@@ -55,7 +55,7 @@ if __name__ == "__main__":
     from torch.utils.data import TensorDataset, DataLoader
     from utils.tools import MSE, htc_score
     from utils.polynomials import Legendre, Chebyshev
-    from utils.data import get_htc2022_train_phantoms, get_htc_trainval_phantoms, GIT_ROOT
+    from src.geometries.data import get_htc2022_train_phantoms, get_htc_trainval_phantoms, GIT_ROOT
     from geometries import HTC2022_GEOMETRY
     from models.modelbase import plot_model_progress, save_model_checkpoint
     import matplotlib

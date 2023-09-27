@@ -1,6 +1,6 @@
 import torch
 import matplotlib.pyplot as plt
-from utils.data import get_htc2022_train_phantoms
+from src.geometries.data import get_htc2022_train_phantoms
 from utils.polynomials import Chebyshev, Legendre
 from utils.tools import MSE
 from geometries import HTC2022_GEOMETRY, CDTYPE, get_moment_mask, DEVICE

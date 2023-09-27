@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from typing import Union, Tuple
 
 from utils.tools import pacth_split_image_batch, merge_patches
-from utils.data import get_htc2022_train_phantoms
+from src.geometries.data import get_htc2022_train_phantoms
 
 phantoms = get_htc2022_train_phantoms()
 

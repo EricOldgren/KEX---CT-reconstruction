@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 from statistics import mean
 
-from utils.data import get_htc_trainval_phantoms
+from src.geometries.data import get_htc_trainval_phantoms
 from utils.tools import MSE
 from utils.polynomials import Legendre
 from geometries import HTC2022_GEOMETRY, DEVICE, DTYPE, enforce_moment_constraints, get_moment_mask

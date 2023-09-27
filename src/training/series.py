@@ -7,7 +7,7 @@ matplotlib.use("WebAgg")
 import matplotlib.pyplot as plt
 
 from utils.tools import htc_score
-from utils.data import get_htc2022_train_phantoms, get_kits_train_phantoms
+from src.geometries.data import get_htc2022_train_phantoms, get_kits_train_phantoms
 from utils.polynomials import Legendre, Chebyshev
 from geometries import HTC2022_GEOMETRY, DEVICE, DTYPE, CDTYPE, FlatFanBeamGeometry, enforce_moment_constraints, get_moment_mask
 

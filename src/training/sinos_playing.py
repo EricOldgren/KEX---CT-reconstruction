@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 from utils.polynomials import Legendre, Chebyshev
 from utils.tools import MSE
-from utils.data import get_htc2022_train_phantoms
+from src.geometries.data import get_htc2022_train_phantoms
 from geometries import HTC2022_GEOMETRY as geometry, enforce_moment_constraints, get_moment_mask
 from geometries.geometry_base import naive_sino_filling
 from models.modelbase import evaluate_batches

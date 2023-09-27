@@ -4,7 +4,7 @@ matplotlib.use("WebAgg")
 import matplotlib.pyplot as plt
 
 from utils.tools import htc_score, MSE
-from utils.data import get_htc2022_train_phantoms
+from src.geometries.data import get_htc2022_train_phantoms
 from utils.polynomials import Legendre, Chebyshev
 from geometries import HTC2022_GEOMETRY, enforce_moment_constraints
 from models.modelbase import load_model_checkpoint, evaluate_batches
