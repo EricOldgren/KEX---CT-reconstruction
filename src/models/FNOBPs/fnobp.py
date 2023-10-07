@@ -93,23 +93,26 @@ class FNO_BP_orig(FBPModelBase):
         
 if __name__ == "__main__":
     from utils.tools import MSE, GIT_ROOT
-    from geometries.data import HTC2022_GEOMETRY, get_synthetic_htc_phantoms
-    from models.modelbase import save_model_checkpoint
+    from geometries.data import HTC2022_GEOMETRY, get_synthetic_htc_phantoms, get_htc_traindata
+    from models.modelbase import save_model_checkpoint, plot_model_progress
     from torch.utils.data import TensorDataset, DataLoader
     from statistics import mean
+    import time
+    import matplotlib.pyplot as plt
 
     geometry = HTC2022_GEOMETRY
     print("loading phantoms...")
     PHANTOMS = get_synthetic_htc_phantoms()
     print("calculating sinos...")
     SINOS = geometry.project_forward(PHANTOMS)
+    VAL_SINOS, VAL_PHANTOMS = get_htc_traindata()
     ar = 0.25
     M, K, ridge_reg = 50, 50, 0.01
-    relu_in_training = True
+    relu_in_training = False
 
     model = FNO_BP(geometry, ar, [40,40,40], M=M,K=K, PolynomialFamilyKey=Chebyshev.key, l2_reg=ridge_reg)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     n_epochs = 500
 
     dataset = TensorDataset(PHANTOMS, SINOS)
@@ -128,7 +131,15 @@ if __name__ == "__main__":
             loss.backward()
             optimizer.step()
             batch_losses.append(loss.item())
+            if ((epoch+1)%10) == 0:
+                save_model_checkpoint(model, optimizer, loss, ar, GIT_ROOT/f"data/models/fnobp_v2{time.time()}.pt")
+                known_angles = torch.zeros(geometry.n_projections, dtype=torch.bool)
+                known_angles[:geometry.n_known_projections(ar)] = 1
+                print("Validation results:")
+                plot_model_progress(model, VAL_SINOS, known_angles, VAL_PHANTOMS)
+                for i in plt.get_fignums():
+                    fig = plt.figure(i)
+                    title = fig._suptitle.get_text() if fig._suptitle is not None else f"fig{i}"
+                    plt.savefig(f"{title}.png")
 
-        print("Epoch:", epoch, "mse recon loss:", mean(batch_losses))
-
-    save_model_checkpoint(model, optimizer, loss, ar, GIT_ROOT/"data/models/fnobp_v2.pt")
+            print("Epoch:", epoch, "mse recon loss:", mean(batch_losses))

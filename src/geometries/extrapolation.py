@@ -1,5 +1,5 @@
 import torch
-from src.geometries.data import get_htc2022_train_phantoms
+from geometries.data import get_htc2022_train_phantoms
 from utils.polynomials import Chebyshev, Legendre
 from utils.tools import MSE, DEVICE, CDTYPE, DTYPE
 from geometries.geometry_base import FBPGeometryBase

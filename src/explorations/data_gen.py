@@ -2,10 +2,8 @@ import torch
 import matplotlib
 matplotlib.use("WebAgg")
 import matplotlib.pyplot as plt
-from src.geometries.data import disc_phantom, GIT_ROOT, get_kits_train_phantoms, disc_phantom_rects
-from geometries import htc_mean_attenuation
+from geometries.data import disc_phantom, GIT_ROOT, get_kits_train_phantoms, disc_phantom_rects, htc_mean_attenuation
 import numpy as np
-import sys
 from tqdm import tqdm
 
 xy_minmax = [-38,38,-38,38]

@@ -22,7 +22,7 @@ def get_htc2022_train_phantoms():
     return torch.stack(torch.load( GIT_ROOT / "data/HTC2022/HTCTrainingPhantoms.pt", map_location=DEVICE)).to(DTYPE)
 def get_synthetic_htc_phantoms():
     "retrieve generated phantoms phantoms concatenated with the kits data set"
-    generated = torch.load(GIT_ROOT / "data/synthetic_htc_bigbatch.pt", map_location=DEVICE)
+    generated = torch.load(GIT_ROOT / "data/synthetic_htc_bigbatch.pt", map_location=DEVICE).to(DTYPE)
     kits = get_kits_train_phantoms(resize=True)
     kits *= htc_mean_attenuation / 2 #mean value of phantoms is more than one
     return torch.concat([generated, kits])
@@ -30,12 +30,12 @@ def get_synthetic_htc_phantoms():
 
 def get_kits_train_phantoms(resize = True)->torch.Tensor:
     if resize:
-        return torchvision.transforms.functional.resize(torch.load(GIT_ROOT / "data/kits_phantoms_256.pt", map_location=DEVICE).reshape(-1,256,256), (512, 512))
-    return torch.load(GIT_ROOT / "data/kits_phantoms_256.pt", map_location=DEVICE).reshape(-1,256,256)
+        return torchvision.transforms.functional.resize(torch.load(GIT_ROOT / "data/kits_phantoms_256.pt", map_location=DEVICE)[:, 1], (512, 512))
+    return torch.load(GIT_ROOT / "data/kits_phantoms_256.pt", map_location=DEVICE)[:, 1]
 
 def get_htc_traindata():
     "return sinos, phantoms"
-    sinos = torch.stack(torch.load(GIT_ROOT / "data/HTC2022/HTCTrainingData.pt", map_location=DEVICE))[:, :720]
+    sinos = torch.stack(torch.load(GIT_ROOT / "data/HTC2022/HTCTrainingData.pt", map_location=DEVICE))[:, :720].to(DTYPE)
     phantoms = HTC2022_GEOMETRY.fbp_reconstruct(sinos)
 
     return sinos, phantoms
