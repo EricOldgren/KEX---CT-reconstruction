@@ -20,6 +20,5 @@
     `conda install pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 pytorch-cuda=11.7 -c pytorch -c nvidia --yes`
 - astra toolbox: `conda install -c astra-toolbox/label/dev astra-toolbox --yes`
 - odl: `pip install git+https://github.com/odlgroup/odl.git`
-- matplotlib: `pip install matplotlib`
-- sklearn: `pip install scikit-learn`
+- other: `pip install matplotlib tornado tqdm scikit-learn`
 ## DONE
