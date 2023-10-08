@@ -38,7 +38,7 @@ class FNO_BP(FBPModelBase):
     def get_extrapolated_sinos(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out = None):
         assert (known_angles == self.known_angles).all(), "rotate sinos so that first known angle is at index 0 to make inference with this model"
         exp = self.sinofiller.forward(sinos, self.l2_reg)
-        reflected, known_reg = self.geometry.reflect_fill_sinos(sinos, self.known_angles)
+        reflected, known_reg = self.geometry.reflect_fill_sinos(sinos+0, self.known_angles)
         reflected[:, ~known_reg] = exp[:, ~known_reg]
         return reflected
     
@@ -103,6 +103,7 @@ if __name__ == "__main__":
     geometry = HTC2022_GEOMETRY
     print("loading phantoms...")
     PHANTOMS = get_synthetic_htc_phantoms()
+    print("phantoms loaded:", PHANTOMS.shape, PHANTOMS.dtype)
     print("calculating sinos...")
     SINOS = geometry.project_forward(PHANTOMS)
     VAL_SINOS, VAL_PHANTOMS = get_htc_traindata()
@@ -113,12 +114,22 @@ if __name__ == "__main__":
     model = FNO_BP(geometry, ar, [40,40,40], M=M,K=K, PolynomialFamilyKey=Chebyshev.key, l2_reg=ridge_reg)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-    n_epochs = 500
+    n_epochs = 100
 
     dataset = TensorDataset(PHANTOMS, SINOS)
-    dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
 
     for epoch in range(n_epochs):
+        if ((epoch)%5) == 0:
+            save_model_checkpoint(model, optimizer, loss, ar, GIT_ROOT/f"data/models/fnobp_v2{time.time()}.pt")
+            known_angles = torch.zeros(geometry.n_projections, dtype=torch.bool, device=DEVICE)
+            known_angles[:geometry.n_known_projections(ar)] = 1
+            print("Validation results:")
+            plot_model_progress(model, VAL_SINOS, known_angles, VAL_PHANTOMS)
+            for i in plt.get_fignums():
+                fig = plt.figure(i)
+                title = fig._suptitle.get_text() if fig._suptitle is not None else f"fig{i}"
+                plt.savefig(f"{title}.png")
         batch_losses = []
         for phantom_batch, sino_batch in dataloader:
             optimizer.zero_grad()
@@ -131,15 +142,5 @@ if __name__ == "__main__":
             loss.backward()
             optimizer.step()
             batch_losses.append(loss.item())
-            if ((epoch+1)%10) == 0:
-                save_model_checkpoint(model, optimizer, loss, ar, GIT_ROOT/f"data/models/fnobp_v2{time.time()}.pt")
-                known_angles = torch.zeros(geometry.n_projections, dtype=torch.bool)
-                known_angles[:geometry.n_known_projections(ar)] = 1
-                print("Validation results:")
-                plot_model_progress(model, VAL_SINOS, known_angles, VAL_PHANTOMS)
-                for i in plt.get_fignums():
-                    fig = plt.figure(i)
-                    title = fig._suptitle.get_text() if fig._suptitle is not None else f"fig{i}"
-                    plt.savefig(f"{title}.png")
 
-            print("Epoch:", epoch, "mse recon loss:", mean(batch_losses))
+        print("Epoch:", epoch, "mse recon loss:", mean(batch_losses))

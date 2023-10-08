@@ -130,7 +130,7 @@ class FBPGeometryBase(torch.nn.Module, ABC):
         """
         n_projs = self.n_known_projections(ar)
         end_ind = (start_ind + n_projs) % self.n_projections
-        known = torch.zeros(self.Nb, dtype=bool, device=DEVICE)
+        known = torch.zeros(self.n_projections, dtype=bool, device=DEVICE)
         if start_ind < end_ind:
             known[start_ind:end_ind] = True
         else:

@@ -56,7 +56,7 @@ def evaluate_batches(pred: torch.Tensor, gt: torch.Tensor, ind: int, title: str)
 
     return fig, mse
 
-def plot_model_progress(model: FBPModelBase, full_sinos: torch.Tensor, known_angles: torch.Tensor, phantoms: torch.Tensor,out_angles: torch.Tensor = None, disp_ind: int = 0, model_name: str = None, force_show=False):
+def plot_model_progress(model: FBPModelBase, full_sinos: torch.Tensor, ar: float, phantoms: torch.Tensor, disp_ind: int = 0, model_name: str = None, force_show=False, start_ind: int = 0):
     """
         Print mses and plot reconstruction samples for model.
         This will display: sinogram extrappolation, sinogram filtering and reconstruction
@@ -65,12 +65,12 @@ def plot_model_progress(model: FBPModelBase, full_sinos: torch.Tensor, known_ang
 
     geometry = model.geometry
     full_filtered_sinos = geometry.inverse_fourier_transform(geometry.fourier_transform(full_sinos*geometry.jacobian_det)*geometry.ram_lak_filter())
-    cropped_sinos = full_sinos * 0
-    cropped_sinos[:, known_angles] = full_sinos[:, known_angles]
+    la_sinos, known_angles = geometry.zero_cropp_sinos(full_sinos, ar, start_ind)
+
     with torch.no_grad():
-        exp_sinos = model.get_extrapolated_sinos(cropped_sinos, known_angles, out_angles)
-        filtered_sinos = model.get_extrapolated_filtered_sinos(cropped_sinos, known_angles, out_angles)
-        recons = model(cropped_sinos, known_angles, out_angles)
+        exp_sinos = model.get_extrapolated_sinos(la_sinos, known_angles)
+        filtered_sinos = model.get_extrapolated_filtered_sinos(la_sinos, known_angles)
+        recons = model(la_sinos, known_angles)
 
     if model_name is None:
         model_name = type(model).__name__
