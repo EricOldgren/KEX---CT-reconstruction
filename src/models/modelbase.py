@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-from utils.tools import PathType
+from utils.tools import PathType, DEVICE
 from geometries import FBPGeometryBase, AVAILABLE_FBP_GEOMETRIES
 
 class FBPModelBase(torch.nn.Module, ABC):
@@ -60,6 +60,8 @@ def plot_model_progress(model: FBPModelBase, full_sinos: torch.Tensor, ar: float
     """
         Print mses and plot reconstruction samples for model.
         This will display: sinogram extrappolation, sinogram filtering and reconstruction
+
+        returns validation loss
     """
     N, _, _ = full_sinos.shape
 
@@ -89,6 +91,8 @@ def plot_model_progress(model: FBPModelBase, full_sinos: torch.Tensor, ar: float
     recon_fig.show()
     if force_show:
         plt.show()
+
+    return recon_mse
 
 
 ###
@@ -127,7 +131,7 @@ def _init_checkpoint_from_state_dict(state_dict, ModelClass: Type[FBPModelBase])
     geometry = fbp_geometry_dict[geometry_class_name](*geometry_args)
 
     model = ModelClass(geometry, *model_args)
-    model.load_state_dict(model_state_dict)
+    model.load_state_dict(model_state_dict, strict=True)
     
     try:
         optimizer: torch.optim.Optimizer = pytorch_optimizer_dict[optimizer_class_name](model.parameters(), lr=1.0)
@@ -161,7 +165,7 @@ def save_model_checkpoint(model: FBPModelBase, optimizer: torch.optim.Optimizer,
     torch.save(_checkpoint_state_dict(model, optimizer, loss, angle_ratio), path)
 
 def load_model_checkpoint(path: PathType, ModelClass: Type[FBPModelBase]):
-    return _init_checkpoint_from_state_dict(torch.load(path), ModelClass)
+    return _init_checkpoint_from_state_dict(torch.load(path, map_location=DEVICE), ModelClass)
     
 
 #Constant dicts

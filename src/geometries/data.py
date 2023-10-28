@@ -1,6 +1,7 @@
 import torch
 import torchvision
 import numpy as np
+import scipy
 from sklearn.model_selection import train_test_split
 from typing import Tuple, Union
 import logging
@@ -14,15 +15,18 @@ scale_factor = 1.0
 htc_th = 0.02
 htc_sino_var = 2e-2
 htc_mean_attenuation = 0.032
+htc_nprojections_by_level = [181, 161, 141, 121, 101, 81, 61]
 HTC2022_GEOMETRY = FlatFanBeamGeometry(720, 560, 410.66*scale_factor, 543.74*scale_factor, 112.0*scale_factor, [-38*scale_factor,38*scale_factor, -38*scale_factor,38*scale_factor], [512, 512])
 
 
 #Data loading
 def get_htc2022_train_phantoms():
     return torch.stack(torch.load( GIT_ROOT / "data/HTC2022/HTCTrainingPhantoms.pt", map_location=DEVICE)).to(DTYPE)
-def get_synthetic_htc_phantoms():
+def get_synthetic_htc_phantoms(use_kits=False):
     "retrieve generated phantoms phantoms concatenated with the kits data set"
     generated = torch.load(GIT_ROOT / "data/synthetic_htc_bigbatch.pt", map_location=DEVICE).to(DTYPE)
+    if not use_kits:
+        return generated
     kits = get_kits_train_phantoms(resize=True)
     kits *= htc_mean_attenuation / 2 #mean value of phantoms is more than one
     return torch.concat([generated, kits])
@@ -39,6 +43,29 @@ def get_htc_traindata():
     phantoms = HTC2022_GEOMETRY.fbp_reconstruct(sinos)
 
     return sinos, phantoms
+def get_htc_testdata(level: int):
+    "return sinos, known_angles, to_rotate, phantoms"
+    assert level >= 1 and level <= 7, "invalid level {level}"
+    n_known_angles = [181, 161, 141, 121, 101, 81, 61]
+
+    sinos = []
+    to_rotate = []
+    phantoms = []
+
+    for c in ['a','b','c']:
+        phantom = torch.tensor(scipy.io.loadmat(GIT_ROOT/('data/HTC2022/TestData/htc2022_0' + str(level) + c + '_recon_fbp_seg.mat'))['reconFullFbpSeg']).to(DEVICE, dtype=bool)
+        phantoms.append(phantom)
+        
+        dataLimited = scipy.io.loadmat(GIT_ROOT/('data/HTC2022/TestData/htc2022_0' + str(level) + c + '_limited.mat'))["CtDataLimited"][0,0]
+        la_sino = torch.tensor(dataLimited["sinogram"])
+        assert la_sino.shape == (n_known_angles[level-1], HTC2022_GEOMETRY.projection_size)
+        known_angles = torch.tensor(dataLimited["parameters"]["angles"][0,0])
+        to_rotate.append(int(known_angles[0, 0] / 0.5)+180) #angle is offset by 90 degrees
+        sinos.append(torch.concat([la_sino, torch.zeros((HTC2022_GEOMETRY.n_projections-n_known_angles[level-1], HTC2022_GEOMETRY.projection_size))]).to(DEVICE, dtype=DTYPE))
+
+    known_angles = torch.zeros(720, dtype=bool, device=DEVICE)
+    known_angles[:n_known_angles[level-1]] = 1
+    return torch.stack(sinos), known_angles, to_rotate, torch.stack(phantoms)
 
 #Data generation
 def rotation_matrix(angle: float):

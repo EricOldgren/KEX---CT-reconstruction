@@ -126,15 +126,15 @@ if __name__ == "__main__":
     var_mu = recons[train_seg].var()
     noise_lvl = MSE(numeric, sinos)
 
-    (GIT_ROOT / "data/HTC2022/conclusions.json").write_text(
-        json.dumps({
-            "attenuation_mean": mean_mu.item(),
-            "attenuation_var": var_mu.item(),
-            "sino_noise":noise_lvl.item(),
-            "disc_radius":35,
-            "space_width":38
-        })   
-    )
+    # (GIT_ROOT / "data/HTC2022/conclusions.json").write_text(
+    #     json.dumps({
+    #         "attenuation_mean": mean_mu.item(),
+    #         "attenuation_var": var_mu.item(),
+    #         "sino_noise":noise_lvl.item(),
+    #         "disc_radius":35,
+    #         "space_width":38
+    #     })   
+    # )
 
 
     plt.show()

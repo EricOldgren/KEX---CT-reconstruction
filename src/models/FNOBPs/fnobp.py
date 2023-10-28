@@ -99,44 +99,57 @@ if __name__ == "__main__":
     from statistics import mean
     import time
     import matplotlib.pyplot as plt
+    import random
+    import sys
+
+    ar = int(sys.argv[1]) / HTC2022_GEOMETRY.n_projections
+    hidden_layers = list(map(int, sys.argv[2:]))
+    print("Training for ar:", ar)
+    print("Using hidden layers:", hidden_layers)
 
     geometry = HTC2022_GEOMETRY
     print("loading phantoms...")
-    PHANTOMS = get_synthetic_htc_phantoms()
+    PHANTOMS = get_synthetic_htc_phantoms(use_kits=False)
     print("phantoms loaded:", PHANTOMS.shape, PHANTOMS.dtype)
     print("calculating sinos...")
     SINOS = geometry.project_forward(PHANTOMS)
     VAL_SINOS, VAL_PHANTOMS = get_htc_traindata()
-    ar = 0.25
     M, K, ridge_reg = 50, 50, 0.01
     relu_in_training = False
 
-    model = FNO_BP(geometry, ar, [40,40,40], M=M,K=K, PolynomialFamilyKey=Chebyshev.key, l2_reg=ridge_reg)
+    model = FNO_BP(geometry, ar, hidden_layers, M=M,K=K, PolynomialFamilyKey=Chebyshev.key, l2_reg=ridge_reg)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-    n_epochs = 100
+    optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, weight_decay=3e-7)
+    n_epochs = 40
 
     dataset = TensorDataset(PHANTOMS, SINOS)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
+    best_valloss = 1.0
 
     for epoch in range(n_epochs):
         if ((epoch)%5) == 0:
-            save_model_checkpoint(model, optimizer, loss, ar, GIT_ROOT/f"data/models/fnobp_v2{time.time()}.pt")
-            known_angles = torch.zeros(geometry.n_projections, dtype=torch.bool, device=DEVICE)
-            known_angles[:geometry.n_known_projections(ar)] = 1
             print("Validation results:")
-            plot_model_progress(model, VAL_SINOS, known_angles, VAL_PHANTOMS)
+            val_loss = plot_model_progress(model, VAL_SINOS, ar, VAL_PHANTOMS, disp_ind=random.randint(0, len(VAL_SINOS)-1))
+            print("="*40)
+            save_model_checkpoint(model, optimizer, val_loss, ar, GIT_ROOT/f"data/models/fnobp_ar{ar:.2}_val{val_loss.item()}.pt")
+            if val_loss < best_valloss:
+                save_model_checkpoint(model, optimizer, val_loss, ar, GIT_ROOT/f"data/models/highscores/{ar:.2}/fnobp_{'-'.join(map(str, hidden_layers))}.pt")
             for i in plt.get_fignums():
                 fig = plt.figure(i)
                 title = fig._suptitle.get_text() if fig._suptitle is not None else f"fig{i}"
-                plt.savefig(f"{title}.png")
+                plt.savefig(f"ar{ar}_fig{i}.png")
+            plt.close("all")
         batch_losses = []
         for phantom_batch, sino_batch in dataloader:
             optimizer.zero_grad()
 
+            shift = random.randint(0, geometry.n_projections-1)
+            sino_batch = geometry.rotate_sinos(sino_batch, shift)
             la_sinos, known_angles = geometry.zero_cropp_sinos(sino_batch, ar, 0) #maybe start randomizing firts index soon
-
-            recons = model.forward(la_sinos, known_angles, use_relu=relu_in_training)
+            fsinos = model.get_extrapolated_filtered_sinos(la_sinos, known_angles)
+            fsinos = geometry.rotate_sinos(fsinos, -shift)
+            recons = geometry.project_backward(fsinos)
+            # recons = model.forward(la_sinos, known_angles, use_relu=relu_in_training)
 
             loss = MSE(recons, phantom_batch)
             loss.backward()

@@ -98,15 +98,16 @@ def _compute_otsu_criteria(im:torch.Tensor, th):
 
     res = weight0 * var0 + weight1 * var1
     assert not res.isnan()
-    return res # weight0 * var0 + weight1 * var1
+    return res.item() # weight0 * var0 + weight1 * var1
 
 def _find_otsu_threshhold(img: torch.Tensor, vals_to_search = 1000):
     # testing all thresholds from 0 to the maximum of the image
-    threshold_range = torch.linspace(img.min(), img.max(), vals_to_search)
+    threshold_range = torch.linspace(float(img.min()), float(img.max()), vals_to_search)
     # best threshold is the one minimizing the Otsu criteria
     return threshold_range[np.argmin([_compute_otsu_criteria(img, th) for th in threshold_range])]
 
 def segment_imgs(imgs: torch.Tensor, vals_to_search = 1000):
+    "Use otsu threshholding to segment images"
     N, h, w = imgs.shape
     imgs = torch.nn.functional.relu(imgs) #enforce non negativity constraint
     ijs = torch.cartesian_prod(torch.arange(0, 7), torch.arange(0,7)).reshape(7,7,2)
