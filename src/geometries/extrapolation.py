@@ -141,7 +141,7 @@ def extrapolate_cgm(la_sinos: torch.Tensor, known_region: torch.Tensor, geometry
     return geometry.synthesise_series(embedding, PolynomialFamily)
 
 
-def precompute_system_matrix(known_region: torch.Tensor, geometry: FBPGeometryBase, M: int, K: int, PolynomialFamily = Legendre):
+def precompute_system_matrix(known_region: torch.Tensor, geometry: FBPGeometryBase, M: int, K: int, PolynomialFamily = Chebyshev):
     mask = get_moment_mask(torch.zeros((1,M,K)).to(DEVICE, dtype=CDTYPE))
     n_coeffs = mask.sum()
 
@@ -173,7 +173,7 @@ class SinoFilling(torch.nn.Module):
 
 class FastSinoFilling(torch.nn.Module):
 
-    def __init__(self, geometry: FBPGeometryBase, knwon_region: torch.Tensor, M: int = 100, K: int = 100, PolynomialFamily = Chebyshev) -> None:
+    def __init__(self, geometry: FBPGeometryBase, knwon_region: torch.Tensor, M: int = 50, K: int = 50, PolynomialFamily = Chebyshev) -> None:
         super().__init__()
 
         self.geometry = geometry
@@ -184,6 +184,8 @@ class FastSinoFilling(torch.nn.Module):
         self.n_coeffs = self.mask.sum()
         self.normal_matrix = torch.nn.Parameter(torch.zeros((self.n_coeffs, self.n_coeffs), device=DEVICE, dtype=CDTYPE), requires_grad=False)
         self._matrix_computed = torch.nn.Parameter(torch.tensor(False), requires_grad=False)
+
+        return self
 
     def _compute_system_matrix(self, force_recompute = False):
         if ~self._matrix_computed or force_recompute:
@@ -197,6 +199,66 @@ class FastSinoFilling(torch.nn.Module):
         b = self.geometry.series_expand(la_sinos, self.PolynomialFamily, self.M, self.K)[:, self.mask].reshape(-1, self.n_coeffs, 1)
 
         c = torch.linalg.solve(B+torch.eye(self.n_coeffs, device=DEVICE, dtype=CDTYPE)*l2_reg, b)
+        
+        assert MSE(b, B@c) < 0.02, f"mse: {MSE(b, B@c)} if this breaks extrapolation is less effective than when tested :/ Comment this line if needed"
+
+        embedding = torch.zeros((la_sinos.shape[0],self.M,self.K)).to(DEVICE, dtype=CDTYPE)
+        embedding[:, self.mask] += c[...,0]
+        return self.geometry.synthesise_series(embedding, self.PolynomialFamily)
+    
+class PrioredSinoFilling(torch.nn.Module):
+
+    def __init__(self, geometry: FBPGeometryBase, knwon_region: torch.Tensor, M: int = 50, K: int = 50, PolynomialFamily = Chebyshev) -> None:
+        super().__init__()
+
+        self.geometry = geometry
+        self.known_region = knwon_region
+        self.M, self.K = M, K
+        self.PolynomialFamily = PolynomialFamily
+        self.mask = get_moment_mask(torch.zeros((1,M,K)))
+        self.n_coeffs = self.mask.sum()
+        self.normal_matrix = torch.nn.Parameter(torch.zeros((self.n_coeffs, self.n_coeffs), device=DEVICE, dtype=CDTYPE), requires_grad=False)
+        self._matrix_computed = torch.nn.Parameter(torch.tensor(False), requires_grad=False)
+
+        self.Z = torch.nn.Parameter(torch.zeros((self.n_coeffs, self.n_coeffs), device=DEVICE, dtype=CDTYPE), requires_grad=False)
+        self.sigmas_sq = torch.nn.Parameter(torch.zeros(self.n_coeffs, device=DEVICE, dtype=DTYPE))
+        self.mu = torch.nn.Parameter(torch.zeros(self.n_coeffs, device=DEVICE, dtype=CDTYPE), requires_grad=False)
+
+        return self
+
+    def _compute_system_matrix(self, force_recompute = False):
+        if ~self._matrix_computed or force_recompute:
+            self.normal_matrix *= 0
+            self.normal_matrix += precompute_system_matrix(self.known_region, self.geometry, self.M, self.K, self.PolynomialFamily)
+            self._matrix_computed |= True
+        return self.normal_matrix
+    
+    def fit_prior(self, full_sinos: torch.Tensor):
+        "Estimates mean mu and principal components zi from the distribution of the coefficient expansion of given sinos. Any previous estimation of this is discarded."
+        self.Z *= 0
+        self.sigmas_sq *= 0
+        self.mu *= 0
+        X = self.geometry.series_expand(full_sinos, self.PolynomialFamily, self.M, self.K)[:, self.mask] #shape: batch_size x n_coeffs
+        self.mu += torch.mean(X, dim=0)
+        X -= self.mu
+        sigmas_sq, zs = torch.linalg.eigh(X.mH@X)
+        self.sigmas_sq += sigmas_sq
+        self.Z += zs
+
+        return self
+
+
+    def forward(self, la_sinos: torch.Tensor, r: int, l2_reg = 0.01):
+        B = self._compute_system_matrix()
+        b = self.geometry.series_expand(la_sinos, self.PolynomialFamily, self.M, self.K)[:, self.mask].reshape(-1, self.n_coeffs, 1)
+        if r > 0:
+            w = self.sigmas_sq + 0
+            w[r:] = w[r]
+            W = self.Z @ torch.diag(1/w) @ self.Z.mH
+        else:
+            W = self.Z * 0
+
+        c = torch.linalg.solve(B+l2_reg*W, b+l2_reg*W@self.mu)
         
         assert MSE(b, B@c) < 0.02, f"mse: {MSE(b, B@c)} if this breaks extrapolation is less effective than when tested :/ Comment this line if needed"
 
