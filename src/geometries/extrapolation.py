@@ -185,8 +185,6 @@ class FastSinoFilling(torch.nn.Module):
         self.normal_matrix = torch.nn.Parameter(torch.zeros((self.n_coeffs, self.n_coeffs), device=DEVICE, dtype=CDTYPE), requires_grad=False)
         self._matrix_computed = torch.nn.Parameter(torch.tensor(False), requires_grad=False)
 
-        return self
-
     def _compute_system_matrix(self, force_recompute = False):
         if ~self._matrix_computed or force_recompute:
             self.normal_matrix *= 0
@@ -223,8 +221,6 @@ class PrioredSinoFilling(torch.nn.Module):
         self.Z = torch.nn.Parameter(torch.zeros((self.n_coeffs, self.n_coeffs), device=DEVICE, dtype=CDTYPE), requires_grad=False)
         self.sigmas_sq = torch.nn.Parameter(torch.zeros(self.n_coeffs, device=DEVICE, dtype=DTYPE), requires_grad=False)
         self.mu = torch.nn.Parameter(torch.zeros(self.n_coeffs, device=DEVICE, dtype=CDTYPE), requires_grad=False)
-
-        return self
 
     def _compute_system_matrix(self, force_recompute = False):
         if ~self._matrix_computed or force_recompute:
