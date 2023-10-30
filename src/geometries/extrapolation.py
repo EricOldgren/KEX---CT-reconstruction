@@ -221,7 +221,7 @@ class PrioredSinoFilling(torch.nn.Module):
         self._matrix_computed = torch.nn.Parameter(torch.tensor(False), requires_grad=False)
 
         self.Z = torch.nn.Parameter(torch.zeros((self.n_coeffs, self.n_coeffs), device=DEVICE, dtype=CDTYPE), requires_grad=False)
-        self.sigmas_sq = torch.nn.Parameter(torch.zeros(self.n_coeffs, device=DEVICE, dtype=DTYPE))
+        self.sigmas_sq = torch.nn.Parameter(torch.zeros(self.n_coeffs, device=DEVICE, dtype=DTYPE), requires_grad=False)
         self.mu = torch.nn.Parameter(torch.zeros(self.n_coeffs, device=DEVICE, dtype=CDTYPE), requires_grad=False)
 
         return self
@@ -238,6 +238,7 @@ class PrioredSinoFilling(torch.nn.Module):
         self.Z *= 0
         self.sigmas_sq *= 0
         self.mu *= 0
+        
         X = self.geometry.series_expand(full_sinos, self.PolynomialFamily, self.M, self.K)[:, self.mask] #shape: batch_size x n_coeffs
         self.mu += torch.mean(X, dim=0)
         X -= self.mu
