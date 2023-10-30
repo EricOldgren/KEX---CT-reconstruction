@@ -12,7 +12,7 @@ geometry = HTC2022_GEOMETRY
 PHANTOMS = get_synthetic_htc_phantoms()
 SINOS = geometry.project_forward(PHANTOMS)
 
-PHANTOMS, VALIDATION_PHANTOMS, SINOS, VALIDATION_SINOS = train_test_split(PHANTOMS, SINOS)
+PHANTOMS, VALIDATION_PHANTOMS, SINOS, VALIDATION_SINOS = train_test_split(PHANTOMS, SINOS, test_size=0.5)
 ar = 0.25
 M, K = 50, 50
 r = 10

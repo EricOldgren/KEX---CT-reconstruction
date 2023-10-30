@@ -251,7 +251,7 @@ class PrioredSinoFilling(torch.nn.Module):
         if r > 0:
             w = self.sigmas_sq + 0
             w[r:] = w[r]
-            W = self.Z @ torch.diag(1/w) @ self.Z.mH
+            W = self.Z @ torch.diag(1/w).to(CDTYPE) @ self.Z.mH
         else:
             W = self.Z * 0
 
