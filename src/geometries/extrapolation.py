@@ -171,7 +171,7 @@ class SinoFilling(torch.nn.Module):
     return extrapolate_fixpoint(la_sinos, known_region, self.geometry, self.M, self.K, self.n_iters, self.PolynomialFamily)
   
 
-class FastSinoFilling(torch.nn.Module):
+class RidgeSinoFiller(torch.nn.Module):
 
     def __init__(self, geometry: FBPGeometryBase, knwon_region: torch.Tensor, M: int = 50, K: int = 50, PolynomialFamily = Chebyshev) -> None:
         super().__init__()
@@ -229,18 +229,21 @@ class PrioredSinoFilling(torch.nn.Module):
             self._matrix_computed |= True
         return self.normal_matrix
     
-    def fit_prior(self, full_sinos: torch.Tensor):
-        "Estimates mean mu and principal components zi from the distribution of the coefficient expansion of given sinos. Any previous estimation of this is discarded."
+    def fit_prior(self, full_sinos: torch.Tensor, use_mu = True):
+        "Estimates mean mu and principal components zi from the distribution of the coefficient expansion of given sinos. Any previous estimation of this is discarded."      
         self.Z *= 0
         self.sigmas_sq *= 0
         self.mu *= 0
         
         X = self.geometry.series_expand(full_sinos, self.PolynomialFamily, self.M, self.K)[:, self.mask] #shape: batch_size x n_coeffs
-        self.mu += torch.mean(X, dim=0)
-        X -= self.mu
-        sigmas_sq, zs = torch.linalg.eigh(X.mH@X)
-        self.sigmas_sq += sigmas_sq
-        self.Z += zs
+        batch_size, n_coeffs = X.shape
+        if use_mu:
+            self.mu += torch.mean(X, dim=0)
+            X -= self.mu
+        X /= batch_size
+        sigmas_sq, zs = torch.linalg.eigh(X.mH@X) #eigh returns eigenvalues in ascending order!
+        self.sigmas_sq += torch.flip(sigmas_sq, dims=0)
+        self.Z += torch.flip(zs, dims=1)
 
         return self
 
@@ -250,8 +253,9 @@ class PrioredSinoFilling(torch.nn.Module):
         b = self.geometry.series_expand(la_sinos, self.PolynomialFamily, self.M, self.K)[:, self.mask].reshape(-1, self.n_coeffs, 1)
         if r > 0:
             w = self.sigmas_sq + 0
-            w[r:] = w[r]
-            W = self.Z @ torch.diag(1/w).to(CDTYPE) @ self.Z.mH
+            if r is not None:
+                w[r:] = w[r]
+            W = self.Z @ torch.diag(w[0]/w).to(CDTYPE) @ self.Z.mH
         else:
             W = self.Z * 0
 

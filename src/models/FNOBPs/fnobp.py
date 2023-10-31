@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from geometries import FBPGeometryBase, DEVICE, DTYPE, naive_sino_filling
-from geometries.extrapolation import FastSinoFilling
+from geometries.extrapolation import RidgeSinoFiller
 from models.modelbase import FBPModelBase, load_model_checkpoint
 from utils.polynomials import Chebyshev, POLYNOMIAL_FAMILY_MAP
 from utils.fno_1d import FNO1d
@@ -29,7 +29,7 @@ class FNO_BP(FBPModelBase):
         self.known_angles = torch.zeros(geometry.n_projections, device=DEVICE, dtype=torch.bool)
         self.known_angles[:geometry.n_known_projections(ar)] = 1
 
-        self.sinofiller = FastSinoFilling(geometry, self.known_angles, M, K, self.PolynomialFamily)
+        self.sinofiller = RidgeSinoFiller(geometry, self.known_angles, M, K, self.PolynomialFamily)
         self.fno1d = FNO1d(modes, geometry.n_projections, geometry.n_projections, hidden_layers, dtype=DTYPE).to(DEVICE)
     
     def get_init_torch_args(self):
