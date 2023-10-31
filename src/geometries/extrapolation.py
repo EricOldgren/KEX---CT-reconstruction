@@ -242,8 +242,8 @@ class PrioredSinoFilling(torch.nn.Module):
             X -= self.mu
         X /= batch_size
         sigmas_sq, zs = torch.linalg.eigh(X.mH@X) #eigh returns eigenvalues in ascending order!
-        self.sigmas_sq += torch.flip(sigmas_sq, dims=0)
-        self.Z += torch.flip(zs, dims=1)
+        self.sigmas_sq += torch.flip(sigmas_sq, dims=(0,))
+        self.Z += torch.flip(zs, dims=(1,))
 
         return self
 

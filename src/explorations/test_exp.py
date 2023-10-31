@@ -54,10 +54,11 @@ for ri in rs:
     sino_mses_no_mu, recon_mses_no_mu = [], []
     for log_l2_reg in tqdm(log_l2_reg_range, desc="evaluating filler"):
         l2_reg = 10**log_l2_reg
-        mse_sinos, mse_phantoms = eval_filler(filler, la_validation_sinos[:100], VALIDATION_SINOS[:100], VALIDATION_PHANTOMS[:100], l2_reg, ri)
+        _, la_eval, _, full_eval, _, phantoms_eval = train_test_split(la_validation_sinos, VALIDATION_SINOS, VALIDATION_PHANTOMS, p_eval)
+        mse_sinos, mse_phantoms = eval_filler(filler, la_eval, full_eval, phantoms_eval, l2_reg, ri)
         sino_mses.append(log10(mse_sinos))
         recon_mses.append(log10(mse_phantoms))
-        mse_sinos, mse_phantoms = eval_filler(filler_no_mu, la_validation_sinos[:100], VALIDATION_SINOS[:100], VALIDATION_PHANTOMS[:100], l2_reg, ri)
+        mse_sinos, mse_phantoms = eval_filler(filler_no_mu, la_eval, full_eval, phantoms_eval, l2_reg, ri)
         sino_mses_no_mu.append(log10(mse_sinos))
         recon_mses_no_mu.append(log10(mse_phantoms))
 
@@ -75,7 +76,8 @@ for ri in rs:
 sino_mses_ridge, recon_mses_ridge = [], []
 for log_l2_reg in tqdm(log_l2_reg_range, desc="evaluating filler"):
     l2_reg = 10**log_l2_reg
-    mse_sinos, mse_phantoms = eval_filler(filler_ridge, la_validation_sinos[:100], VALIDATION_SINOS[:100], VALIDATION_PHANTOMS[:100], l2_reg, ri)
+    _, la_eval, _, full_eval, _, phantoms_eval = train_test_split(la_validation_sinos, VALIDATION_SINOS, VALIDATION_PHANTOMS, p_eval)
+    mse_sinos, mse_phantoms = eval_filler(filler, la_eval, full_eval, phantoms_eval, l2_reg, ri)
     sino_mses.append(log10(mse_sinos))
     recon_mses.append(log10(mse_phantoms))
 
