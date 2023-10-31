@@ -251,7 +251,7 @@ class PrioredSinoFilling(torch.nn.Module):
     def forward(self, la_sinos: torch.Tensor, r: int, l2_reg = 0.01):
         B = self._compute_system_matrix()
         b = self.geometry.series_expand(la_sinos, self.PolynomialFamily, self.M, self.K)[:, self.mask].reshape(-1, self.n_coeffs, 1)
-        if r > 0:
+        if r is None or r > 0:
             w = self.sigmas_sq + 0
             if r is not None:
                 w[r:] = w[r]

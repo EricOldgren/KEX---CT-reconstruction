@@ -46,15 +46,15 @@ def eval_filler(filler: PrioredSinoFilling, la_sinos: torch.Tensor, sinos: torch
 
     return mean(mse_sinos), mean(mse_phantoms)
 
-rs = [1, 10, 100, 500]
-log_l2_reg_range = torch.linspace(-5, 5, 20)
+rs = [1, 10, 100, 500, None]
+log_l2_reg_range = torch.linspace(-5, 5, 30)
 
 for ri in rs:
     sino_mses, recon_mses = [], []
     sino_mses_no_mu, recon_mses_no_mu = [], []
     for log_l2_reg in tqdm(log_l2_reg_range, desc="evaluating filler"):
         l2_reg = 10**log_l2_reg
-        _, la_eval, _, full_eval, _, phantoms_eval = train_test_split(la_validation_sinos, VALIDATION_SINOS, VALIDATION_PHANTOMS, p_eval)
+        _, la_eval, _, full_eval, _, phantoms_eval = train_test_split(la_validation_sinos, VALIDATION_SINOS, VALIDATION_PHANTOMS, test_size=p_eval)
         mse_sinos, mse_phantoms = eval_filler(filler, la_eval, full_eval, phantoms_eval, l2_reg, ri)
         sino_mses.append(log10(mse_sinos))
         recon_mses.append(log10(mse_phantoms))
@@ -64,22 +64,22 @@ for ri in rs:
 
     plt.figure(0)
     plt.subplot(121)
-    plt.plot(log_l2_reg_range, sino_mses, label=f"{ri}")
+    plt.plot(log_l2_reg_range, sino_mses, label=f"{ri if ri is not None else 'all'}")
     plt.subplot(122)
-    plt.plot(log_l2_reg_range, sino_mses_no_mu, label=f"{ri}")
+    plt.plot(log_l2_reg_range, sino_mses_no_mu, label=f"{ri if ri is not None else 'all'}")
     plt.figure(1)
     plt.subplot(121)
-    plt.plot(log_l2_reg_range, recon_mses, label=f"{ri}")
+    plt.plot(log_l2_reg_range, recon_mses, label=f"{ri if ri is not None else 'all'}")
     plt.subplot(122)
-    plt.plot(log_l2_reg_range, recon_mses_no_mu, label=f"{ri}")
+    plt.plot(log_l2_reg_range, recon_mses_no_mu, label=f"{ri if ri is not None else 'all'}")
 
 sino_mses_ridge, recon_mses_ridge = [], []
 for log_l2_reg in tqdm(log_l2_reg_range, desc="evaluating filler"):
     l2_reg = 10**log_l2_reg
-    _, la_eval, _, full_eval, _, phantoms_eval = train_test_split(la_validation_sinos, VALIDATION_SINOS, VALIDATION_PHANTOMS, p_eval)
+    _, la_eval, _, full_eval, _, phantoms_eval = train_test_split(la_validation_sinos, VALIDATION_SINOS, VALIDATION_PHANTOMS, test_size=p_eval)
     mse_sinos, mse_phantoms = eval_filler(filler, la_eval, full_eval, phantoms_eval, l2_reg, ri)
-    sino_mses.append(log10(mse_sinos))
-    recon_mses.append(log10(mse_phantoms))
+    sino_mses_ridge.append(log10(mse_sinos))
+    recon_mses_ridge.append(log10(mse_phantoms))
 
 plt.figure(0)
 plt.subplot(122)
