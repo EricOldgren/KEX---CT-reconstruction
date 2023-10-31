@@ -12,8 +12,8 @@ GIT_ROOT = (Path(__file__) / "../../..").resolve()
 #Centralized device and dtype for all files. Can be conveniently changed e.g to cpu when debuggging
 #These constants should be imported to other files
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DTYPE =  torch.float #torch.float64
-CDTYPE =  torch.cfloat #torch.complex128
+DTYPE =  torch.float64
+CDTYPE = torch.complex128
 eps = torch.finfo(DTYPE).eps
 
 #expressions
