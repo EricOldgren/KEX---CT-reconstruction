@@ -96,5 +96,8 @@ plt.plot(log_l2_reg_range, recon_mses_ridge, label=f"ridge")
 titles = ["sino", "recons"]
 for i in plt.get_fignums():
     plt.figure(i)
+    plt.subplot(121)
+    plt.legend()
+    plt.subplot(122)
     plt.legend()
     plt.savefig(titles[i])
