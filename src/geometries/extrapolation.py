@@ -254,7 +254,13 @@ class PrioredSinoFilling(torch.nn.Module):
         if r is None or r > 0:
             w = self.sigmas_sq + 0
             if r is not None:
-                w[r:] = w[r-1]
+                s = self.n_coeffs // r
+                first_s = s + self.n_coeffs-s*r
+                curr = 0
+                for i in range(r):
+                    end = curr + first_s if i == 0 else curr + s
+                    w[curr:end] = w[curr]
+                    curr = end
             W = self.Z @ torch.diag(w[0]/w).to(CDTYPE) @ self.Z.mH
         else:
             W = self.Z * 0
