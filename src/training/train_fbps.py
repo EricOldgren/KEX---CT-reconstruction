@@ -59,7 +59,7 @@ def train_fbp(geometry: FBPGeometryBase, ar: float, M: int = 50, K: int = 50, n_
             recons = geometry.project_backward(fsinos)
             mse_recons = MSE(recons, phantom_batch)
 
-            loss = mse_fsinos + mse_recons
+            loss = mse_recons
             loss.backward()
             optimizer.step()
             batch_losses.append(loss.item())
