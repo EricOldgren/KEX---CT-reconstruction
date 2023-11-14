@@ -16,28 +16,20 @@ from models.SerieBPs.series_bp1 import Series_BP
 from models.SerieBPs.fnoencoder import FNO_Encoder
 from models.fbps import AdaptiveFBP
 import json
+from pathlib import Path
 
 
 def path_gen(ar):
     # if ar != 161/720:
         # return GIT_ROOT / f"data/models/highscores/{ar:.2}/afbp.pt"
     return GIT_ROOT / f"data/models/highscores/{ar:.2}/fnobp_60-60-60.pt"        
-save_gen = lambda ar : GIT_ROOT/f"data/htc_results_fbp/{ar:.2}"
+save_gen = lambda ar : Path(f"data/htc_results_fbp2/{ar:.2}")
 ar_lvl_map = {
     181/720: 1, 161/720: 2, 141/720: 3, 121/720: 4, 101/720: 5, 81/720: 6, 61/720: 7
 }
-SINOS, PHANTOMS = get_htc_traindata()
 scores, scores_using_otsu = [], []
 for ar, lvl in ar_lvl_map.items():
-    checkpoint = load_model_checkpoint(path_gen(ar), FNO_BP)
-    model: FNO_BP = checkpoint.model
-    assert ar == checkpoint.angle_ratio
-    geometry = checkpoint.geometry
-
-    print("Original validation loss:", checkpoint.loss)
-    val2 = plot_model_progress(model, SINOS, ar, PHANTOMS, disp_ind=2)
-    print("="*40)
-    assert val2 == checkpoint.loss, f"original loss:{ checkpoint.loss}, current: {val2}"
+    model = AdaptiveFBP(HTC2022_GEOMETRY, ar)
 
     TEST_SINOS, known_angles, shifts, TEST_PHANTOMS = get_htc_testdata(lvl)
 
@@ -45,8 +37,10 @@ for ar, lvl in ar_lvl_map.items():
     with torch.no_grad():
         for i in range(3):
             sino = TEST_SINOS[i]
-            fsino = model.get_extrapolated_filtered_sinos(sino[None], known_angles)[0]
-            recon = torch.nn.functional.relu(HTC2022_GEOMETRY.project_backward(HTC2022_GEOMETRY.rotate_sinos(fsino[None], shifts[i])))[0]
+            sino = model.get_extrapolated_sinos(sino[None], known_angles)[0]
+            recon = torch.nn.functional.relu(HTC2022_GEOMETRY.fbp_reconstruct(HTC2022_GEOMETRY.rotate_sinos(sino[None], shifts[i])))[0]
+            # fsino = model.get_extrapolated_filtered_sinos(sino[None], known_angles)[0]
+            # recon = torch.nn.functional.relu(HTC2022_GEOMETRY.project_backward(HTC2022_GEOMETRY.rotate_sinos(fsino[None], shifts[i])))[0]
             recons.append(recon)
 
     recons = torch.stack(recons)
@@ -63,7 +57,7 @@ for ar, lvl in ar_lvl_map.items():
     torch.save(recons, save_path/"pred.pt")
     torch.save(TEST_PHANTOMS, save_path/"gt.pt")
 
-(GIT_ROOT/f"data/htc_results_fbp/score.json").write_text(json.dumps({
+(GIT_ROOT/f"data/htc_results_fbp2/score.json").write_text(json.dumps({
     "scores": scores,
     "scores_using_otsu:": scores_using_otsu
 }))

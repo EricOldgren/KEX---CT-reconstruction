@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from utils.tools import segment_imgs
 
-result_folder = Path("data/htc_results")
+result_folder = Path("data/htc_results_fbp")
 ar_map = {
     0.25: 90,
     0.22: 80,
@@ -17,7 +17,7 @@ ar_map = {
 for child in result_folder.glob("*"):
     if child.is_dir():
         angle_span = ar_map[float((child.name))]
-        loc = Path(f"data/vis")
+        loc = Path(f"data/vis_mom_fbp")
         if not loc.exists():
             loc.mkdir(parents=True)
             

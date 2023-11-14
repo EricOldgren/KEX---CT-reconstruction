@@ -78,7 +78,7 @@ class MomentExpansionFunction(torch.autograd.Function):
         ctx.W = W
         ctx.phis2d = phis2d
         
-        return _sino_moment_expansion(sinos, volume_scale, normalised_polynomials, phis2d, cdtype, max_k)
+        return _sino_moment_expansion(sinos, volume_scale, normalised_polynomials, W, phis2d, cdtype, max_k)
 
     @staticmethod
     def backward(ctx: Any, grad_output):
@@ -106,14 +106,14 @@ class MomentSynthesisFunction(torch.autograd.Function):
     @staticmethod
     def backward(ctx: Any, grad_output):
         
-        return _sino_moment_expansion(grad_output, ctx.volume_scale, ctx.normalised_polynomials, ctx.phis2d, ctx.cdtype, ctx.k), None, None, None, None, None
+        return _sino_moment_expansion(grad_output, ctx.volume_scale, ctx.normalised_polynomials, ctx.W, ctx.phis2d, ctx.cdtype, ctx.k), None, None, None, None, None
 
-def _sino_moment_expansion(sinos: torch.Tensor, volume_scale: torch.Tensor, normalised_polynomials: torch.Tensor, phis2d: torch.Tensor, cdtype: torch.dtype, max_k: int = None):
+def _sino_moment_expansion(sinos: torch.Tensor, volume_scale: torch.Tensor, normalised_polynomials: torch.Tensor, W: torch.Tensor, phis2d: torch.Tensor, cdtype: torch.dtype, max_k: int = None):
 
     device, dtype = sinos.device, sinos.dtype
 
     normalised_polynomials = normalised_polynomials.to(cdtype) #einsum does not work when mixing real and complex operations
-    scaled_sinos = sinos * volume_scale
+    scaled_sinos = sinos * volume_scale * W
     N, Np, Nu = scaled_sinos.shape
     N_moments, _ = normalised_polynomials.shape
     if max_k is None:
