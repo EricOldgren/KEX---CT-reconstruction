@@ -5,8 +5,9 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-from utils.tools import PathType, DEVICE
+from utils.tools import PathType, DEVICE, htc_score
 from geometries import FBPGeometryBase, AVAILABLE_FBP_GEOMETRIES
+from geometries.data import htc_mean_attenuation
 
 class FBPModelBase(torch.nn.Module, ABC):
 
@@ -58,7 +59,7 @@ def evaluate_batches(pred: torch.Tensor, gt: torch.Tensor, ind: int, title: str)
 
 def plot_model_progress(model: FBPModelBase, full_sinos: torch.Tensor, ar: float, phantoms: torch.Tensor, disp_ind: int = 0, model_name: str = None, force_show=False, start_ind: int = 0):
     """
-        Print mses and plot reconstruction samples for model.
+        Print losses and plot reconstruction samples for model.
         This will display: sinogram extrappolation, sinogram filtering and reconstruction
 
         returns validation loss
@@ -79,12 +80,15 @@ def plot_model_progress(model: FBPModelBase, full_sinos: torch.Tensor, ar: float
     sin_fig, sin_mse = evaluate_batches(exp_sinos, full_sinos, disp_ind, title=f"{model_name} - sinograms")
     filtered_sin_fig, filtered_sin_mse = evaluate_batches(filtered_sinos, full_filtered_sinos, disp_ind, title=f"{model_name} - filtered sinograms")
     recon_fig, recon_mse = evaluate_batches(recons, phantoms, disp_ind, title=f"{model_name} - reconstructions")
+    ce = torch.nn.functional.binary_cross_entropy(recons, phantoms>htc_mean_attenuation)
+    mcc_score = torch.mean(htc_score(recons>0.5, phantoms>htc_mean_attenuation))*3
 
     print("="*40)
     print(model_name)
     print("sinogram mse:", sin_mse)
     print("filterd sinogram mse: ", filtered_sin_mse)
-    print("reconstruction mse: ", recon_mse)
+    print("reconstruction cross entropy:", ce)
+    print("reconstruction MCC:", mcc_score)
 
     sin_fig.show()
     filtered_sin_fig.show()

@@ -97,9 +97,9 @@ class FNOBP2(FBPModelBase):
         sinos = self.get_extrapolated_sinos(sinos, known_angles)
         return self.dance(sinos)
 
-    def forward(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out = None, use_relu = True):
-        if use_relu:
-            return torch.nn.functional.relu(self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos, known_angles)))
+    def forward(self, sinos: torch.Tensor, known_angles: torch.Tensor, angles_out = None, use_sigmoid = True):
+        if use_sigmoid:
+            return torch.nn.functional.sigmoid(self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos, known_angles)))
         return self.geometry.project_backward(self.get_extrapolated_filtered_sinos(sinos, known_angles))
 
 
