@@ -44,7 +44,7 @@ for ar, lvl in ar_lvl_map.items():
         for i in range(3):
             sino = TEST_SINOS[i]
             fsino = model.get_extrapolated_filtered_sinos(sino[None], known_angles)[0]
-            recon = torch.nn.functional.sigmoid(HTC2022_GEOMETRY.project_backward(HTC2022_GEOMETRY.rotate_sinos(fsino[None], shifts[i])))[0]
+            recon = torch.sigmoid(HTC2022_GEOMETRY.project_backward(HTC2022_GEOMETRY.rotate_sinos(fsino[None], shifts[i])))[0]
             recons.append(recon)
 
     recons = torch.stack(recons)
@@ -61,7 +61,7 @@ for ar, lvl in ar_lvl_map.items():
     torch.save(recons, save_path/"pred.pt")
     torch.save(TEST_PHANTOMS, save_path/"gt.pt")
 
-(save_gen(0).parent / "score.json").write_text(json.dumps({
+(save_gen(10.0).parent / "score.json").write_text(json.dumps({
     "scores": scores,
     "scores_using_otsu:": scores_using_otsu
 }))
