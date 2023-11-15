@@ -80,7 +80,7 @@ def plot_model_progress(model: FBPModelBase, full_sinos: torch.Tensor, ar: float
     sin_fig, sin_mse = evaluate_batches(exp_sinos, full_sinos, disp_ind, title=f"{model_name} - sinograms")
     filtered_sin_fig, filtered_sin_mse = evaluate_batches(filtered_sinos, full_filtered_sinos, disp_ind, title=f"{model_name} - filtered sinograms")
     recon_fig, recon_mse = evaluate_batches(recons, phantoms, disp_ind, title=f"{model_name} - reconstructions")
-    ce = torch.nn.functional.binary_cross_entropy(recons, phantoms>htc_mean_attenuation)
+    ce = torch.nn.functional.binary_cross_entropy(recons, (phantoms>htc_mean_attenuation).to(float))
     mcc_score = torch.mean(htc_score(recons>0.5, phantoms>htc_mean_attenuation))*3
 
     print("="*40)

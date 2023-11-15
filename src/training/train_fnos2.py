@@ -51,7 +51,7 @@ def train_fno(geometry: FBPGeometryBase, ar: float, M: int = 50, K: int = 50, n_
             fsinos = model.get_extrapolated_filtered_sinos(la_sinos, known_angles)
             fsinos = geometry.rotate_sinos(fsinos, -shift)
             recons = torch.nn.functional.sigmoid(geometry.project_backward(fsinos))
-            loss = torch.nn.functional.binary_cross_entropy(recons, phantom_batch>0)
+            loss = torch.nn.functional.binary_cross_entropy(recons, (phantom_batch>0).to(float))
 
             loss.backward()
             optimizer.step()
