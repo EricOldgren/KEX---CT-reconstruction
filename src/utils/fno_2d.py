@@ -23,10 +23,10 @@ class SpectralConv2d(nn.Module):
         2D Fourier layer. It does FFT, linear transform, and Inverse FFT.
         Input: (batches, in_channels, dimension_y, dimension_x) - pytorch Tensor x
 
-        output: (batches, out_channels, dimension) - pytorch Tensor y,
+        output: (batches, out_channels, dimension_y, dimension_x) - pytorch Tensor y,
                 determined by the relation:
                 
-                y = iFFT(  W  @  trunc(  FFT( x ) ) )
+                y = iFFT(  R  @  trunc(  FFT( x ) ) )
                 
                 iFFT, FFT are the 2D Fourier Transform and its inverse, respectively.
                 trunc truncates the FFT of x to the lowest modes, determined by the max_mode_y and max_mode_x variables.
@@ -160,9 +160,8 @@ class FNO2d(nn.Module):
         self.conv_list = nn.ModuleList([SpectralConv2d(self.layer_widths[i], self.layer_widths[i+1], modes_y, modes_x, dtype=self.dtype) for i in range(self.n_layers)])
         
         # Linear layers
-        self.lin_list = nn.ModuleList([nn.Conv2d(self.layer_widths[i], self.layer_widths[i+1], (1,1), dtype=self.dtype) for i in range(self.n_layers)])
+        self.lin_list = nn.ModuleList([nn.Linear(self.layer_widths[i], self.layer_widths[i+1], dtype=self.dtype) for i in range(self.n_layers)])
         
-
         self.out = nn.Linear(self.layer_widths[-1], out_channels, dtype=self.dtype)
 
         
@@ -172,14 +171,13 @@ class FNO2d(nn.Module):
         pass
 
     def forward(self, x):
-        
+        "x shape: (batch, c=1, ny, nx)"
         # Project to FNO width
-        #print(self.inp.weight.dtype)
         x = self.inp(x.permute(0,3,2,1)).permute(0,3,2,1)
         
         # Evaluate FNO
         for conv_op, lin_op in zip(self.conv_list, self.lin_list):
-            x = F.gelu(conv_op(x) + lin_op(x))
+            x = F.leaky_relu(conv_op(x) + lin_op(x.permute(0,3,2,1)).permute(0,3,2,1))
         
         # Project to out_channels width
         return self.out(x.permute(0,3,2,1)).permute(0,3,2,1)

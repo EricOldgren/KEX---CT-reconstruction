@@ -2,7 +2,7 @@ from pathlib import Path
 import shutil
 
 source = Path("data/HTC2022/TestData")
-dest = Path("data/vis")
+dest = Path("data/vis_fno")
 dest.mkdir(exist_ok=True)
 
 lvls = {

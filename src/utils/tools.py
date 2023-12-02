@@ -43,6 +43,8 @@ def htc_score(Irs: torch.Tensor, Its: torch.Tensor):
         it is given by the Matthews correlation coefficient (MCC). The score is betqeen -1 and 1. A score of +1 (best) represents a perfect reconstruction, 0 no better than
         random reconstruction, and −1 (worst) indicates total disagreement between reconstruction and ground truth. 
 
+    source: https://www.fips.fi/Helsinki_Tomography_Challenge_2022_v11.pdf
+    
     Args:
         Irs (torch.Tensor): binary reconstruction tensor of shape (batch_size x 512 x 512)
         Its (torch.Tensor): binary gt phantoms of same shape

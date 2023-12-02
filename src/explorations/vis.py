@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from utils.tools import segment_imgs
 
-result_folder = Path("data/htc_results_fbp")
+result_folder = Path("data/htc_results")
+save_folder = Path(f"data/vis_fno")
 ar_map = {
     0.25: 90,
     0.22: 80,
@@ -17,9 +18,8 @@ ar_map = {
 for child in result_folder.glob("*"):
     if child.is_dir():
         angle_span = ar_map[float((child.name))]
-        loc = Path(f"data/vis_mom_fbp")
-        if not loc.exists():
-            loc.mkdir(parents=True)
+        if not save_folder.exists():
+            save_folder.mkdir(parents=True)
             
         pred = torch.load(child/"pred.pt", map_location="cpu")
         pred = segment_imgs(pred)
@@ -34,7 +34,7 @@ for child in result_folder.glob("*"):
                 plt.margins(0,0)
                 plt.gca().xaxis.set_major_locator(plt.NullLocator())
                 plt.gca().yaxis.set_major_locator(plt.NullLocator())
-                plt.savefig(loc/f"{angle_span}_{fn}{disp_ind}.pdf", bbox_inches = 'tight',
+                plt.savefig(save_folder/f"{angle_span}_{fn}{disp_ind}.pdf", bbox_inches = 'tight',
                     pad_inches = 0)
 
 # plt.show()

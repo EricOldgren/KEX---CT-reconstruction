@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 from statistics import mean
 from tqdm import tqdm
 
+HIGH_SCORES_FOLDER = GIT_ROOT/"data/models/highscores_fno2"
+
 PHANTOMS = get_synthetic_htc_phantoms(use_kits=False)
 SINOS = HTC2022_GEOMETRY.project_forward(PHANTOMS)
 VAL_SINOS, VAL_PHANTOMS = get_htc_traindata()
@@ -34,7 +36,7 @@ def train_fno(geometry: FBPGeometryBase, ar: float, M: int = 50, K: int = 50, n_
             print("="*40)
             save_model_checkpoint(model, optimizer, val_loss, ar, GIT_ROOT/f"data/models/fnobp2_ar{ar:.2}_val{val_loss.item()}.pt")
             if val_loss < best_valloss:
-                save_model_checkpoint(model, optimizer, val_loss, ar, GIT_ROOT/f"data/models/highscores_fno2/{ar:.2}/fnobp2.pt")
+                save_model_checkpoint(model, optimizer, val_loss, ar, HIGH_SCORES_FOLDER/f"{ar:.2}/fnobp2.pt")
             for i in plt.get_fignums():
                 fig = plt.figure(i)
                 title = fig._suptitle.get_text() if fig._suptitle is not None else f"fig{i}"
@@ -50,8 +52,8 @@ def train_fno(geometry: FBPGeometryBase, ar: float, M: int = 50, K: int = 50, n_
             la_sinos, known_angles = geometry.zero_cropp_sinos(sino_batch, ar, 0)
             fsinos = model.get_extrapolated_filtered_sinos(la_sinos, known_angles)
             fsinos = geometry.rotate_sinos(fsinos, -shift)
-            recons = torch.nn.functional.sigmoid(geometry.project_backward(fsinos))
-            loss = torch.nn.functional.binary_cross_entropy(recons, (phantom_batch>0).to(float))
+            recons = torch.nn.functional.relu(geometry.project_backward(fsinos))
+            loss = MSE(recons, phantom_batch)
 
             loss.backward()
             optimizer.step()
