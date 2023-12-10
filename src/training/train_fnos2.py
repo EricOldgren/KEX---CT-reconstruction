@@ -24,7 +24,7 @@ def train_fno(geometry: FBPGeometryBase, ar: float, M: int = 50, K: int = 50, n_
 
     ridge_reg = 0.01
 
-    model = FNOBP2D(geometry, ar, [40,40,40], modes_y=30, modes_x=30, M=M,K=K, use_base_filter=True).to(DEVICE)
+    model = FNOBP2D(geometry, ar, [40,40,40], modes_y=30, modes_x=30, M=M,K=K, use_base_filter=False).to(DEVICE)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-5)
     dataset = TensorDataset(PHANTOMS, SINOS)

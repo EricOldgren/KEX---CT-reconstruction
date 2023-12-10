@@ -12,9 +12,9 @@ from geometries.fanbeam_geometry import FlatFanBeamGeometry
 
 ##Geometry Config
 scale_factor = 1.0e-3
-htc_th = 0.02
-htc_sino_var = 2e-2
-htc_mean_attenuation = 0.032
+htc_th = 0.02 / scale_factor
+htc_sino_var = 2e-2 / scale_factor
+htc_mean_attenuation = 0.032 / scale_factor
 htc_nprojections_by_level = [181, 161, 141, 121, 101, 81, 61]
 HTC2022_GEOMETRY = FlatFanBeamGeometry(720, 560, 410.66*scale_factor, 543.74*scale_factor, 112.0*scale_factor, [-38*scale_factor,38*scale_factor, -38*scale_factor,38*scale_factor], [512, 512])
 
