@@ -8,7 +8,7 @@ from utils.polynomials import Chebyshev, POLYNOMIAL_FAMILY_MAP
 from utils.fno_2d import FNO2d
 from typing import Any, List
 
-class FNO_BP2D(FBPModelBase):
+class FNOBP2D(FBPModelBase):
 
     def __init__(self, geometry: FBPGeometryBase, ar: float, hidden_layers: List[int], modes_y = 50, modes_x=50, M = 100, K = 100, PolynomialFamilyKey: int = Chebyshev.key, l2_reg = 0.01, use_base_filter=False):
         super().__init__()
@@ -19,9 +19,6 @@ class FNO_BP2D(FBPModelBase):
         self.PolynomialFamily = POLYNOMIAL_FAMILY_MAP[PolynomialFamilyKey]
         self.l2_reg = torch.nn.Parameter(torch.tensor(l2_reg), requires_grad=False)
         self.use_base_filter = use_base_filter
-
-        if modes is None:
-            modes = self.geometry.projection_size // 2
 
         self.known_angles = torch.zeros(geometry.n_projections, device=DEVICE, dtype=torch.bool)
         self.known_angles[:geometry.n_known_projections(ar)] = 1
