@@ -11,7 +11,7 @@ from utils.tools import DEVICE, DTYPE, no_bdry_linspace, GIT_ROOT
 from geometries.fanbeam_geometry import FlatFanBeamGeometry
 
 ##Geometry Config
-scale_factor = 1.0
+scale_factor = 1.0e-3
 htc_th = 0.02
 htc_sino_var = 2e-2
 htc_mean_attenuation = 0.032
