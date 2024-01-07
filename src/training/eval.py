@@ -1,67 +1,95 @@
 import torch
-
-# matplotlib.use("WebAgg")
+import scipy
 import matplotlib.pyplot as plt
-from geometries.data import get_htc2022_train_phantoms, GIT_ROOT, get_htc_traindata, get_htc_testdata, HTC2022_GEOMETRY
-from utils.polynomials import Legendre, Chebyshev
-from utils.tools import MSE, htc_score, segment_imgs
+import json
 
-from geometries import FBPGeometryBase, enforce_moment_constraints, naive_sino_filling
-from geometries.data import htc_th, htc_mean_attenuation
-from models.modelbase import load_model_checkpoint, plot_model_progress, evaluate_batches
+from utils.tools import GIT_ROOT, DEVICE, MSE, htc_score, segment_imgs
+
+from geometries import HTC2022_GEOMETRY
+from geometries.data import get_htc_traindata, htc_th
+
+from models.modelbase import load_model_checkpoint, plot_model_progress
 from models.FNOBPs.fnobp import FNO_BP
-from models.discriminators.dcnn import load_gan, DCNN
-from models.SerieBPs.series_bp1 import Series_BP
-from models.SerieBPs.fnoencoder import FNO_Encoder
-from models.fbps import AdaptiveFBP
 
+sino_paths = (
+    "data/HTC2022/TestData/htc2022_01a_full.mat",
+    "data/HTC2022/TestData/htc2022_01b_full.mat",
+    "data/HTC2022/TestData/htc2022_01c_full.mat"
+)
+full_sinos = []
+for p in sino_paths:
+    data = scipy.io.loadmat(GIT_ROOT/p)["CtDataFull"][0,0]
+    full_sino = torch.tensor(data["sinogram"])[:720].to(DEVICE).to(torch.float32)
+    assert full_sino.shape == (720, HTC2022_GEOMETRY.projection_size)
+    full_sinos.append(full_sino)
 
+full_sinos = torch.stack(full_sinos)
+gt_phantoms = HTC2022_GEOMETRY.fbp_reconstruct(full_sinos)
+gt_seg_phantoms = segment_imgs(gt_phantoms)
+
+def path_gen(ar):
+    # if ar != 161/720:
+        # return GIT_ROOT / f"data/models/highscores/{ar:.2}/afbp.pt"
+    return GIT_ROOT / f"data/highscores/{ar:.2}/fnobp_60-60-60.pt"      
+save_gen = lambda ar : GIT_ROOT/f"data/htc_results_samephantom/{ar:.2}"
 ar_lvl_map = {
     181/720: 1, 161/720: 2, 141/720: 3, 121/720: 4, 101/720: 5, 81/720: 6, 61/720: 7
 }
-checkpoint = load_model_checkpoint(GIT_ROOT/"data/models/fnobp_60-60-60.pt", FNO_BP)
-model: FNO_BP = checkpoint.model
-ar = checkpoint.angle_ratio
-lvl = ar_lvl_map[ar]
-geometry = checkpoint.geometry
-
 SINOS, PHANTOMS = get_htc_traindata()
+scores, scores_using_otsu = [], []
+otsu_scores_mom = []
 
-print("Model init args:")
-print(model.get_init_torch_args())
-print("Original validation loss:", checkpoint.loss)
-print("Confirming validation loss (on the same validation set):")
-plot_model_progress(model, SINOS, ar, PHANTOMS, disp_ind=2)
-print("="*40)
+for ar, lvl in ar_lvl_map.items():
+    checkpoint = load_model_checkpoint(path_gen(ar), FNO_BP)
+    model: FNO_BP = checkpoint.model
+    model = model.to(DEVICE)
+    assert ar == checkpoint.angle_ratio
+    geometry = checkpoint.geometry
 
-TEST_SINOS, known_angles, shifts, TEST_PHANTOMS = get_htc_testdata(lvl)
+    print("Original validation loss:", checkpoint.loss)
+    val2 = plot_model_progress(model, SINOS, ar, PHANTOMS, disp_ind=2)
+    print("="*40)
+    # assert val2 == checkpoint.loss, f"original loss:{ checkpoint.loss}, current: {val2}"
 
-recons = []
-with torch.no_grad():
-    for i in range(3):
-        sino = TEST_SINOS[i]
-        fsino = model.get_extrapolated_filtered_sinos(sino[None], known_angles)[0]
-        recon = torch.nn.functional.relu(HTC2022_GEOMETRY.project_backward(HTC2022_GEOMETRY.rotate_sinos(fsino[None], shifts[i])))[0]
-        recons.append(recon)
+    with torch.no_grad():
+        la_sinos, known_angles = geometry.zero_cropp_sinos(full_sinos, ar, 0)
+        fsinos = model.get_extrapolated_filtered_sinos(la_sinos, known_angles)
+        model_recons = torch.relu(HTC2022_GEOMETRY.project_backward(fsinos))
+        la_fbp_recons = geometry.fbp_reconstruct(la_sinos)
+        la_mom_recons = geometry.fbp_reconstruct(model.get_extrapolated_sinos(la_sinos, known_angles))
 
-recons = torch.stack(recons)
-print("Test MSE:", MSE(recons, TEST_PHANTOMS*htc_mean_attenuation))
-print("HTC score naive_thresh:", htc_score(recons>htc_th, TEST_PHANTOMS), "in total:", htc_score(recons>htc_th, TEST_PHANTOMS).sum())
-otsu_scores = htc_score(segment_imgs(recons), TEST_PHANTOMS)
-print("HTC score otsu_thresh:", otsu_scores,"in total:", otsu_scores.sum())
+    print("Test MSE:", MSE(model_recons, gt_phantoms))
+    print("HTC score naive_thresh:", htc_score(model_recons>htc_th, gt_seg_phantoms), "in total:", htc_score(model_recons>htc_th, gt_seg_phantoms).sum())
+    otsu_scores = htc_score(segment_imgs(model_recons), gt_seg_phantoms)
+    otsu_mom_scores = htc_score(segment_imgs(la_mom_recons), gt_seg_phantoms)
+    print("HTC score otsu_thresh:", otsu_scores,"in total:", otsu_scores.sum())
 
-for i in range(3):
-    plt.figure()
-    plt.subplot(121)
-    plt.imshow((recons[i].cpu()>htc_th).cpu())
-    plt.subplot(122)
-    plt.imshow(TEST_PHANTOMS[i].cpu())
+    scores.append(htc_score(model_recons>htc_th, gt_phantoms>htc_th).sum().item())
+    scores_using_otsu.append(otsu_scores.sum().item())
+    otsu_scores_mom.append(otsu_mom_scores.sum().item())
+    save_path = save_gen(ar)
+    if not save_path.exists(): save_path.mkdir(parents=True)
 
-plt.show()
-# for i in plt.get_fignums(): #Use this loop on a remote computer
-#     fig = plt.figure(i)
-#     title = fig._suptitle.get_text() if fig._suptitle is not None else f"fig{i}"
-#     plt.savefig(f"{title}.png")
+    torch.save(model_recons, save_path/"pred_model.pt")
+    torch.save(la_fbp_recons, save_path/"la_fbp.pt")
+    torch.save(la_mom_recons, save_path/"la_mom_fbb.pt")
 
+    plt.clf()
+    plt.subplot(221)
+    plt.imshow(gt_phantoms[0].cpu())
+    plt.subplot(222)
+    plt.imshow(model_recons[0].cpu())
+    plt.subplot(223)
+    plt.imshow(la_mom_recons[0].cpu())
+    plt.subplot(224)
+    plt.imshow(la_fbp_recons[0].cpu())
 
+    plt.savefig(f"{lvl=}.png")
 
+torch.save(gt_phantoms, save_gen(0.1).parent/"gt.pt")
+
+(save_gen(10.0).parent / "score.json").write_text(json.dumps({
+    "scores": scores,
+    "scores_using_otsu:": scores_using_otsu,
+    "mom_fbp_otsu_score": otsu_scores_mom
+}))
