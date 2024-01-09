@@ -32,7 +32,7 @@ def train_fno(geometry: FBPGeometryBase, ar: float, hidden_layers, M: int = 50, 
 
     dataset = TensorDataset(PHANTOMS, SINOS)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
-    best_valloss = 1.0
+    best_valloss = float('inf')
 
     for epoch in range(n_epochs):
         if ((epoch)%5) == 0:
@@ -63,7 +63,7 @@ def train_fno(geometry: FBPGeometryBase, ar: float, hidden_layers, M: int = 50, 
             recons = geometry.project_backward(fsinos)
             mse_recons = MSE(recons, phantom_batch)
 
-            loss = mse_fsinos + mse_recons
+            loss = mse_recons
             loss.backward()
             optimizer.step()
             batch_losses.append(loss.item())
@@ -73,9 +73,9 @@ def train_fno(geometry: FBPGeometryBase, ar: float, hidden_layers, M: int = 50, 
         print("Epoch:", epoch, "mse recon loss:", mean(batch_recon_mses), "training loss:", mean(batch_losses))
 
 
-n_epochs = int(sys.argv[1])
-hidden_layers = list(map(int, sys.argv[2:]))
+n_epochs = 30
+hidden_layers = [60,60,60]
 
-nprojs = [181, 161]
+nprojs = [181, 161, 141, 121, 101, 81, 61]
 for n in nprojs:
     train_fno(HTC2022_GEOMETRY, n/720, hidden_layers, n_epochs=n_epochs)

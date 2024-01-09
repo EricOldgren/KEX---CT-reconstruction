@@ -40,7 +40,8 @@ for child in result_folder.glob("*"):
         fbp = torch.load(child/"la_fbp.pt", map_location="cpu")
         mom_fbp = torch.load(child/"la_mom_fbb.pt", map_location="cpu")
 
-        fno, fbp, mom_fbp = fbp>htc_th, fbp>htc_th, mom_fbp>htc_th
+        # fno, fbp, mom_fbp = fno>htc_th, fbp>htc_th, mom_fbp>htc_th
+        # fno, fbp, mom_fbp = segment_imgs(fno), segment_imgs(fbp), segment_imgs(mom_fbp)
         loaded = {"fno":fno, "fbp": fbp, "mom_fbp": mom_fbp}
         
         for fn, data in loaded.items():
@@ -54,6 +55,6 @@ for child in result_folder.glob("*"):
                 plt.savefig(save_folder/f"{angle_span}_{fn}{disp_ind}.pdf", bbox_inches = 'tight',
                     pad_inches = 0)
                 
-        print(f"Images from {child} is loaded.", end="\r")
+        print(f"Images from {child} is saved.", end="\r")
 
 # plt.show()
