@@ -49,7 +49,7 @@ for ar, lvl in ar_lvl_map.items():
     print("Original validation loss:", checkpoint.loss)
     val2 = plot_model_progress(model, SINOS, ar, PHANTOMS, disp_ind=2)
     print("="*40)
-    # assert val2 == checkpoint.loss, f"original loss:{ checkpoint.loss}, current: {val2}"
+    assert val2 == checkpoint.loss, f"original loss:{ checkpoint.loss}, current: {val2}"
 
     with torch.no_grad():
         la_sinos, known_angles = geometry.zero_cropp_sinos(full_sinos, ar, 0)
