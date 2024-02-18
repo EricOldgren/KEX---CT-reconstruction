@@ -5,7 +5,7 @@ from utils.polynomials import Chebyshev
 from geometries import HTC2022_GEOMETRY, FBPGeometryBase
 from geometries.data import get_synthetic_htc_phantoms, get_htc_traindata
 from models.modelbase import FBPModelBase, plot_model_progress, save_model_checkpoint
-from models.FNOBPs.fnobp import FNO_BP
+from src.models.fnobp import FNO_BP
 import sys
 import random
 import matplotlib.pyplot as plt
@@ -58,7 +58,6 @@ def train_fno(geometry: FBPGeometryBase, ar: float, hidden_layers, M: int = 50, 
             fsinos_gt = geometry.inverse_fourier_transform(geometry.fourier_transform(sino_batch*geometry.jacobian_det)*geometry.ram_lak_filter()/2)
             la_sinos, known_angles = geometry.zero_cropp_sinos(sino_batch, ar, 0)
             fsinos = model.get_extrapolated_filtered_sinos(la_sinos, known_angles)
-            mse_fsinos = MSE(fsinos, fsinos_gt)
             fsinos = geometry.rotate_sinos(fsinos, -shift)
             recons = geometry.project_backward(fsinos)
             mse_recons = MSE(recons, phantom_batch)

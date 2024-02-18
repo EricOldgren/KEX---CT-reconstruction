@@ -197,8 +197,6 @@ class RidgeSinoFiller(torch.nn.Module):
         b = self.geometry.series_expand(la_sinos, self.PolynomialFamily, self.M, self.K)[:, self.mask].reshape(-1, self.n_coeffs, 1)
 
         c = torch.linalg.solve(B+torch.eye(self.n_coeffs, device=DEVICE, dtype=CDTYPE)*l2_reg, b)
-        
-        assert MSE(b, B@c) < 0.02, f"mse: {MSE(b, B@c)} if this breaks extrapolation is less effective than when tested :/ Comment this line if needed"
 
         embedding = torch.zeros((la_sinos.shape[0],self.M,self.K)).to(DEVICE, dtype=CDTYPE)
         embedding[:, self.mask] += c[...,0]

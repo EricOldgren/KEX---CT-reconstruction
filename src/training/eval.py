@@ -9,7 +9,7 @@ from geometries import HTC2022_GEOMETRY
 from geometries.data import get_htc_traindata, htc_th
 
 from models.modelbase import load_model_checkpoint, plot_model_progress
-from models.FNOBPs.fnobp import FNO_BP
+from src.models.fnobp import FNO_BP
 
 sino_paths = (
     "data/HTC2022/TestData/htc2022_01a_full.mat",

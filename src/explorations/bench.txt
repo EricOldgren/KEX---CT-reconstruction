@@ -1,4 +1,0 @@
-Forward time: 5.175495759646098
-backward time: 5.77039053440094
-expansion time: 0.8153956095377605
-synthesise time: 0.6178065617879231
