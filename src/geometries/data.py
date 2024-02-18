@@ -300,31 +300,35 @@ def disc_phantom_rects(xy_minmax: Tuple[float, float, float, float], disc_radius
 
 if __name__ == '__main__':
     import matplotlib
-    matplotlib.use("WebAgg")
+    # matplotlib.use("WebAgg")
     import matplotlib.pyplot as plt
 
     print("hellu")
     xy_minmax = [-38, 38, -38, 38.0]
     disc_radius = 35.0
 
-    for _ in range(5):
-        res = disc_phantom_rects(xy_minmax, disc_radius, (512, 512), 20, 0.8, 0.9)
-        plt.figure()
-        plt.imshow(res.cpu())
-        plt.colorbar()
-    for _ in range(5):
+    # for _ in range(5):
+    #     res = disc_phantom_rects(xy_minmax, disc_radius, (512, 512), 20, 0.8, 0.9)
+    #     plt.figure()
+    #     plt.imshow(res.cpu())
+    #     plt.colorbar()
+    for i in range(5):
         res = disc_phantom(xy_minmax, disc_radius, (512, 512), 20, 0.8, 0.9)
         plt.figure()
-        plt.imshow(res.cpu())
-        plt.colorbar()
-    for _ in range(5):
-        res = disc_phantom_rects(xy_minmax, disc_radius, (512, 512), 30, 0.4, 0.6)
-        plt.figure()
-        plt.imshow(res.cpu())
-        plt.colorbar()
+        plt.imshow(res.cpu(), cmap="gray")
+        plt.gca().set_axis_off()
+        plt.margins(0,0)
+        plt.gca().xaxis.set_major_locator(plt.NullLocator())
+        plt.gca().yaxis.set_major_locator(plt.NullLocator())
+        plt.savefig(f"data{i}.png", bbox_inches = 'tight',
+            pad_inches = 0)
+    # for _ in range(5):
+    #     res = disc_phantom_rects(xy_minmax, disc_radius, (512, 512), 30, 0.4, 0.6)
+    #     plt.figure()
+    #     plt.imshow(res.cpu())
+    #     plt.colorbar()
     
 
-    
     plt.show()
 
 
